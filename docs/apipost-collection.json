@@ -1,0 +1,287 @@
+{
+  "type": "APIPOST_COLLECTION",
+  "version": "1.0",
+  "info": {
+    "name": "Project API Collection",
+    "description": "主要 API 端点的请求集合，包含认证、Files、Folders、Share、Images、Run、Agent、Upload、Email Webhook。",
+    "schema": "https://www.apipost.cn/"
+  },
+  "variables": [
+    { "key": "BASE_URL", "value": "http://localhost:3000" },
+    { "key": "TOKEN", "value": "YOUR_API_TOKEN" },
+    { "key": "DEPLOYMENT_ID", "value": "YOUR_DEPLOYMENT_ID" },
+    { "key": "FILE_ID", "value": "YOUR_FILE_ID" },
+    { "key": "FOLDER_ID", "value": "YOUR_FOLDER_ID" },
+    { "key": "SHARE_TOKEN", "value": "YOUR_SHARE_TOKEN" },
+    { "key": "IMAGE_KEY", "value": "avatars/user-123.png" },
+    { "key": "AGENT_CONVERSATION_ID", "value": "YOUR_AGENT_CONVERSATION_ID" }
+  ],
+  "items": [
+    {
+      "name": "Auth - Credentials Login",
+      "request": {
+        "method": "POST",
+        "url": "{{BASE_URL}}/api/auth/callback/credentials",
+        "headers": [
+          { "key": "Content-Type", "value": "application/x-www-form-urlencoded" }
+        ],
+        "body": {
+          "mode": "urlencoded",
+          "urlencoded": [
+            { "key": "csrfToken", "value": "REPLACE_WITH_CSRF" },
+            { "key": "email", "value": "email@example.com" },
+            { "key": "password", "value": "your_password" },
+            { "key": "json", "value": "true" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Files - List",
+      "request": {
+        "method": "GET",
+        "url": "{{BASE_URL}}/api/files",
+        "headers": [
+          { "key": "Authorization", "value": "Bearer {{TOKEN}}" }
+        ]
+      }
+    },
+    {
+      "name": "Files - Search",
+      "request": {
+        "method": "GET",
+        "url": "{{BASE_URL}}/api/files?search=report",
+        "headers": [
+          { "key": "Authorization", "value": "Bearer {{TOKEN}}" }
+        ]
+      }
+    },
+    {
+      "name": "Files - List by Folder",
+      "request": {
+        "method": "GET",
+        "url": "{{BASE_URL}}/api/files?folderId={{FOLDER_ID}}",
+        "headers": [
+          { "key": "Authorization", "value": "Bearer {{TOKEN}}" }
+        ]
+      }
+    },
+    {
+      "name": "Files - Upload (Private)",
+      "request": {
+        "method": "POST",
+        "url": "{{BASE_URL}}/api/files",
+        "headers": [
+          { "key": "Authorization", "value": "Bearer {{TOKEN}}" }
+        ],
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            { "key": "file", "type": "file", "src": "/path/to/file.pdf" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Files - Upload (Public)",
+      "request": {
+        "method": "POST",
+        "url": "{{BASE_URL}}/api/files?public=true",
+        "headers": [
+          { "key": "Authorization", "value": "Bearer {{TOKEN}}" }
+        ],
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            { "key": "file", "type": "file", "src": "/path/to/file.pdf" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Files - Upload to Folder",
+      "request": {
+        "method": "POST",
+        "url": "{{BASE_URL}}/api/files?folderId={{FOLDER_ID}}",
+        "headers": [
+          { "key": "Authorization", "value": "Bearer {{TOKEN}}" }
+        ],
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            { "key": "file", "type": "file", "src": "/path/to/file.pdf" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Files - Rename",
+      "request": {
+        "method": "PATCH",
+        "url": "{{BASE_URL}}/api/files/{{FILE_ID}}",
+        "headers": [
+          { "key": "Authorization", "value": "Bearer {{TOKEN}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": { "mode": "raw", "raw": "{\n  \"name\": \"new-name.pdf\"\n}" }
+      }
+    },
+    {
+      "name": "Files - Move to Folder",
+      "request": {
+        "method": "PATCH",
+        "url": "{{BASE_URL}}/api/files/{{FILE_ID}}",
+        "headers": [
+          { "key": "Authorization", "value": "Bearer {{TOKEN}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": { "mode": "raw", "raw": "{\n  \"folderId\": \"{{FOLDER_ID}}\"\n}" }
+      }
+    },
+    {
+      "name": "Files - Download Inline",
+      "request": {
+        "method": "GET",
+        "url": "{{BASE_URL}}/api/files/{{FILE_ID}}/download",
+        "headers": [ { "key": "Authorization", "value": "Bearer {{TOKEN}}" } ]
+      }
+    },
+    {
+      "name": "Files - Download Attachment",
+      "request": {
+        "method": "GET",
+        "url": "{{BASE_URL}}/api/files/{{FILE_ID}}/download?download=true",
+        "headers": [ { "key": "Authorization", "value": "Bearer {{TOKEN}}" } ]
+      }
+    },
+    {
+      "name": "Folders - List",
+      "request": {
+        "method": "GET",
+        "url": "{{BASE_URL}}/api/folders?parentId={{FOLDER_ID}}",
+        "headers": [ { "key": "Authorization", "value": "Bearer {{TOKEN}}" } ]
+      }
+    },
+    {
+      "name": "Folders - Create",
+      "request": {
+        "method": "POST",
+        "url": "{{BASE_URL}}/api/folders",
+        "headers": [
+          { "key": "Authorization", "value": "Bearer {{TOKEN}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": { "mode": "raw", "raw": "{\n  \"name\": \"Reports\",\n  \"parentId\": \"{{FOLDER_ID}}\"\n}" }
+      }
+    },
+    {
+      "name": "Folders - Update",
+      "request": {
+        "method": "PATCH",
+        "url": "{{BASE_URL}}/api/folders/{{FOLDER_ID}}",
+        "headers": [
+          { "key": "Authorization", "value": "Bearer {{TOKEN}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": { "mode": "raw", "raw": "{\n  \"name\": \"2025\",\n  \"parentId\": null\n}" }
+      }
+    },
+    {
+      "name": "Folders - Delete",
+      "request": {
+        "method": "DELETE",
+        "url": "{{BASE_URL}}/api/folders/{{FOLDER_ID}}",
+        "headers": [ { "key": "Authorization", "value": "Bearer {{TOKEN}}" } ]
+      }
+    },
+    {
+      "name": "Share - Public Download",
+      "request": {
+        "method": "GET",
+        "url": "{{BASE_URL}}/api/share/{{SHARE_TOKEN}}/download"
+      }
+    },
+    {
+      "name": "Images - Proxy Read",
+      "request": {
+        "method": "GET",
+        "url": "{{BASE_URL}}/api/images/{{IMAGE_KEY}}"
+      }
+    },
+    {
+      "name": "Run - GET",
+      "request": {
+        "method": "GET",
+        "url": "{{BASE_URL}}/api/run/{{DEPLOYMENT_ID}}",
+        "headers": [ { "key": "Authorization", "value": "Bearer {{TOKEN}}" } ]
+      }
+    },
+    {
+      "name": "Run - POST",
+      "request": {
+        "method": "POST",
+        "url": "{{BASE_URL}}/api/run/{{DEPLOYMENT_ID}}",
+        "headers": [
+          { "key": "Authorization", "value": "Bearer {{TOKEN}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": { "mode": "raw", "raw": "{\n  \"prompt\": \"hello\",\n  \"count\": 2\n}" }
+      }
+    },
+    {
+      "name": "Agent - Get Conversation (Cookie)",
+      "request": {
+        "method": "GET",
+        "url": "{{BASE_URL}}/api/agent/{{AGENT_CONVERSATION_ID}}",
+        "headers": [ { "key": "Cookie", "value": "{{SESSION_COOKIE}}", "disabled": true } ]
+      }
+    },
+    {
+      "name": "Upload - Avatar",
+      "request": {
+        "method": "POST",
+        "url": "{{BASE_URL}}/api/upload",
+        "headers": [ { "key": "Cookie", "value": "{{SESSION_COOKIE}}", "disabled": true } ],
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            { "key": "file", "type": "file", "src": "/path/to/avatar.png" },
+            { "key": "type", "value": "avatar" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Upload - Project Image",
+      "request": {
+        "method": "POST",
+        "url": "{{BASE_URL}}/api/upload",
+        "headers": [ { "key": "Cookie", "value": "{{SESSION_COOKIE}}", "disabled": true } ],
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            { "key": "file", "type": "file", "src": "/path/to/cover.jpg" },
+            { "key": "type", "value": "project" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Email - Inbound Webhook",
+      "request": {
+        "method": "POST",
+        "url": "{{BASE_URL}}/api/email/inbound",
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            { "key": "from", "value": "Sender <sender@example.com>" },
+            { "key": "to", "value": "targetuser@example.com" },
+            { "key": "subject", "value": "Hello" },
+            { "key": "text", "value": "Plain body" },
+            { "key": "html", "value": "<p>HTML body</p>" }
+          ]
+        }
+      }
+    }
+  ]
+}

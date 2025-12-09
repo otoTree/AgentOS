@@ -1,0 +1,440 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+
+// NextAuth Models
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  username      String?   @unique
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+  password      String?
+  openaiApiKey  String?
+  openaiBaseUrl String?
+  openaiModel   String?
+  credits       Int       @default(100) // Initial free credits
+  storageLimit  BigInt    @default(1073741824) // 1GB in bytes
+  
+  accounts      Account[]
+  sessions      Session[]
+  apiTokens     ApiToken[]
+  
+  // Custom relations
+  projects      Project[]
+  comments      Comment[]
+  conversations AgentConversation[]
+  files         File[]
+  folders       Folder[]
+  emails        Email[]
+  sopWorkflows  SopWorkflow[]
+  sopExecutions SopExecution[]
+  sopTasks      SopTask[] @relation("UserSopTasks")
+  assignedSopTasks SopTask[] @relation("AssignedSopTasks")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// Application Models
+
+model Project {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  avatar      String?  // URL to project avatar
+  category    String   @default("Tools") // AI, Data, Web, Tools, Fun
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  deployments Deployment[]
+  messages    ProjectMessage[]
+  comments    Comment[]
+  tools       Tool[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId])
+}
+
+model Tool {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  code        String   @db.Text
+  storageKey  String?
+  inputs      Json     @default("[]")
+  
+  projectId   String
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  deployments Deployment[]
+  messages    ProjectMessage[]
+  conversations ConversationTool[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([projectId])
+}
+
+model Deployment {
+  id          String   @id @default(cuid())
+  projectId   String
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  toolId      String?
+  tool        Tool?    @relation(fields: [toolId], references: [id], onDelete: Cascade)
+  
+  // Snapshot of the code at time of deployment
+  snapshotCode String  @db.Text
+  storageKey   String?  // S3 key for the snapshot code
+  inputs       Json     @default("[]") // Snapshot of parameters
+  
+  // Knowledge Base Integration
+  knowledgeBaseCollectionId String?
+
+  // Status tracking
+  isActive    Boolean  @default(true)
+  accessType  String   @default("PUBLIC") // PUBLIC, PRIVATE
+
+  // Analytics (Simple counter)
+  callCount   Int      @default(0)
+  lastCalled  DateTime?
+  
+  createdAt   DateTime @default(now())
+}
+
+model ProjectMessage {
+  id        String   @id @default(cuid())
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  toolId    String?
+  tool      Tool?    @relation(fields: [toolId], references: [id], onDelete: Cascade)
+  
+  role      String   // 'user' | 'assistant'
+  content   String   @db.Text
+  createdAt DateTime @default(now())
+
+  @@index([projectId])
+  @@index([toolId])
+}
+
+model ApiToken {
+  id        String   @id @default(cuid())
+  name      String
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lastUsed  DateTime?
+  createdAt DateTime @default(now())
+  
+  @@index([userId])
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  content   String   @db.Text
+  
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([projectId])
+  @@index([userId])
+}
+
+model Folder {
+  id          String   @id @default(cuid())
+  name        String
+  
+  parentId    String?
+  parent      Folder?  @relation("FolderHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
+  children    Folder[] @relation("FolderHierarchy")
+  
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  files       File[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId])
+  @@index([parentId])
+  @@unique([userId, parentId, name]) // Prevent duplicate folder names in same directory
+}
+
+model File {
+  id          String   @id @default(cuid())
+  name        String
+  size        Int
+  mimeType    String
+  s3Key       String
+  
+  // Content indexing for search
+  content     String?  @db.Text
+  
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  folderId    String?
+  folder      Folder?  @relation(fields: [folderId], references: [id], onDelete: Cascade)
+
+  shares      FileShare[]
+  conversations ConversationFile[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId])
+  @@index([folderId])
+  @@index([name])
+}
+
+model FileShare {
+  id          String   @id @default(cuid())
+  
+  fileId      String
+  file        File     @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  
+  // Access Control
+  isPublic    Boolean  @default(false)
+  accessType  String   @default("READ") // READ, WRITE (future proofing)
+  
+  // For public link sharing
+  token       String?  @unique
+  
+  // For user-specific sharing
+  sharedWithUserId String?
+  
+  createdAt   DateTime @default(now())
+  expiresAt   DateTime?
+
+  @@index([fileId])
+  @@index([sharedWithUserId])
+}
+
+// Agent Chat Models
+
+model AgentConversation {
+  id        String   @id @default(cuid())
+  title     String
+  
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  messages  AgentMessage[]
+  tools     ConversationTool[]
+  files     ConversationFile[]
+  
+  // Browser Context
+  browserSessionId String?
+  browserUrl       String?
+  browserScreenshot String? @db.Text // Base64 screenshot
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+}
+
+model ConversationTool {
+  id             String @id @default(cuid())
+  
+  conversationId String
+  conversation   AgentConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  
+  // We link to the Tool definition (from marketplace)
+  // Note: In a real marketplace, we might link to a "Deployment" instead to ensure version stability,
+  // but for simplicity here we link to the Tool.
+  toolId         String
+  tool           Tool   @relation(fields: [toolId], references: [id], onDelete: Cascade)
+
+  @@unique([conversationId, toolId])
+  @@index([conversationId])
+  @@index([toolId])
+}
+
+model ConversationFile {
+  id             String @id @default(cuid())
+  
+  conversationId String
+  conversation   AgentConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  
+  fileId         String
+  file           File   @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  
+  createdAt      DateTime @default(now())
+
+  @@unique([conversationId, fileId])
+  @@index([conversationId])
+  @@index([fileId])
+}
+
+model AgentMessage {
+  id             String @id @default(cuid())
+  
+  conversationId String
+  conversation   AgentConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  
+  role           String   // 'user' | 'assistant' | 'system'
+  content        String   @db.Text
+  
+  // For tracking tool usage if needed (simplistic approach for now)
+  // In a full agent, we'd store tool_calls and tool_outputs structured data
+  
+  createdAt      DateTime @default(now())
+
+  @@index([conversationId])
+}
+
+model Email {
+  id        String   @id @default(cuid())
+  
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  subject   String?
+  from      String
+  to        String
+  
+  body      String?  @db.Text
+  html      String?  @db.Text
+  
+  isRead    Boolean  @default(false)
+  
+  receivedAt DateTime @default(now())
+  
+  @@index([userId])
+  @@index([receivedAt])
+}
+
+
+// SOP Agent Models
+
+model SopWorkflow {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  
+  // The JSON graph definition (nodes, edges)
+  graph       Json     
+  
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  executions  SopExecution[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId])
+}
+
+model SopExecution {
+  id          String   @id @default(cuid())
+  
+  workflowId  String
+  workflow    SopWorkflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  status      String   @default("RUNNING") // RUNNING, COMPLETED, FAILED, SUSPENDED
+  
+  // The Blackboard: Global variables and task outputs
+  context     Json     @default("{}") 
+  
+  // Current node ID being executed
+  currentNodeId String?
+  
+  tasks       SopTask[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([workflowId])
+  @@index([userId])
+}
+
+model SopTask {
+  id          String   @id @default(cuid())
+  
+  executionId String
+  execution   SopExecution @relation(fields: [executionId], references: [id], onDelete: Cascade)
+  
+  nodeId      String   // The ID of the node in the graph
+  type        String   // INTERACT, REASONING, ACTION, AGENT (HUMAN)
+  name        String?
+  
+  status      String   @default("PENDING") // PENDING, IN_PROGRESS, COMPLETED, FAILED, WAITING_FOR_HUMAN
+  
+  input       Json?    // Input parameters for this task
+  output      Json?    // Result of the task
+  
+  // Direct owner of the task (for the User.sopTasks relation)
+  ownerId     String
+  owner       User     @relation(fields: [ownerId], references: [id], name: "UserSopTasks")
+  
+  // For Human Tasks - the user to whom the task is assigned
+  assignedToUserId  String?
+  assignedToUser    User?    @relation(fields: [assignedToUserId], references: [id], name: "AssignedSopTasks")
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([executionId])
+  @@index([status])
+  @@index([ownerId])
+  @@index([assignedToUserId])
+}

@@ -1,0 +1,12 @@
+{
+  "/api/auth/[...nextauth]/route": "app/api/auth/[...nextauth]/route.js",
+  "/workbench/page": "app/workbench/page.js",
+  "/marketplace/page": "app/marketplace/page.js",
+  "/api/browser/session/route": "app/api/browser/session/route.js",
+  "/api/browser/navigate/route": "app/api/browser/navigate/route.js",
+  "/api/browser/tabs/route": "app/api/browser/tabs/route.js",
+  "/api/browser/action/route": "app/api/browser/action/route.js",
+  "/dashboard/page": "app/dashboard/page.js",
+  "/agent/page": "app/agent/page.js",
+  "/agent/[id]/page": "app/agent/[id]/page.js"
+}
