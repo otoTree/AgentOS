@@ -1,0 +1,40 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/agentos
+      - AUTH_SECRET=changeme_in_production
+      - AUTH_TRUST_HOST=true
+      - NEXTAUTH_URL=http://localhost:3000
+    env_file:
+      - .env
+    depends_on:
+      - db
+    networks:
+      - agentos-network
+
+  db:
+    image: postgres:15-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: agentos
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    networks:
+      - agentos-network
+
+networks:
+  agentos-network:
+    driver: bridge
+
+volumes:
+  db-data:
