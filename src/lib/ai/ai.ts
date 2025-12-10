@@ -1,11 +1,5 @@
 import OpenAI from 'openai';
 import { systemConfig } from '../infra/config';
-interface AIConfig {
-  apiKey?: string | null;
-  baseUrl?: string | null;
-  model?: string | null;
-}
-
 export type AIResponse = {
   message: string;
   updatedCode?: string;
@@ -16,14 +10,13 @@ export async function generateCode(
   prompt: string,
   currentCode: string,
   messages: { role: 'user' | 'assistant' | 'system'; content: string }[],
-  config?: AIConfig
 ): Promise<AIResponse> {
-  const apiKey = config?.apiKey || systemConfig.openai.apiKey;
-  const baseUrl = config?.baseUrl || systemConfig.openai.baseUrl;
-  const model = config?.model || systemConfig.openai.model || "gpt-4o";
+  const apiKey = systemConfig.openai.apiKey;
+  const baseUrl = systemConfig.openai.baseUrl;
+  const model = systemConfig.openai.model || "gpt-4o";
   
   if (!apiKey) {
-      throw new Error("OpenAI API Key is not configured. Please set it in your profile settings or environment variables.");
+      throw new Error("System OpenAI API Key is not configured. Please contact administrator.");
   }
 
   const openai = new OpenAI({

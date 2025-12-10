@@ -1,26 +1,16 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { updateUserOpenAIConfig, generateApiToken, revokeApiToken, getApiTokens } from './settings-actions';
+import { generateApiToken, revokeApiToken, getApiTokens } from './settings-actions';
 import { ApiToken } from '@prisma/client';
 import { Settings, Copy } from 'lucide-react';
 
 interface SettingsDialogProps {
-  initialApiKey?: string | null;
-  initialBaseUrl?: string | null;
-  initialModel?: string | null;
 }
 
-export default function SettingsDialog({ initialApiKey, initialBaseUrl, initialModel }: SettingsDialogProps) {
+export default function SettingsDialog({ }: SettingsDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<'general' | 'tokens'>('general');
   
-  // General Settings State
-  const [apiKey, setApiKey] = useState(initialApiKey || '');
-  const [baseUrl, setBaseUrl] = useState(initialBaseUrl || '');
-  const [model, setModel] = useState(initialModel || '');
-  const [isSaving, setIsSaving] = useState(false);
-
   // API Tokens State
   const [tokens, setTokens] = useState<ApiToken[]>([]);
   const [newTokenName, setNewTokenName] = useState('');
@@ -28,10 +18,10 @@ export default function SettingsDialog({ initialApiKey, initialBaseUrl, initialM
   const [isLoadingTokens, setIsLoadingTokens] = useState(false);
 
   useEffect(() => {
-    if (isOpen && activeTab === 'tokens') {
+    if (isOpen) {
       loadTokens();
     }
-  }, [isOpen, activeTab]);
+  }, [isOpen]);
 
   const loadTokens = async () => {
     setIsLoadingTokens(true);
@@ -42,19 +32,6 @@ export default function SettingsDialog({ initialApiKey, initialBaseUrl, initialM
       console.error("Failed to load tokens", error);
     } finally {
       setIsLoadingTokens(false);
-    }
-  };
-
-  const handleSaveGeneral = async () => {
-    setIsSaving(true);
-    try {
-      await updateUserOpenAIConfig(apiKey, baseUrl, model);
-      setIsOpen(false);
-      alert('Settings saved successfully!');
-    } catch (error: any) {
-      alert('Failed to save settings: ' + error.message);
-    } finally {
-      setIsSaving(false);
     }
   };
 
@@ -100,82 +77,8 @@ export default function SettingsDialog({ initialApiKey, initialBaseUrl, initialM
           <h2 className="text-lg font-semibold">Settings</h2>
         </div>
 
-        {/* Tabs */}
-        <div className="flex border-b px-6">
-          <button
-            className={`py-3 px-4 text-sm font-medium border-b-2 transition-colors ${activeTab === 'general' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
-            onClick={() => setActiveTab('general')}
-          >
-            General
-          </button>
-          <button
-            className={`py-3 px-4 text-sm font-medium border-b-2 transition-colors ${activeTab === 'tokens' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
-            onClick={() => setActiveTab('tokens')}
-          >
-            API Tokens
-          </button>
-        </div>
-
         {/* Content */}
         <div className="p-6 overflow-y-auto flex-1">
-          {activeTab === 'general' ? (
-            <div className="space-y-4 max-w-md mx-auto">
-               <div>
-                <label className="block text-sm font-medium mb-1">OpenAI API Key</label>
-                <input
-                  type="password"
-                  className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
-                  placeholder="sk-..."
-                  value={apiKey}
-                  onChange={(e) => setApiKey(e.target.value)}
-                />
-                <p className="text-xs text-muted-foreground mt-1">
-                  Leave empty to use the system default key.
-                </p>
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">OpenAI Base URL</label>
-                <input
-                  type="text"
-                  className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
-                  placeholder="https://api.openai.com/v1"
-                  value={baseUrl}
-                  onChange={(e) => setBaseUrl(e.target.value)}
-                />
-                <p className="text-xs text-muted-foreground mt-1">
-                  Optional. Useful for proxies or other compatible providers.
-                </p>
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Model</label>
-                <input
-                  type="text"
-                  className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
-                  placeholder="gpt-4o"
-                  value={model}
-                  onChange={(e) => setModel(e.target.value)}
-                />
-                <p className="text-xs text-muted-foreground mt-1">
-                  Optional. Defaults to gpt-4o.
-                </p>
-              </div>
-              <div className="flex justify-end gap-2 mt-6 pt-4 border-t">
-                <button
-                    onClick={() => setIsOpen(false)}
-                    className="px-4 py-2 text-sm font-medium rounded-md bg-secondary text-secondary-foreground hover:bg-secondary/80"
-                >
-                    Cancel
-                </button>
-                <button
-                    onClick={handleSaveGeneral}
-                    disabled={isSaving}
-                    className="px-4 py-2 text-sm font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90"
-                >
-                    {isSaving ? 'Saving...' : 'Save'}
-                </button>
-              </div>
-            </div>
-          ) : (
             <div className="space-y-6">
               <p className="text-sm text-muted-foreground mb-4">
                 Manage API tokens for accessing your tools programmatically.
@@ -258,7 +161,6 @@ export default function SettingsDialog({ initialApiKey, initialBaseUrl, initialM
                 )}
               </div>
             </div>
-          )}
         </div>
       </div>
     </div>

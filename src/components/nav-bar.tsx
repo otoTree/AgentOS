@@ -16,14 +16,24 @@ export default function NavBar() {
     <nav className="border-b bg-card text-card-foreground shadow-sm mb-8">
       <div className="container mx-auto px-6 h-16 flex items-center justify-between">
         <div className="flex items-center gap-8">
-          <Link href="/dashboard" className="font-bold text-xl tracking-tight">
+          <Link href="/agent" className="font-bold text-xl tracking-tight">
             AgentOS
           </Link>
           <div className="hidden md:flex items-center gap-1">
             <Link
+              href="/agent"
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                isActive('/agent')
+                  ? 'bg-secondary text-secondary-foreground'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+              }`}
+            >
+              Agent Chat
+            </Link>
+            <Link
               href="/dashboard"
               className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                isActive('/dashboard')
+                isActive('/dashboard') && !isActive('/dashboard/email') && !isActive('/dashboard/files')
                   ? 'bg-secondary text-secondary-foreground'
                   : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
               }`}

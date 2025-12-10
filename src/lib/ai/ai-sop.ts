@@ -1,11 +1,6 @@
 import OpenAI from 'openai';
 import { WorkflowDefinition, WorkflowDefinitionSchema } from '@/lib/sop/sop-types';
-
-interface AIConfig {
-  apiKey?: string | null;
-  baseUrl?: string | null;
-  model?: string | null;
-}
+import { systemConfig } from '@/lib/infra/config';
 
 // System prompt for generating a new SOP from text
 const SOP_GENERATOR_SYSTEM_PROMPT = `
@@ -76,12 +71,11 @@ You are an intelligent assistant helping a user modify an existing SOP workflow.
 `;
 
 export async function generateSopFromText(
-  description: string,
-  config?: AIConfig
+  description: string
 ): Promise<WorkflowDefinition> {
-  const apiKey = config?.apiKey || process.env.OPENAI_API_KEY;
-  const baseUrl = config?.baseUrl || process.env.BASE_URL;
-  const model = config?.model || "gpt-4o";
+  const apiKey = systemConfig.openai.apiKey;
+  const baseUrl = systemConfig.openai.baseUrl;
+  const model = systemConfig.openai.model || "gpt-4o";
 
   if (!apiKey) {
     throw new Error("OpenAI API Key is not configured.");
@@ -118,12 +112,11 @@ export async function generateSopFromText(
 export async function modifySopWithChat(
   currentWorkflow: WorkflowDefinition,
   userCommand: string,
-  chatHistory: { role: 'user' | 'assistant'; content: string }[] = [],
-  config?: AIConfig
+  chatHistory: { role: 'user' | 'assistant'; content: string }[] = []
 ): Promise<WorkflowDefinition> {
-  const apiKey = config?.apiKey || process.env.OPENAI_API_KEY;
-  const baseUrl = config?.baseUrl || process.env.BASE_URL;
-  const model = config?.model || "gpt-4o";
+  const apiKey = systemConfig.openai.apiKey;
+  const baseUrl = systemConfig.openai.baseUrl;
+  const model = systemConfig.openai.model || "gpt-4o";
 
   if (!apiKey) {
     throw new Error("OpenAI API Key is not configured.");

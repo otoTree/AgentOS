@@ -1,22 +1,15 @@
 import OpenAI from "openai";
 import { systemConfig } from "@/lib/infra/config";
-interface AIConfig {
-  apiKey?: string | null;
-  baseUrl?: string | null;
-  model?: string | null;
-}
-
 export async function toolSearch(
-  query: string,
-  config?: AIConfig
+  query: string
 ): Promise<string> {
   const apiKey = systemConfig.external.rsApiKey;
   const baseUrl = systemConfig.external.rsUri + "/v1";
-  const model = config?.model || systemConfig.openai.model || "gpt-4o";
+  const model = systemConfig.openai.model || "gpt-4o";
 
   if (!apiKey) {
     throw new Error(
-      "OpenAI API Key is not configured. Please set it in your profile settings or environment variables."
+      "External RS API Key is not configured."
     );
   }
 

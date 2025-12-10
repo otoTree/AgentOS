@@ -37,17 +37,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         })
 
         if (!user) {
-          user = await prisma.user.create({
-            data: {
-              email,
-              password: bcrypt.hashSync(hash, 10),
-            },
-          })
-        } else {
-          const isMatch = bcrypt.compareSync(hash, user.password as string)
-          if (!isMatch) {
-            throw new Error("Incorrect password.")
-          }
+          throw new Error("User not found.")
+        }
+
+        const isMatch = bcrypt.compareSync(hash, user.password as string)
+        if (!isMatch) {
+          throw new Error("Incorrect password.")
         }
 
         return user

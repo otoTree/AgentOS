@@ -6,6 +6,7 @@ import { FileStorage } from "@/lib/storage/file-storage";
 import { extractText } from "@/lib/storage/text-extractor";
 import { revalidatePath } from "next/cache";
 import { FolderWithCount, BreadcrumbItem } from "./types";
+import { withTransaction } from "@/lib/infra/db-transaction";
 
 export async function uploadFile(formData: FormData) {
   const user = await getAuthenticatedUser();
@@ -87,19 +88,21 @@ export async function createFile(name: string, folderId: string | null, content:
     // Upload to S3
     await FileStorage.uploadFile(key, buffer, mimeType);
 
-    // Save to DB
-    const file = await prisma.file.create({
-        data: {
-            id,
-            name,
-            size: buffer.length,
-            mimeType,
-            s3Key: key,
-            content, // Index content immediately
-            userId: user.id,
-            folderId: folderId || null,
-        },
-        include: { shares: true } // Include shares for consistency with FileWithShares type
+    // Save to DB using Transaction
+    const file = await withTransaction(async (tx) => {
+        return await tx.file.create({
+            data: {
+                id,
+                name,
+                size: buffer.length,
+                mimeType,
+                s3Key: key,
+                content, // Index content immediately
+                userId: user.id,
+                folderId: folderId || null,
+            },
+            include: { shares: true }
+        });
     });
 
     revalidatePath("/dashboard/files");

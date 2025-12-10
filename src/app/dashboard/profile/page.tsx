@@ -53,9 +53,6 @@ export default async function ProfilePage() {
                 initialTokens={profile.tokens}
                 initialName={profile.name}
                 initialImage={profile.image}
-                initialApiKey={profile.openaiApiKey}
-                initialBaseUrl={profile.openaiBaseUrl}
-                initialModel={profile.openaiModel}
                 initialStorage={profile.storage}
                 initialUsername={profile.username}
                />

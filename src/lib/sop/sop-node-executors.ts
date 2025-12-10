@@ -56,8 +56,7 @@ export class InteractNodeExecutor extends BaseNodeExecutor {
       const llmResponse = await generateCode(
         node.prompt, // Use the prompt from the node
         '', // currentCode, not relevant for chat interaction
-        this.currentContext.history.map(msg => ({ role: msg.role, content: msg.content })),
-        { apiKey: process.env.OPENAI_API_KEY } // Or fetch from user settings
+        this.currentContext.history.map(msg => ({ role: msg.role, content: msg.content }))
       );
 
       const output = { message: llmResponse.message };

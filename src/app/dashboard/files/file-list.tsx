@@ -12,9 +12,10 @@ interface FileListProps {
     folders: FolderWithCount[];
     onNavigate: (folderId: string | null) => void;
     onRefresh: () => void;
+    onFileOpen?: (file: FileWithShares) => void;
 }
 
-export function FileList({ files, folders, onNavigate, onRefresh }: FileListProps) {
+export function FileList({ files, folders, onNavigate, onRefresh, onFileOpen }: FileListProps) {
   const [previewFile, setPreviewFile] = useState<FileWithShares | null>(null);
   const [shareFile, setShareFile] = useState<FileWithShares | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -174,7 +175,7 @@ export function FileList({ files, folders, onNavigate, onRefresh }: FileListProp
                         }}
                     >
                         <td className="px-4 py-3 font-medium">
-                             <div className="flex items-center gap-2 cursor-pointer" onClick={() => setPreviewFile(file)}>
+                             <div className="flex items-center gap-2 cursor-pointer" onClick={() => onFileOpen ? onFileOpen(file) : setPreviewFile(file)}>
                                 <span className="text-muted-foreground">
                                     {file.mimeType.startsWith("image/") ? <ImageIcon className="w-4 h-4" /> :
                                      file.mimeType === "application/pdf" ? <FileText className="w-4 h-4" /> :
@@ -200,7 +201,7 @@ export function FileList({ files, folders, onNavigate, onRefresh }: FileListProp
                         <td className="px-4 py-3 text-muted-foreground">{new Date(file.updatedAt).toLocaleDateString()}</td>
                         <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
                             <div className="flex justify-end gap-2">
-                                <button onClick={() => setPreviewFile(file)} className="text-muted-foreground hover:text-foreground" title="Preview/Edit"><Eye className="w-3.5 h-3.5" /></button>
+                                <button onClick={() => onFileOpen ? onFileOpen(file) : setPreviewFile(file)} className="text-muted-foreground hover:text-foreground" title="Preview/Edit"><Eye className="w-3.5 h-3.5" /></button>
                                 <button onClick={() => setShareFile(file)} className="text-muted-foreground hover:text-foreground" title="Share"><Share2 className="w-3.5 h-3.5" /></button>
                                 <button onClick={() => handleDownload(file)} className="text-muted-foreground hover:text-foreground" title="Download"><Download className="w-3.5 h-3.5" /></button>
                                 <button onClick={() => startRename(file.id, file.name)} className="text-muted-foreground hover:text-foreground" title="Rename"><Pencil className="w-3.5 h-3.5" /></button>

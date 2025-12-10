@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { generateApiToken, deleteApiToken, addCredits } from '@/app/actions';
-import { updateUserProfile, updateUserOpenAIConfig, updateUserUsername } from '@/app/dashboard/settings-actions';
+import { updateUserProfile, updateUserUsername } from '@/app/dashboard/settings-actions';
 import { useRouter } from 'next/navigation';
 import { UserConfig } from "@/lib/infra/config";
 
@@ -25,9 +25,6 @@ interface ProfileContentProps {
     initialTokens: ApiToken[];
     initialName?: string | null;
     initialImage?: string | null;
-    initialApiKey?: string | null;
-    initialBaseUrl?: string | null;
-    initialModel?: string | null;
     initialStorage?: StorageStats;
     initialUsername?: string | null;
     mode?: 'credits-only'; // Only one mode needed now for the credits button
@@ -38,9 +35,6 @@ export default function ProfileContent({
     initialTokens,
     initialName,
     initialImage,
-    initialApiKey,
-    initialBaseUrl,
-    initialModel,
     initialStorage,
     initialUsername,
     mode
@@ -57,8 +51,8 @@ export default function ProfileContent({
         return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
     };
     
-    // Tabs: 'profile' | 'ai' | 'tokens'
-    const [activeTab, setActiveTab] = useState<'profile' | 'ai' | 'tokens'>('profile');
+    // Tabs: 'profile' | 'tokens'
+    const [activeTab, setActiveTab] = useState<'profile' | 'tokens'>('profile');
 
     // -- Profile State --
     const [displayName, setDisplayName] = useState(initialName || '');
@@ -66,12 +60,6 @@ export default function ProfileContent({
     const [avatarUrl, setAvatarUrl] = useState(initialImage || '');
     const [isUploading, setIsUploading] = useState(false);
     const [isSavingProfile, setIsSavingProfile] = useState(false);
-
-    // -- AI Config State --
-    const [apiKey, setApiKey] = useState(initialApiKey || '');
-    const [baseUrl, setBaseUrl] = useState(initialBaseUrl || '');
-    const [model, setModel] = useState(initialModel || '');
-    const [isSavingAI, setIsSavingAI] = useState(false);
 
     // -- Token State --
     const [isGenerating, setIsGenerating] = useState(false);
@@ -136,20 +124,7 @@ export default function ProfileContent({
         }
     };
 
-    const handleSaveAIConfig = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setIsSavingAI(true);
-        try {
-            await updateUserOpenAIConfig(apiKey, baseUrl, model);
-            alert("AI Configuration saved successfully!");
-            router.refresh();
-        } catch (error: any) {
-            console.error(error);
-            alert("Failed to save AI settings: " + error.message);
-        } finally {
-            setIsSavingAI(false);
-        }
-    };
+
 
     const handleGenerateToken = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -208,17 +183,7 @@ export default function ProfileContent({
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
                         Profile
                     </button>
-                    <button
-                        onClick={() => setActiveTab('ai')}
-                        className={`flex items-center gap-2 px-4 py-1.5 text-sm font-medium rounded-md transition-all duration-200 ${
-                            activeTab === 'ai'
-                                ? 'bg-background text-foreground shadow-sm ring-1 ring-black/5 dark:ring-white/5'
-                                : 'text-muted-foreground hover:text-foreground hover:bg-background/50'
-                        }`}
-                    >
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
-                        AI Configuration
-                    </button>
+
                     <button
                         onClick={() => setActiveTab('tokens')}
                         className={`flex items-center gap-2 px-4 py-1.5 text-sm font-medium rounded-md transition-all duration-200 ${
@@ -344,71 +309,7 @@ export default function ProfileContent({
                     </div>
                 )}
 
-                {/* --- AI Config Tab --- */}
-                {activeTab === 'ai' && (
-                    <div className="max-w-xl space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                        <div className="space-y-4">
-                            <h3 className="text-lg font-medium">AI Model Settings</h3>
-                            <p className="text-sm text-muted-foreground">
-                                Configure your own OpenAI API key to use the platform&apos;s AI features. Your key is stored securely.
-                            </p>
 
-                            <form onSubmit={handleSaveAIConfig} className="space-y-4 border p-6 rounded-xl bg-card">
-                                <div>
-                                    <label className="block text-sm font-medium mb-1">OpenAI API Key</label>
-                                    <input
-                                        type="password"
-                                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                                        placeholder="sk-..."
-                                        value={apiKey}
-                                        onChange={(e) => setApiKey(e.target.value)}
-                                    />
-                                    <p className="text-xs text-muted-foreground mt-1">
-                                        Leave empty to use the system default key (if available).
-                                    </p>
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium mb-1">OpenAI Base URL</label>
-                                    <input
-                                        type="text"
-                                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                                        placeholder="https://api.openai.com/v1"
-                                        value={baseUrl}
-                                        onChange={(e) => setBaseUrl(e.target.value)}
-                                    />
-                                    <p className="text-xs text-muted-foreground mt-1">
-                                        Optional. Useful for proxies or compatible providers.
-                                    </p>
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium mb-1">Model</label>
-                                    <input
-                                        type="text"
-                                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                                        placeholder="gpt-4o"
-                                        value={model}
-                                        onChange={(e) => setModel(e.target.value)}
-                                    />
-                                    <p className="text-xs text-muted-foreground mt-1">
-                                        Optional. Defaults to gpt-4o.
-                                    </p>
-                                </div>
-
-                                <div className="pt-2">
-                                    <button
-                                        type="submit"
-                                        disabled={isSavingAI}
-                                        className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:opacity-90 transition-opacity font-medium text-sm disabled:opacity-50"
-                                    >
-                                        {isSavingAI ? 'Saving...' : 'Save Configuration'}
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-                )}
 
                 {/* --- Tokens Tab --- */}
                 {activeTab === 'tokens' && (

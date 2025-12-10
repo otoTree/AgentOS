@@ -97,6 +97,14 @@ export default function ClientEditor({ project, isOwner = true }: { project: any
     const [isRunning, setIsRunning] = useState(false);
     const [isDeploying, setIsDeploying] = useState(false);
     const [isDeploymentDialogOpen, setIsDeploymentDialogOpen] = useState(false);
+    const [backLink, setBackLink] = useState("/dashboard");
+
+    useEffect(() => {
+        const lastChat = localStorage.getItem('agent_os_last_chat_path');
+        if (lastChat) {
+            setBackLink(lastChat);
+        }
+    }, []);
 
     const [deployments, setDeployments] = useState<any[]>([]);
 
@@ -428,8 +436,8 @@ export default function ClientEditor({ project, isOwner = true }: { project: any
             {/* Header */}
             <header className="h-16 border-b flex justify-between items-center px-6 shrink-0 bg-card/50 backdrop-blur-sm">
                 <div className="flex items-center gap-4">
-                    <Link href="/dashboard" className="text-muted-foreground hover:text-foreground transition-colors p-2 -ml-2 rounded-md hover:bg-muted/50">
-                        <ArrowLeft className="w-4 h-4 mr-1" /> Back
+                    <Link href={backLink} className="text-muted-foreground hover:text-foreground transition-colors p-2 -ml-2 rounded-md hover:bg-muted/50">
+                        <ArrowLeft className="w-4 h-4 mr-1" /> {backLink.includes('/agent') ? 'Back to Chat' : 'Back'}
                     </Link>
                     <div className="h-6 w-[1px] bg-border/50"></div>
                     {isOwner ? (

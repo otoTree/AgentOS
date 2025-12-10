@@ -5,26 +5,6 @@ import { prisma } from "@/lib/infra/prisma";
 import { revalidatePath } from "next/cache";
 import { UserConfig, updateUserConfig } from "@/lib/infra/config";
 
-export async function updateUserOpenAIConfig(apiKey: string, baseUrl: string, model: string) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    throw new Error("Not authenticated");
-  }
-
-  // 使用 updateUserConfig 统一更新
-  await updateUserConfig(session.user.id, {
-    ai: {
-      openai: {
-        apiKey: apiKey || undefined,
-        baseUrl: baseUrl || undefined,
-        model: model || undefined,
-      }
-    }
-  });
-
-  revalidatePath("/dashboard");
-}
-
 export async function updateUserProfile(name: string, image?: string) {
   const session = await auth();
   if (!session?.user?.id) {

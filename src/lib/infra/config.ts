@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { prisma } from "@/lib/infra/prisma";
+import { CacheService } from "@/lib/infra/cache";
 
 // ==========================================
 // 1. System Configuration (Environment Variables)
@@ -51,14 +52,6 @@ export interface UserConfig {
     retryCount: number;
     apiEndpoint: string;
   };
-  // AI Configuration (User overrides)
-  ai: {
-    openai: {
-      apiKey?: string; // 用户自定义的 OpenAI Key
-      baseUrl?: string; // 用户自定义的 Base URL
-      model?: string; // 用户偏好的模型
-    };
-  };
   // User Profile
   profile: {
     name?: string;
@@ -80,14 +73,6 @@ const DEFAULT_CONFIG: UserConfig = {
     retryCount: 3,
     apiEndpoint: 'https://api.example.com',
   },
-  ai: {
-    openai: {
-      // 默认不设置 Key，使用系统配置或提示用户输入
-      apiKey: undefined,
-      baseUrl: systemConfig.openai.baseUrl,
-      model: systemConfig.openai.model || 'gpt-4o',
-    }
-  },
   profile: {
     theme: 'system',
     language: 'en',
@@ -95,48 +80,29 @@ const DEFAULT_CONFIG: UserConfig = {
   features: ['dashboard'],
 };
 
-// 2. 用户配置缓存 (内存)
-// Map<UserId, UserConfig>
-const userConfigCache = new Map<string, UserConfig>();
+// 2. 用户配置缓存 (Redis + Local)
 
 /**
- * 加载用户配置到缓存
- * 通常在用户登录或 Session 初始化时调用
+ * 从数据库加载用户配置
  */
-export const loadUserConfig = async (userId: string): Promise<UserConfig> => {
-  if (!userId) {
-    throw new Error("UserId is required to load config");
-  }
-
+async function fetchUserConfigFromDB(userId: string): Promise<UserConfig> {
   // 1. 尝试从数据库获取用户偏好
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: {
-      openaiApiKey: true,
-      openaiBaseUrl: true,
-      openaiModel: true,
       name: true,
       username: true,
       email: true,
       image: true,
-      // 未来可以添加 theme, language 等字段到数据库
     }
   });
 
   if (!user) {
-    // 用户不存在，返回默认配置（不缓存）
     return { ...DEFAULT_CONFIG };
   }
 
   // 2. 合并数据库配置到默认配置
-  const userConfig: UserConfig = deepMerge(DEFAULT_CONFIG, {
-    ai: {
-      openai: {
-        apiKey: user.openaiApiKey || undefined,
-        baseUrl: user.openaiBaseUrl || undefined,
-        model: user.openaiModel || undefined,
-      }
-    },
+  return deepMerge(DEFAULT_CONFIG, {
     profile: {
       name: user.name || undefined,
       username: user.username || undefined,
@@ -144,35 +110,34 @@ export const loadUserConfig = async (userId: string): Promise<UserConfig> => {
       image: user.image || undefined,
     }
   });
+}
 
-  // 3. 写入缓存
-  userConfigCache.set(userId, userConfig);
+/**
+ * 加载用户配置 (优先从缓存)
+ */
+export const loadUserConfig = async (userId: string): Promise<UserConfig> => {
+  if (!userId) throw new Error("UserId is required to load config");
   
-  return userConfig;
+  const config = await CacheService.get<UserConfig>(
+      `user:config:${userId}`,
+      () => fetchUserConfigFromDB(userId),
+      60 * 15 // 15 minutes TTL
+  );
+  
+  return config || { ...DEFAULT_CONFIG };
 };
 
 /**
- * 获取当前用户的配置 (优先从缓存读取)
- * 如果缓存未命中，则尝试异步加载 (此时可能返回默认值或抛出错误，取决于策略)
- * 这里采用：如果缓存没有，尝试同步加载默认值并触发异步刷新
+ * 获取当前用户的配置
  */
-export const getUserConfig = (userId: string): UserConfig => {
-  if (userConfigCache.has(userId)) {
-    return JSON.parse(JSON.stringify(userConfigCache.get(userId)));
-  }
-  
-  // 缓存未命中，返回默认配置，并在后台触发加载
-  // 注意：这可能导致首次读取时配置不一致，但符合“不阻塞”原则
-  // 更好的做法是在 Session 层确保 loadUserConfig 已完成
-  loadUserConfig(userId).catch(console.error);
-  
-  return { ...DEFAULT_CONFIG };
+export const getUserConfig = async (userId: string): Promise<UserConfig> => {
+    return loadUserConfig(userId);
 };
 
 /**
  * 更新用户配置
  * 1. 更新数据库
- * 2. 更新内存缓存
+ * 2. 更新缓存
  */
 export const updateUserConfig = async (userId: string, patch: DeepPartial<UserConfig>): Promise<UserConfig> => {
   if (!userId) {
@@ -180,10 +145,7 @@ export const updateUserConfig = async (userId: string, patch: DeepPartial<UserCo
   }
 
   // 1. 获取当前配置
-  let currentConfig = userConfigCache.get(userId);
-  if (!currentConfig) {
-    currentConfig = await loadUserConfig(userId);
-  }
+  const currentConfig = await loadUserConfig(userId);
 
   // 2. 应用补丁 (内存合并)
   const newConfig = deepMerge(currentConfig, patch);
@@ -192,12 +154,6 @@ export const updateUserConfig = async (userId: string, patch: DeepPartial<UserCo
   // 这里只映射我们已知存储在 User 表中的字段
   const dataToUpdate: any = {};
   
-  if (patch.ai?.openai) {
-    if (patch.ai.openai.apiKey !== undefined) dataToUpdate.openaiApiKey = patch.ai.openai.apiKey;
-    if (patch.ai.openai.baseUrl !== undefined) dataToUpdate.openaiBaseUrl = patch.ai.openai.baseUrl;
-    if (patch.ai.openai.model !== undefined) dataToUpdate.openaiModel = patch.ai.openai.model;
-  }
-
   if (patch.profile) {
     if (patch.profile.name !== undefined) dataToUpdate.name = patch.profile.name;
     if (patch.profile.username !== undefined) dataToUpdate.username = patch.profile.username;
@@ -213,7 +169,7 @@ export const updateUserConfig = async (userId: string, patch: DeepPartial<UserCo
   }
 
   // 4. 更新缓存
-  userConfigCache.set(userId, newConfig);
+  await CacheService.set(`user:config:${userId}`, newConfig, 60 * 15);
 
   return newConfig;
 };
@@ -221,8 +177,8 @@ export const updateUserConfig = async (userId: string, patch: DeepPartial<UserCo
 /**
  * 清除用户配置缓存 (例如登出时)
  */
-export const clearUserConfig = (userId: string) => {
-  userConfigCache.delete(userId);
+export const clearUserConfig = async (userId: string) => {
+  await CacheService.del(`user:config:${userId}`);
 };
 
 // --- 辅助工具 ---

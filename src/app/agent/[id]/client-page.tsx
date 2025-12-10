@@ -2,10 +2,13 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { sendMessage, addToolToConversation, removeToolFromConversation, getPublicTools, deleteConversation, uploadAgentFile, removeFileFromConversation, addFileToConversation, getFiles, getFolders, updateFileContent } from '../actions';
+import { WindowManager, ActiveWindow } from './window-manager';
+import { WindowMode } from '@/components/ui/window-container';
+import { Folder, Mail, Globe, AppWindow } from 'lucide-react';
 import { FileEditor } from '@/app/dashboard/files/file-editor';
 import { getDownloadUrl } from '@/app/dashboard/files/actions';
 import ReactMarkdown from 'react-markdown';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { ContextManager } from './context-manager';
 import { Browser } from './browser';
 import { ToolCallCard } from './tool-call-card';
@@ -32,13 +35,34 @@ export default function ChatInterface({ conversation }: ChatInterfaceProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<'enabled' | 'marketplace' | 'files' | 'browser'>('marketplace');
   const [isUploading, setIsUploading] = useState(false);
+  
+  const SUGGESTED_PROMPTS = [
+      "Write a Python crawler script",
+      "Explain the principles of quantum computing",
+      "Help me debug this code",
+      "Create a marketing plan for a coffee shop",
+      "Analyze current market trends"
+  ];
   const [allFiles, setAllFiles] = useState<any[]>([]);
   const [allFolders, setAllFolders] = useState<any[]>([]);
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
   const [folderPath, setFolderPath] = useState<{id: string | null, name: string}[]>([{id: null, name: 'Root'}]);
+  
+  // Windows State
+  const [windows, setWindows] = useState<ActiveWindow[]>([]);
+  
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const processedCallIds = useRef<Set<string>>(new Set());
   const router = useRouter();
+  const pathname = usePathname();
+
+  useEffect(() => {
+    if (pathname) {
+      localStorage.setItem('agent_os_last_chat_path', pathname);
+    }
+  }, [pathname]);
 
   const [previewFile, setPreviewFile] = useState<any>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -53,6 +77,32 @@ export default function ChatInterface({ conversation }: ChatInterfaceProps) {
           screenshot: conversation.browserScreenshot || undefined
       } : null
   );
+
+  const openWindow = (type: ActiveWindow['type'], data?: any) => {
+      // Check if already open
+      const existing = windows.find(w => w.type === type && (type !== 'editor' || w.data?.id === data?.id));
+      if (existing) {
+          // Bring to front or highlight?
+          return;
+      }
+
+      const id = Date.now().toString();
+      setWindows(prev => [...prev, {
+          id,
+          type,
+          title: type === 'file-browser' ? 'Files' : type === 'workbench' ? 'Workbench' : (data?.name || 'Editor'),
+          mode: 'floating',
+          data
+      }]);
+  };
+
+  const closeWindow = (id: string) => {
+      setWindows(prev => prev.filter(w => w.id !== id));
+  };
+
+  const updateWindowMode = (id: string, mode: WindowMode) => {
+      setWindows(prev => prev.map(w => w.id === id ? { ...w, mode } : w));
+  };
   
   // Sync agent-created sessions
   useEffect(() => {
@@ -145,7 +195,7 @@ export default function ChatInterface({ conversation }: ChatInterfaceProps) {
       if (isLoading) {
           intervalId = setInterval(async () => {
               try {
-                  const res = await fetch(`/api/agent/${conversation.id}`);
+                  const res = await fetch(`/api/agent/${conversation.id}?t=${Date.now()}`);
                   if (res.ok) {
                       const data = await res.json();
                       // Update messages but preserve optimistic ones not yet synced
@@ -207,6 +257,43 @@ export default function ChatInterface({ conversation }: ChatInterfaceProps) {
       };
   }, [isLoading, conversation.id]);
 
+  // Handle open_window tool calls
+  useEffect(() => {
+      // Scan recent messages for tool calls
+      // We check the last few messages to catch any that arrived
+      const recentMessages = messages.slice(-3);
+      
+      recentMessages.forEach((msg: any) => {
+          if (msg.role === 'assistant') {
+              try {
+                  const content = JSON.parse(msg.content);
+                  if (content.tool_calls) {
+                      content.tool_calls.forEach((call: any) => {
+                          if (call.name === 'open_window') {
+                               if (processedCallIds.current.has(call.id)) return;
+                               processedCallIds.current.add(call.id);
+                               
+                               const { window_type, file_id } = call.arguments;
+                               
+                               if (window_type === 'files') openWindow('file-browser');
+                               else if (window_type === 'workbench') openWindow('workbench');
+                               else if (window_type === 'email') openWindow('email');
+                               else if (window_type === 'browser') openWindow('browser', { sessionId: activeBrowserSessionId, state: browserState });
+                               else if (window_type === 'editor') {
+                                   if (file_id) {
+                                       openWindow('editor', { id: file_id });
+                                   } else {
+                                       openWindow('editor');
+                                   }
+                               }
+                          }
+                      });
+                  }
+              } catch (e) {}
+          }
+      });
+  }, [messages]);
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
@@ -215,12 +302,44 @@ export default function ChatInterface({ conversation }: ChatInterfaceProps) {
     scrollToBottom();
   }, [messages]);
 
-  const handleSendMessage = async (e?: React.FormEvent) => {
+  const handleSendMessage = async (e?: React.FormEvent, overrideContent?: string) => {
     e?.preventDefault();
-    if (!input.trim() && allFiles.length === 0) return;
+    const contentToSend = overrideContent || input;
+    if (!contentToSend.trim() && allFiles.length === 0) return;
+
+    // Command Handling
+    if (contentToSend.startsWith('/')) {
+        const cmd = contentToSend.slice(1).trim();
+        const [command, ...args] = cmd.split(' ');
+        
+        if (command === 'open') {
+            const target = args[0]?.toLowerCase();
+            if (target === 'files') {
+                openWindow('file-browser');
+                setInput('');
+                return;
+            } else if (target === 'workbench') {
+                openWindow('workbench');
+                setInput('');
+                return;
+            } else if (target === 'editor') {
+                 openWindow('editor');
+                 setInput('');
+                 return;
+            } else if (target === 'email') {
+                 openWindow('email');
+                 setInput('');
+                 return;
+            } else if (target === 'browser') {
+                 openWindow('browser', { sessionId: activeBrowserSessionId, state: browserState });
+                 setInput('');
+                 return;
+            }
+        }
+    }
 
     // Just send the text content. Files are already linked to the conversation on backend.
-    const userMessage = { role: 'user', content: input, id: 'temp-' + Date.now() };
+    const userMessage = { role: 'user', content: contentToSend, id: 'temp-' + Date.now() };
     setMessages((prev: any) => [...prev, userMessage]);
     setInput('');
     setIsLoading(true);
@@ -230,8 +349,9 @@ export default function ChatInterface({ conversation }: ChatInterfaceProps) {
       const result = await sendMessage(conversation.id, userMessage.content, { browserSessionId: activeBrowserSessionId || undefined });
       
       // Update browser state if returned (this avoids polling or extra fetch)
+      // Note: sendMessage is now async/queued, so it might not return state immediately.
       if (typeof result === 'object' && result !== null && 'browserState' in result) {
-          const newState = result.browserState;
+          const newState = (result as any).browserState;
           if (newState) {
               setBrowserState(newState);
               if (newState.sessionId && newState.sessionId !== activeBrowserSessionId) {
@@ -245,7 +365,7 @@ export default function ChatInterface({ conversation }: ChatInterfaceProps) {
       
       // We don't need to manually append response here because polling/refresh handles it
       // But we should fetch one last time to be sure
-      const res = await fetch(`/api/agent/${conversation.id}`);
+      const res = await fetch(`/api/agent/${conversation.id}?t=${Date.now()}`);
       if (res.ok) {
           const data = await res.json();
           setMessages(data.messages);
@@ -256,10 +376,56 @@ export default function ChatInterface({ conversation }: ChatInterfaceProps) {
     } catch (error) {
       console.error(error);
       alert("Failed to send message");
-    } finally {
       setIsLoading(false);
-    }
+    } 
   };
+
+  useEffect(() => {
+    if (textareaRef.current) {
+        textareaRef.current.style.height = 'auto';
+        textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 120)}px`;
+    }
+  }, [input]);
+
+  // Auto-manage loading state based on conversation status
+  useEffect(() => {
+    if (!messages.length) return;
+    const lastMsg = messages[messages.length - 1];
+    
+    // If last message is user, we are waiting.
+    if (lastMsg.role === 'user') {
+        if (!isLoading) setIsLoading(true);
+    } 
+    // If last message is assistant
+    else if (lastMsg.role === 'assistant') {
+        // Check if it's a tool call
+        let isTool = false;
+        try {
+            const content = JSON.parse(lastMsg.content);
+            if (content.tool_calls || content.type === 'tool_call') isTool = true;
+        } catch(e) {}
+        
+        if (isTool) {
+             // It's a tool call, so we expect a system result next. Still loading.
+             if (!isLoading) setIsLoading(true);
+        } else {
+             // It's a final text response. Done.
+             if (isLoading) setIsLoading(false);
+        }
+    }
+    // If last message is system (tool result), we are waiting for assistant to reply.
+    else if (lastMsg.role === 'system') {
+        if (!isLoading) setIsLoading(true);
+    }
+  }, [messages]);
+
+  useEffect(() => {
+      const initialMsg = sessionStorage.getItem('agent_initial_message');
+      if (initialMsg) {
+          sessionStorage.removeItem('agent_initial_message');
+          handleSendMessage(undefined, initialMsg);
+      }
+  }, []);
 
 
   const handleAttachToggle = async (fileId: string, attach: boolean) => {
@@ -289,7 +455,7 @@ export default function ChatInterface({ conversation }: ChatInterfaceProps) {
       setShowToolSelector(true);
       setActiveTab('marketplace');
       const tools = await getPublicTools();
-      setAvailableTools(tools);
+      if (tools) setAvailableTools(tools);
   };
 
   const openFiles = async () => {
@@ -361,7 +527,7 @@ export default function ChatInterface({ conversation }: ChatInterfaceProps) {
           // Refresh to show new file in sidebar
           router.refresh();
           // Also manually fetch to update state immediately
-          const res = await fetch(`/api/agent/${conversation.id}`);
+          const res = await fetch(`/api/agent/${conversation.id}?t=${Date.now()}`);
           if (res.ok) {
               const data = await res.json();
               if (data.files) setAttachedFiles(data.files.map((f: any) => f.file));
@@ -399,6 +565,35 @@ export default function ChatInterface({ conversation }: ChatInterfaceProps) {
             </div>
             <div className="flex gap-2">
                  <button
+                    onClick={() => openWindow('file-browser')}
+                    className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted rounded-md transition-colors"
+                    title="Files"
+                 >
+                    <Folder className="w-4 h-4" />
+                 </button>
+                 <button
+                    onClick={() => openWindow('email')}
+                    className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted rounded-md transition-colors"
+                    title="Email"
+                 >
+                    <Mail className="w-4 h-4" />
+                 </button>
+                 <button
+                    onClick={() => openWindow('browser', { sessionId: activeBrowserSessionId, state: browserState })}
+                    className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted rounded-md transition-colors"
+                    title="Browser"
+                 >
+                    <Globe className="w-4 h-4" />
+                 </button>
+                 <button
+                    onClick={() => openWindow('workbench')}
+                    className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted rounded-md transition-colors"
+                    title="Workbench"
+                 >
+                    <AppWindow className="w-4 h-4" />
+                 </button>
+                 <div className="w-px h-4 bg-border mx-1 self-center" />
+                 <button
                     onClick={loadTools}
                     className="text-xs px-3 py-1.5 bg-secondary text-secondary-foreground rounded-md hover:bg-secondary/80 transition-colors"
                  >
@@ -413,8 +608,21 @@ export default function ChatInterface({ conversation }: ChatInterfaceProps) {
             </div>
         </div>
 
+        {/* Windows Manager */}
+        <div className="absolute top-16 left-0 right-0 z-30 px-4 pointer-events-none">
+             <div className="pointer-events-auto">
+                 <WindowManager 
+                    windows={windows}
+                    onUpdateMode={updateWindowMode}
+                    onClose={closeWindow}
+                    onOpenWindow={openWindow}
+                 />
+             </div>
+        </div>
+
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto pt-20 pb-4 px-4 space-y-6">
+        <div className="flex-1 overflow-y-auto pt-20 pb-4 px-4">
+            <div className="max-w-4xl mx-auto space-y-6">
             {messages.length === 0 && (
                 <div className="text-center text-muted-foreground py-20">
                     <p>Start chatting with the agent.</p>
@@ -571,11 +779,29 @@ export default function ChatInterface({ conversation }: ChatInterfaceProps) {
                 </div>
             )}
             <div ref={messagesEndRef} />
+            </div>
         </div>
 
         {/* Input */}
-        <div className="p-4 border-t bg-background">
-            <form onSubmit={handleSendMessage} className="flex gap-2 max-w-4xl mx-auto items-end">
+        <div className="p-4 bg-background">
+            <div className="max-w-2xl  mx-auto space-y-4">
+                {/* Suggested Prompts */}
+                {messages.length === 0 && (
+                   <div className="flex flex-wrap gap-2 justify-center pb-2">
+                       {SUGGESTED_PROMPTS.map((prompt, i) => (
+                           <button
+                               key={i}
+                               type="button"
+                               onClick={() => setInput(prompt)}
+                               className="text-xs px-3 py-1.5 bg-muted/50 hover:bg-muted text-muted-foreground hover:text-foreground rounded-full transition-colors border"
+                           >
+                               {prompt}
+                           </button>
+                       ))}
+                   </div>
+                )}
+
+                <form onSubmit={(e) => handleSendMessage(e)} className="flex gap-2 w-full items-end">
                 <input
                     type="file"
                     ref={fileInputRef}
@@ -586,7 +812,7 @@ export default function ChatInterface({ conversation }: ChatInterfaceProps) {
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
                     disabled={isLoading || isUploading}
-                    className="p-3 text-muted-foreground hover:text-foreground bg-muted/50 rounded-lg transition-colors disabled:opacity-50"
+                    className="p-3 text-muted-foreground hover:text-foreground bg-muted/50 rounded-2xl transition-colors disabled:opacity-50"
                     title="Upload file"
                 >
                     {isUploading ? (
@@ -599,6 +825,7 @@ export default function ChatInterface({ conversation }: ChatInterfaceProps) {
                 </button>
 
                 <textarea
+                    ref={textareaRef}
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
                     onKeyDown={(e) => {
@@ -608,18 +835,19 @@ export default function ChatInterface({ conversation }: ChatInterfaceProps) {
                         }
                     }}
                     placeholder="Type a message..."
-                    className="flex-1 bg-muted/50 border-none rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary/50 outline-none min-h-[48px] max-h-32 resize-none"
+                    className="flex-1 bg-muted/50 border-none rounded-2xl px-4 py-3 focus:ring-2 focus:ring-primary/50 outline-none min-h-[48px] max-h-[120px] resize-none overflow-y-auto"
                     disabled={isLoading}
                     rows={1}
                 />
                 <button
                     type="submit"
                     disabled={isLoading || !input.trim()}
-                    className="bg-primary text-primary-foreground px-4 py-3 rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed h-[48px]"
+                    className="bg-primary text-primary-foreground px-4 py-3 rounded-2xl font-medium disabled:opacity-50 disabled:cursor-not-allowed h-[48px]"
                 >
                     Send
                 </button>
             </form>
+            </div>
         </div>
       </div>
 
@@ -656,7 +884,7 @@ export default function ChatInterface({ conversation }: ChatInterfaceProps) {
                           setActiveTab('marketplace');
                           if (availableTools.length === 0) {
                               const tools = await getPublicTools();
-                              setAvailableTools(tools);
+                              if (tools) setAvailableTools(tools);
                           }
                       }}
                       className={`flex-1 px-2 py-2 text-xs font-medium text-center transition-colors ${activeTab === 'marketplace' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:bg-background/50'}`}

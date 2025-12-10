@@ -288,19 +288,6 @@ export async function deleteProject(id: string) {
 
 // --- AI Actions ---
 
-
-export async function getUserOpenAIConfig() {
-  const session = await auth();
-  if (!session?.user?.id) return null;
-
-  const user = await prisma.user.findUnique({
-    where: { id: session.user.id },
-    select: { openaiApiKey: true, openaiBaseUrl: true, openaiModel: true },
-  });
-
-  return user;
-}
-
 export async function generateToolCode(
     toolId: string,
     prompt: string,
@@ -311,11 +298,6 @@ export async function generateToolCode(
 
     const tool = await prisma.tool.findUnique({ where: { id: toolId } });
     if (!tool) throw new Error("Tool not found");
-
-    const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      select: { openaiApiKey: true, openaiBaseUrl: true, openaiModel: true },
-    });
 
     // 1. Save user message linked to Tool
     await prisma.projectMessage.create({
@@ -340,11 +322,7 @@ export async function generateToolCode(
     }));
 
     // 3. Call AI
-    const result = await generateCode(prompt, currentCode, history, {
-      apiKey: user?.openaiApiKey,
-      baseUrl: user?.openaiBaseUrl,
-      model: user?.openaiModel,
-    });
+    const result = await generateCode(prompt, currentCode, history);
 
     // 4. Save assistant response linked to Tool
     if (result.message) {

@@ -12,9 +12,10 @@ interface FileGridProps {
     folders: FolderWithCount[];
     onNavigate: (folderId: string | null) => void;
     onRefresh: () => void;
+    onFileOpen?: (file: FileWithShares) => void;
 }
 
-export function FileGrid({ files, folders, onNavigate, onRefresh }: FileGridProps) {
+export function FileGrid({ files, folders, onNavigate, onRefresh, onFileOpen }: FileGridProps) {
   const [previewFile, setPreviewFile] = useState<FileWithShares | null>(null);
   const [shareFile, setShareFile] = useState<FileWithShares | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -162,7 +163,7 @@ export function FileGrid({ files, folders, onNavigate, onRefresh }: FileGridProp
                 e.dataTransfer.setData('text/plain', file.id);
             }}
           >
-            <div className="flex items-center justify-center h-24 bg-muted rounded mb-2 cursor-pointer" onClick={() => setPreviewFile(file)}>
+            <div className="flex items-center justify-center h-24 bg-muted rounded mb-2 cursor-pointer" onClick={() => onFileOpen ? onFileOpen(file) : setPreviewFile(file)}>
               <span className="text-4xl text-muted-foreground">
                  {file.mimeType.startsWith("image/") ? <ImageIcon className="w-10 h-10" /> :
                   file.mimeType === "application/pdf" ? <FileText className="w-10 h-10" /> :
@@ -190,7 +191,7 @@ export function FileGrid({ files, folders, onNavigate, onRefresh }: FileGridProp
             
             {/* Hover Actions */}
              <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1 bg-background/80 rounded shadow-sm">
-                <button onClick={() => setPreviewFile(file)} className="p-1 hover:bg-muted rounded text-xs" title="Preview/Edit"><Eye className="w-3.5 h-3.5" /></button>
+                <button onClick={() => onFileOpen ? onFileOpen(file) : setPreviewFile(file)} className="p-1 hover:bg-muted rounded text-xs" title="Preview/Edit"><Eye className="w-3.5 h-3.5" /></button>
                 <button onClick={() => setShareFile(file)} className="p-1 hover:bg-muted rounded text-xs" title="Share"><Share2 className="w-3.5 h-3.5" /></button>
                 <button onClick={() => handleDownload(file)} className="p-1 hover:bg-muted rounded text-xs" title="Download"><Download className="w-3.5 h-3.5" /></button>
                 <button onClick={() => startRename(file.id, file.name)} className="p-1 hover:bg-muted rounded text-xs" title="Rename"><Pencil className="w-3.5 h-3.5" /></button>

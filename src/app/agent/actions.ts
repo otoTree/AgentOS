@@ -2,6 +2,8 @@
 
 import { auth } from "@/auth";
 import { prisma } from "@/lib/infra/prisma";
+import { withTransaction } from "@/lib/infra/db-transaction";
+import { getUserConfig, systemConfig } from "@/lib/infra/config";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import OpenAI from 'openai';
@@ -9,6 +11,7 @@ import { executeCode } from "@/lib/execution/sandbox";
 import { wrapCode } from "@/lib/execution/code-wrapper";
 import { FileStorage } from "@/lib/storage/file-storage";
 import { extractText } from "@/lib/storage/text-extractor";
+import { CacheService } from "@/lib/infra/cache";
 import {
   getFiles,
   getFolders,
@@ -46,31 +49,47 @@ import { toolSearch } from "@/lib/ai/tool-search";
 export async function getConversations() {
   const session = await auth();
   if (!session?.user?.id) return [];
+  const userId = session.user.id;
 
-  return prisma.agentConversation.findMany({
-    where: { userId: session.user.id },
-    orderBy: { updatedAt: 'desc' },
-    include: {
-      tools: {
-        include: {
-          tool: true
+  return CacheService.get(`agent:conversations:${userId}`, async () => {
+    return prisma.agentConversation.findMany({
+      where: { userId: userId },
+      orderBy: { updatedAt: 'desc' },
+      include: {
+        tools: {
+          include: {
+            tool: true
+          }
         }
       }
-    }
-  });
+    });
+  }, 300);
 }
 
 export async function createConversation(title: string = "New Conversation") {
   const session = await auth();
   if (!session?.user?.id) throw new Error("Not authenticated");
+  const userId = session.user.id;
 
-  const conversation = await prisma.agentConversation.create({
-    data: {
-      title,
-      userId: session.user.id,
+  const conversation = await withTransaction(async (tx) => {
+    // Ensure user exists in DB before creating conversation
+    const user = await tx.user.findUnique({
+        where: { id: userId }
+    });
+
+    if (!user) {
+        throw new Error("User not found in database");
     }
+
+    return await tx.agentConversation.create({
+      data: {
+        title,
+        userId: userId,
+      }
+    });
   });
 
+  await CacheService.del(`agent:conversations:${userId}`);
   revalidatePath("/agent");
   return conversation;
 }
@@ -78,122 +97,139 @@ export async function createConversation(title: string = "New Conversation") {
 export async function deleteConversation(id: string) {
   const session = await auth();
   if (!session?.user?.id) throw new Error("Not authenticated");
+  const userId = session.user.id;
 
-  await prisma.agentConversation.delete({
-    where: { id, userId: session.user.id }
+  await withTransaction(async (tx) => {
+    await tx.agentConversation.delete({
+      where: { id, userId: userId }
+    });
   });
 
+  await CacheService.del(`agent:conversations:${userId}`);
+  await CacheService.del(`agent:conversation:${id}`);
   revalidatePath("/agent");
 }
 
 export async function getConversation(id: string) {
   const session = await auth();
   if (!session?.user?.id) return null;
+  const userId = session.user.id;
 
-  const conversation = await prisma.agentConversation.findFirst({
-    where: { id, userId: session.user.id },
-    include: {
-      messages: {
-        orderBy: { createdAt: 'asc' }
-      },
-      tools: {
-        include: {
-          tool: true
-        }
-      },
-      files: {
-        include: {
-          file: true
+  return CacheService.get(`agent:conversation:${id}`, async () => {
+    return prisma.agentConversation.findFirst({
+      where: { id, userId: userId },
+      include: {
+        messages: {
+          orderBy: { createdAt: 'asc' }
+        },
+        tools: {
+          include: {
+            tool: true
+          }
+        },
+        files: {
+          include: {
+            file: true
+          }
         }
       }
-    }
-  });
-
-  return conversation;
+    });
+  }, 60);
 }
 
 // --- Tool Management ---
 
 export async function getPublicTools() {
-    // In a real scenario, we'd filter by "Public Deployments" and get the underlying tool
-    // For now, we can query projects with public deployments
-    const projects = await prisma.project.findMany({
-        where: {
-            deployments: {
-                some: {
-                    isActive: true,
-                    accessType: 'PUBLIC'
+    // Cache public tools for 5 minutes
+    return await CacheService.get("marketplace:public_tools", async () => {
+        // In a real scenario, we'd filter by "Public Deployments" and get the underlying tool
+        // For now, we can query projects with public deployments
+        const projects = await prisma.project.findMany({
+            where: {
+                deployments: {
+                    some: {
+                        isActive: true,
+                        accessType: 'PUBLIC'
+                    }
+                }
+            },
+            include: {
+                deployments: {
+                    where: { isActive: true, accessType: 'PUBLIC' },
+                    include: { tool: true },
+                    orderBy: { createdAt: 'desc' }
                 }
             }
-        },
-        include: {
-            deployments: {
-                where: { isActive: true, accessType: 'PUBLIC' },
-                include: { tool: true },
-                orderBy: { createdAt: 'desc' }
-            }
-        }
-    });
-    
-    // Extract tools from active deployments
-    const tools = projects.flatMap(p => p.deployments
-        .filter(d => d.tool !== null)
-        .map(d => ({
-            ...d.tool!, // Force non-null assertion since we filtered
-            projectName: p.name,
-            projectAvatar: p.avatar,
-            deploymentId: d.id
-        }))
-    );
+        });
+        
+        // Extract tools from active deployments
+        const tools = projects.flatMap(p => p.deployments
+            .filter(d => d.tool !== null)
+            .map(d => ({
+                ...d.tool!, // Force non-null assertion since we filtered
+                projectName: p.name,
+                projectAvatar: p.avatar,
+                deploymentId: d.id
+            }))
+        );
 
-    return tools;
+        return tools;
+    }, 300); // 300 seconds = 5 minutes
 }
 
 export async function addToolToConversation(conversationId: string, toolId: string) {
   const session = await auth();
-  if (!session?.user?.id) throw new Error("Not authenticated");
+  const userId = session?.user?.id;
+  if (!userId) throw new Error("Not authenticated");
 
-  // Verify ownership of conversation
-  const conversation = await prisma.agentConversation.findUnique({
-    where: { id: conversationId, userId: session.user.id }
-  });
-  if (!conversation) throw new Error("Conversation not found");
+  await withTransaction(async (tx) => {
+    // Verify ownership of conversation
+    const conversation = await tx.agentConversation.findUnique({
+      where: { id: conversationId, userId: userId }
+    });
+    if (!conversation) throw new Error("Conversation not found");
 
-  // Check if tool is already added
-  const existing = await prisma.conversationTool.findUnique({
-    where: {
-      conversationId_toolId: {
-        conversationId,
-        toolId
+    // Check if tool is already added
+    const existing = await tx.conversationTool.findUnique({
+      where: {
+        conversationId_toolId: {
+          conversationId,
+          toolId
+        }
       }
+    });
+
+    if (!existing) {
+      await tx.conversationTool.create({
+        data: {
+          conversationId,
+          toolId
+        }
+      });
     }
   });
 
-  if (!existing) {
-    await prisma.conversationTool.create({
-      data: {
-        conversationId,
-        toolId
-      }
-    });
-  }
-
+  await CacheService.del(`agent:conversation:${conversationId}`);
   revalidatePath(`/agent/${conversationId}`);
 }
 
 export async function removeToolFromConversation(conversationId: string, toolId: string) {
   const session = await auth();
-  if (!session?.user?.id) throw new Error("Not authenticated");
+  const userId = session?.user?.id;
+  if (!userId) throw new Error("Not authenticated");
 
-  await prisma.conversationTool.delete({
-    where: {
-      conversationId_toolId: {
-        conversationId,
-        toolId
+  await withTransaction(async (tx) => {
+    await tx.conversationTool.delete({
+      where: {
+        conversationId_toolId: {
+          conversationId,
+          toolId
+        }
       }
-    }
+    });
   });
 
+  await CacheService.del(`agent:conversation:${conversationId}`);
   revalidatePath(`/agent/${conversationId}`);
 }
 
@@ -201,7 +237,8 @@ export async function removeToolFromConversation(conversationId: string, toolId:
 
 export async function sendMessage(conversationId: string, message: string, context?: { browserSessionId?: string }) {
     const session = await auth();
-    if (!session?.user?.id) throw new Error("Not authenticated");
+    const userId = session?.user?.id;
+    if (!userId) throw new Error("Not authenticated");
 
     // 1. Save User Message
     await prisma.agentMessage.create({
@@ -212,6 +249,18 @@ export async function sendMessage(conversationId: string, message: string, conte
         }
     });
 
+    // Start background processing
+    processAgentResponse(conversationId, userId, message, context).catch(e => {
+        console.error("Error in background agent processing:", e);
+    });
+
+    await CacheService.del(`agent:conversation:${conversationId}`);
+    revalidatePath(`/agent/${conversationId}`);
+
+    return { status: 'queued' };
+}
+
+async function processAgentResponse(conversationId: string, userId: string, message: string, context?: { browserSessionId?: string }) {
     // 2. Get Conversation Context
     const conversation = await prisma.agentConversation.findUnique({
         where: { id: conversationId },
@@ -272,6 +321,11 @@ export async function sendMessage(conversationId: string, message: string, conte
     toolPromptSection += `## enable_tools (ID: builtin_enable)\n`;
     toolPromptSection += `Description: Enable one or more tools by their IDs. Use this after finding relevant tools via search_tools.\n`;
     toolPromptSection += `Inputs: [{"name": "toolIds", "type": "string[]", "description": "List of Tool IDs to enable"}]\n\n`;
+
+    toolPromptSection += `## open_window (ID: builtin_open_window)\n`;
+    toolPromptSection += `Description: Open a special function window in the user's interface. Available types: 'files' (File Browser), 'workbench' (Project Workbench), 'editor' (Code Editor).\n`;
+    toolPromptSection += `Inputs: [{"name": "window_type", "type": "string", "description": "Type of window: 'files', 'workbench', 'editor'"}, {"name": "file_id", "type": "string", "description": "Optional: File ID if opening editor"}]\n\n`;
+
 
     // 1.5 File System Tools
     toolPromptSection += `## fs_list_files (ID: fs_list_files)\n`;
@@ -415,17 +469,14 @@ If you don't need to call a tool, just reply with your text response.
 
     try {
         // Fetch user config
-        const user = await prisma.user.findUnique({
-            where: { id: session.user.id },
-            select: { openaiApiKey: true, openaiBaseUrl: true, openaiModel: true }
-        });
+        const userConfig = await getUserConfig(userId);
 
-        const apiKey = user?.openaiApiKey || process.env.OPENAI_API_KEY;
-        const baseURL = user?.openaiBaseUrl || process.env.OPENAI_API_BASE_URL;
-        const model = user?.openaiModel || process.env.OPENAI_MODEL_ID || "gpt-4o";
+        const apiKey = systemConfig.openai.apiKey;
+        const baseURL = systemConfig.openai.baseUrl;
+        const model = systemConfig.openai.model || "gpt-4o";
 
         if (!apiKey) {
-            throw new Error("OpenAI API Key is not configured. Please set it in your profile settings or environment variables.");
+            throw new Error("OpenAI API Key is not configured. Please contact administrator.");
         }
 
         const openai = new OpenAI({
@@ -520,6 +571,21 @@ If you don't need to call a tool, just reply with your text response.
                                 }
                             }
 
+                            // --- Built-in: Open Window ---
+                            else if (call.name === 'open_window') {
+                                const { window_type, file_id } = call.arguments;
+                                resultOutput = `Window '${window_type}' command sent to client.`;
+                                if (file_id) {
+                                    // Verify file exists just in case
+                                    try {
+                                        const file = await prisma.file.findUnique({ where: { id: file_id } });
+                                        if (file) {
+                                            resultOutput += ` File: ${file.name}`;
+                                        }
+                                    } catch (e) {}
+                                }
+                            }
+
                             // --- File System Tools ---
                             else if (call.name === 'fs_list_files') {
                                 try {
@@ -548,7 +614,7 @@ If you don't need to call a tool, just reply with your text response.
                                     // Let's fetch it directly from DB here for simplicity as we are server-side.
                                     
                                     const file = await prisma.file.findUnique({
-                                        where: { id: fileId, userId: session.user.id }
+                                        where: { id: fileId, userId: userId }
                                     });
 
                                     if (file) {
@@ -793,7 +859,7 @@ If you don't need to call a tool, just reply with your text response.
                                 if (toolDef) {
                                     // Check credits
                                     const user = await prisma.user.findUnique({
-                                        where: { id: session.user.id },
+                                        where: { id: userId },
                                         select: { credits: true }
                                     });
 
@@ -801,13 +867,13 @@ If you don't need to call a tool, just reply with your text response.
                                         resultOutput = "Error: Insufficient credits.";
                                     } else {
                                         await prisma.user.update({
-                                            where: { id: session.user.id },
+                                            where: { id: userId },
                                             data: { credits: { decrement: 1 } }
                                         });
                                         
                                         // Get or create API Token for the user to inject into the tool
                                         let apiToken = await prisma.apiToken.findFirst({
-                                            where: { userId: session.user.id },
+                                            where: { userId: userId },
                                             orderBy: { createdAt: 'desc' }
                                         });
 
@@ -817,7 +883,7 @@ If you don't need to call a tool, just reply with your text response.
                                             apiToken = await prisma.apiToken.create({
                                                 data: {
                                                     name: "Agent Auto-Token",
-                                                    userId: session.user.id,
+                                                    userId: userId,
                                                     token: token
                                                 }
                                             });
@@ -914,6 +980,8 @@ If you don't need to call a tool, just reply with your text response.
         throw new Error("Failed to generate response: " + error.message);
     }
 
+    await CacheService.del(`agent:conversation:${conversationId}`);
+    await CacheService.del(`agent:conversations:${userId}`);
     revalidatePath(`/agent/${conversationId}`);
     
     // Return structured response
@@ -925,113 +993,122 @@ If you don't need to call a tool, just reply with your text response.
 
 export async function uploadAgentFile(formData: FormData) {
   const session = await auth();
-  if (!session?.user?.id) throw new Error("Not authenticated");
+  const userId = session?.user?.id;
+  if (!userId) throw new Error("Not authenticated");
   
   const file = formData.get("file") as File;
   const conversationId = formData.get("conversationId") as string | null;
 
   if (!file) throw new Error("No file provided");
 
-  // 1. Find or Create "Agent Chat Uploads" folder
-  let folder = await prisma.folder.findFirst({
-      where: {
-          userId: session.user.id,
-          name: "Agent Chat Uploads",
-          parentId: null
-      }
-  });
+  // Prepare data
+  const buffer = Buffer.from(await file.arrayBuffer());
+  const id = crypto.randomUUID();
+  const key = FileStorage.getFileKey(userId, id);
+  const content = await extractText(buffer, file.type);
+  const name = Buffer.from(file.name, "latin1").toString("utf8");
 
-  if (!folder) {
-      folder = await prisma.folder.create({
-          data: {
+  // Upload to S3 (outside transaction)
+  await FileStorage.uploadFile(key, buffer, file.type);
+
+  // DB Transaction
+  const result = await withTransaction(async (tx) => {
+      // 1. Find or Create "Agent Chat Uploads" folder
+      let folder = await tx.folder.findFirst({
+          where: {
+              userId: userId,
               name: "Agent Chat Uploads",
-              userId: session.user.id,
               parentId: null
           }
       });
-  }
 
-  // 2. Upload to S3
-  const buffer = Buffer.from(await file.arrayBuffer());
-  const id = crypto.randomUUID();
-  const key = FileStorage.getFileKey(session.user.id, id);
-  
-  await FileStorage.uploadFile(key, buffer, file.type);
-  
-  // 3. Extract Text (optional, but good for search)
-  const content = await extractText(buffer, file.type);
-
-  // 4. Save to DB
-  // Handle filename encoding for potential non-UTF8 uploads
-  const name = Buffer.from(file.name, "latin1").toString("utf8");
-  
-  const fileRecord = await prisma.file.create({
-    data: {
-      id,
-      name,
-      size: file.size,
-      mimeType: file.type,
-      s3Key: key,
-      content,
-      userId: session.user.id,
-      folderId: folder.id,
-    },
-  });
-
-  // 5. Create Public Link
-  const token = crypto.randomUUID();
-  await prisma.fileShare.create({
-      data: {
-          fileId: fileRecord.id,
-          isPublic: true,
-          token,
-      }
-  });
-
-  // 6. Link to Conversation if provided
-  if (conversationId) {
-      // Verify ownership
-      const conversation = await prisma.agentConversation.findUnique({
-          where: { id: conversationId, userId: session.user.id }
-      });
-      
-      if (conversation) {
-          await prisma.conversationFile.create({
+      if (!folder) {
+          folder = await tx.folder.create({
               data: {
-                  conversationId,
-                  fileId: fileRecord.id
+                  name: "Agent Chat Uploads",
+                  userId: userId,
+                  parentId: null
               }
           });
       }
+
+      // 2. Create File Record
+      const fileRecord = await tx.file.create({
+        data: {
+          id,
+          name,
+          size: file.size,
+          mimeType: file.type,
+          s3Key: key,
+          content,
+          userId: userId,
+          folderId: folder.id,
+        },
+      });
+
+      // 3. Create Public Link
+      const token = crypto.randomUUID();
+      await tx.fileShare.create({
+          data: {
+              fileId: fileRecord.id,
+              isPublic: true,
+              token,
+          }
+      });
+
+      // 4. Link to Conversation if provided
+      if (conversationId) {
+          // Verify ownership
+          const conversation = await tx.agentConversation.findUnique({
+              where: { id: conversationId, userId: userId }
+          });
+          
+          if (conversation) {
+              await tx.conversationFile.create({
+                  data: {
+                      conversationId,
+                      fileId: fileRecord.id
+                  }
+              });
+          }
+      }
+
+      return { token, fileRecord };
+  });
+
+  if (conversationId) {
+      await CacheService.del(`agent:conversation:${conversationId}`);
+      revalidatePath(`/agent/${conversationId}`);
   }
 
   // 7. Return Info for Agent Context
   // We return the relative link so the client can construct the full URL
-  const relativeUrl = `/share/${token}`;
+  const relativeUrl = `/share/${result.token}`;
   
   return {
       name: file.name,
       type: file.type,
       size: file.size,
       url: relativeUrl,
-      token: token,
+      token: result.token,
       contentSummary: content ? content.substring(0, 200) + "..." : null
   };
 }
 
 export async function addFileToConversation(conversationId: string, fileId: string) {
   const session = await auth();
-  if (!session?.user?.id) throw new Error("Not authenticated");
+  const userId = session?.user?.id;
+  if (!userId) throw new Error("Not authenticated");
 
   const conversation = await prisma.agentConversation.findUnique({
-    where: { id: conversationId, userId: session.user.id }
+    where: { id: conversationId, userId: userId }
   });
 
   if (!conversation) throw new Error("Conversation not found");
 
   // Check if file exists and belongs to user
   const file = await prisma.file.findUnique({
-    where: { id: fileId, userId: session.user.id }
+    where: { id: fileId, userId: userId }
   });
 
   if (!file) throw new Error("File not found");
@@ -1055,22 +1132,25 @@ export async function addFileToConversation(conversationId: string, fileId: stri
     });
   }
 
+  await CacheService.del(`agent:conversation:${conversationId}`);
   revalidatePath(`/agent/${conversationId}`);
 }
 
 export async function removeFileFromConversation(conversationId: string, fileId: string) {
   const session = await auth();
-  if (!session?.user?.id) throw new Error("Not authenticated");
+  const userId = session?.user?.id;
+  if (!userId) throw new Error("Not authenticated");
 
   await prisma.conversationFile.deleteMany({
     where: {
       conversationId,
       fileId,
       conversation: {
-        userId: session.user.id
+        userId: userId
       }
     }
   });
 
+  await CacheService.del(`agent:conversation:${conversationId}`);
   revalidatePath(`/agent/${conversationId}`);
 }

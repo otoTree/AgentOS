@@ -27,17 +27,45 @@ export function AuthForm() {
     }
 
     try {
-      const result = await signIn("credentials", {
-        email,
-        password,
-        redirect: false,
-      });
+      if (isLogin) {
+        const result = await signIn("credentials", {
+          email,
+          password,
+          redirect: false,
+        });
 
-      if (result?.error) {
-        setError("Invalid email or password");
+        if (result?.error) {
+          setError("Invalid email or password");
+        } else {
+          router.push("/agent");
+          router.refresh();
+        }
       } else {
-        router.push("/dashboard");
-        router.refresh();
+        const res = await fetch("/api/auth/register", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, password }),
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+          setError(data.error || "Registration failed");
+        } else {
+          const result = await signIn("credentials", {
+            email,
+            password,
+            redirect: false,
+          });
+
+          if (result?.error) {
+            setError("Registration successful, but login failed. Please sign in manually.");
+            setIsLogin(true);
+          } else {
+            router.push("/agent");
+            router.refresh();
+          }
+        }
       }
     } catch (error) {
       setError("An unexpected error occurred");

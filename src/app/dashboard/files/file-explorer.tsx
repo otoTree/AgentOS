@@ -13,7 +13,15 @@ import { FilePreviewDialog } from "./file-preview-dialog";
 import { useSearchParams, useRouter } from "next/navigation";
 import { ArrowLeft, Grid, List, Plus } from "lucide-react";
 
-export function FileExplorer({ initialSearch }: { initialSearch?: string }) {
+export function FileExplorer({ 
+    initialSearch,
+    mode = 'page',
+    onFileOpen
+}: { 
+    initialSearch?: string;
+    mode?: 'page' | 'embedded';
+    onFileOpen?: (file: FileWithShares) => void;
+}) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const initialFolderId = searchParams.get("folderId") || null;
@@ -72,14 +80,17 @@ export function FileExplorer({ initialSearch }: { initialSearch?: string }) {
 
   const handleNavigate = (folderId: string | null) => {
     setCurrentFolderId(folderId);
-    // Update URL
-    const params = new URLSearchParams(searchParams.toString());
-    if (folderId) {
-        params.set("folderId", folderId);
-    } else {
-        params.delete("folderId");
+    
+    if (mode === 'page') {
+        // Update URL
+        const params = new URLSearchParams(searchParams.toString());
+        if (folderId) {
+            params.set("folderId", folderId);
+        } else {
+            params.delete("folderId");
+        }
+        router.push(`/dashboard/files?${params.toString()}`);
     }
-    router.push(`/dashboard/files?${params.toString()}`);
   };
 
   const handleCreateFolder = async (name: string) => {
