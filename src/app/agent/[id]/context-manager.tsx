@@ -1,16 +1,10 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { getFiles, getFolders, getBreadcrumbs, createFolder, createFile, deleteFile, deleteFolder, renameFile, renameFolder, moveFile, moveFolder, addFileToConversation, removeFileFromConversation, getDownloadUrl } from "../actions";
-import { FileList } from "@/app/dashboard/files/file-list";
-import { FileGrid } from "@/app/dashboard/files/file-grid";
-import { FileUploader } from "@/app/dashboard/files/file-uploader";
-import { SearchBar } from "@/app/dashboard/files/search-bar";
-import { FolderDialog } from "@/app/dashboard/files/folder-dialog";
-import { CreateFileDialog } from "@/app/dashboard/files/create-file-dialog";
-import { FilePreviewDialog } from "@/app/dashboard/files/file-preview-dialog";
+import { getFiles, getFolders, getBreadcrumbs, createFolder, createFile, deleteFile, deleteFolder, renameFile, renameFolder, moveFile, moveFolder, addFileToConversation, removeFileFromConversation, getDownloadUrl, getPublicTools, getUserTools } from "../actions";
+import { FileList, FileGrid, FileUploader, SearchBar, FolderDialog, CreateFileDialog, FilePreviewDialog } from "../components";
 import { ArrowLeft, Grid, List, Plus, CheckSquare, Square, Check, Trash2 } from "lucide-react";
-import { FileWithShares, FolderWithCount } from "@/app/dashboard/files/types";
+import { FileWithShares, FolderWithCount } from "../components";
 
 interface ContextManagerProps {
     conversationId: string;
@@ -18,7 +12,7 @@ interface ContextManagerProps {
     onAttachToggle: (fileId: string, attach: boolean) => Promise<void>;
 }
 
-export function ContextManager({ conversationId, attachedFileIds, onAttachToggle }: ContextManagerProps) {
+export function FileManager({ conversationId, attachedFileIds, onAttachToggle }: ContextManagerProps) {
   const [files, setFiles] = useState<FileWithShares[]>([]);
   const [folders, setFolders] = useState<FolderWithCount[]>([]);
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
@@ -79,25 +73,6 @@ export function ContextManager({ conversationId, attachedFileIds, onAttachToggle
       const isAttached = attachedFileIds.includes(file.id);
       await onAttachToggle(file.id, !isAttached);
   };
-
-  // Custom row renderer for FileList to include checkbox
-  // Since FileList doesn't support custom columns easily, we might wrap it or modify it.
-  // However, modifying FileList in dashboard might break dashboard.
-  // Strategy: Use a slightly modified version of FileList/Grid logic here, 
-  // or extend the existing components if possible.
-  // For now, let's render our own simplified view that reuses the structure but adds the checkbox.
-
-  // Actually, the user asked to reuse code. Let's try to use the existing components but maybe
-  // we can wrap them or just copy the structure since it's "file space" code reuse.
-  // But wait, the existing FileList has actions like delete/rename which we might want to keep.
-  // The main difference is the "Attach" action.
-  
-  // Let's create a wrapper that shows the selection state.
-  // The best way is to add a "selection" mode to FileList/Grid via props, but let's not modify existing files too much if we can avoid it.
-  // Alternatively, we can render the list here directly using the same styles.
-  
-  // Given the prompt "manage context files, add/delete/modify/query", it implies full file management capabilities inside the agent view.
-  // So we should basically replicate the file explorer but with an extra "Attach" indicator.
 
   return (
     <div className="h-full flex flex-col gap-4 p-4">
@@ -177,7 +152,6 @@ export function ContextManager({ conversationId, attachedFileIds, onAttachToggle
               </div>
           ) : (
               <div className="p-4">
-                  {/* We render a modified list here to support attachment toggling */}
                   {viewMode === 'list' ? (
                     <div className="w-full overflow-x-auto">
                         <table className="w-full text-sm text-left">
@@ -282,4 +256,126 @@ export function ContextManager({ conversationId, attachedFileIds, onAttachToggle
       )}
     </div>
   );
+}
+
+// Re-export ContextManager as alias for FileManager for backward compatibility
+export { FileManager as ContextManager };
+
+
+interface ToolManagerProps {
+    enabledTools: any[];
+    onToggleTool: (toolId: string) => void;
+}
+
+export function ToolManager({ enabledTools, onToggleTool }: ToolManagerProps) {
+    const [activeTab, setActiveTab] = useState<'public' | 'private'>('public');
+    const [publicTools, setPublicTools] = useState<any[]>([]);
+    const [userTools, setUserTools] = useState<any[]>([]);
+    const [search, setSearch] = useState("");
+    const [isLoading, setIsLoading] = useState(false);
+
+    // Load tools based on tab
+    useEffect(() => {
+        const load = async () => {
+            setIsLoading(true);
+            try {
+                if (activeTab === 'public') {
+                    if (publicTools.length === 0) {
+                         const tools = await getPublicTools();
+                         setPublicTools(tools || []);
+                    }
+                } else {
+                    if (userTools.length === 0) {
+                         const tools = await getUserTools();
+                         setUserTools(tools || []);
+                    }
+                }
+            } catch (e) {
+                console.error("Failed to load tools", e);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+        load();
+    }, [activeTab]);
+
+    const toolsToDisplay = activeTab === 'public' ? publicTools : userTools;
+    const filteredTools = toolsToDisplay.filter(t => 
+        t.name.toLowerCase().includes(search.toLowerCase()) || 
+        t.description?.toLowerCase().includes(search.toLowerCase()) ||
+        t.projectName?.toLowerCase().includes(search.toLowerCase())
+    );
+
+    // Group tools by project
+    const groups: Record<string, any[]> = {};
+    filteredTools.forEach(t => {
+        const pname = t.projectName || 'Unknown Project';
+        if (!groups[pname]) groups[pname] = [];
+        groups[pname].push(t);
+    });
+
+    return (
+        <div className="h-full flex flex-col gap-4 p-4">
+           {/* Tabs */}
+           <div className="flex p-1 bg-muted/50 rounded-lg">
+               <button 
+                  onClick={() => setActiveTab('public')}
+                  className={`flex-1 py-1.5 text-sm font-medium rounded-md transition-colors ${activeTab === 'public' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:bg-background/50'}`}
+               >
+                   Market Tools
+               </button>
+               <button 
+                  onClick={() => setActiveTab('private')}
+                  className={`flex-1 py-1.5 text-sm font-medium rounded-md transition-colors ${activeTab === 'private' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:bg-background/50'}`}
+               >
+                   User Tools
+               </button>
+           </div>
+
+           <SearchBar initialSearch={search} onSearch={(val) => setSearch(val)} placeholder="Search tools..." />
+
+           <div className="flex-1 overflow-y-auto space-y-4">
+               {isLoading ? (
+                   <div className="flex items-center justify-center py-8 text-muted-foreground">
+                       Loading...
+                   </div>
+               ) : filteredTools.length === 0 ? (
+                   <div className="text-center text-muted-foreground text-sm py-8">
+                       No tools found.
+                   </div>
+               ) : (
+                   Object.entries(groups).map(([project, tools]) => (
+                        <div key={project} className="space-y-2">
+                            <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1">{project}</h4>
+                            <div className="space-y-2">
+                                {tools.map(tool => {
+                                    const isEnabled = enabledTools.some((t: any) => t.id === tool.id);
+                                    return (
+                                        <div key={tool.id} className="p-3 rounded-lg border bg-card hover:bg-muted/50 transition-colors">
+                                            <div className="flex items-start justify-between gap-2">
+                                                <div>
+                                                    <h4 className="font-medium text-sm">{tool.name}</h4>
+                                                    <p className="text-xs text-muted-foreground line-clamp-2">{tool.description}</p>
+                                                </div>
+                                                <button
+                                                    onClick={() => onToggleTool(tool.id)}
+                                                    className={`text-xs px-2 py-1 rounded-md border shrink-0 transition-colors ${
+                                                        isEnabled
+                                                        ? 'bg-primary/10 text-primary border-primary/20 hover:bg-primary/20'
+                                                        : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
+                                                    }`}
+                                                >
+                                                    {isEnabled ? 'Enabled' : 'Enable'}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                   ))
+               )}
+           </div>
+        </div>
+    );
 }

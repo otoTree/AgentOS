@@ -5,7 +5,7 @@ import { prisma } from "@/lib/infra/prisma";
 import { FileStorage } from "@/lib/storage/file-storage";
 import { extractText } from "@/lib/storage/text-extractor";
 import { revalidatePath } from "next/cache";
-import { FolderWithCount, BreadcrumbItem } from "./types";
+import { FolderWithCount, BreadcrumbItem } from "@/components/files/types";
 import { withTransaction } from "@/lib/infra/db-transaction";
 
 export async function uploadFile(formData: FormData) {

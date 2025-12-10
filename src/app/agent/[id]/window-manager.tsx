@@ -3,10 +3,8 @@
 
 import { useState, useEffect } from 'react';
 import { WindowContainer, WindowMode } from '@/components/ui/window-container';
-import { FileExplorer } from '@/app/dashboard/files/file-explorer';
-import { WorkbenchPanel } from '@/app/workbench/workbench-panel';
-import { FileEditor } from '@/app/dashboard/files/file-editor';
-import { getDownloadUrl } from '@/app/dashboard/files/actions';
+import { FileExplorer, WorkbenchPanel, FileEditor } from '../components';
+import { getDownloadUrl } from '../actions';
 import { updateFileContent } from '../actions';
 import { Browser } from './browser';
 import { EmailClient } from './email-client';

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { deleteFile, deleteFolder, getDownloadUrl, renameFile, renameFolder, moveFile, moveFolder } from "./actions";
+import { deleteFile, deleteFolder, getDownloadUrl, renameFile, renameFolder, moveFile, moveFolder } from "@/app/file-actions";
 import { FilePreviewDialog } from "./file-preview-dialog";
 import { ShareDialog } from "./share-dialog";
 import { FileWithShares, FolderWithCount } from "./types";

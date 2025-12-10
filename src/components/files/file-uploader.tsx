@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { uploadFile } from "./actions";
+import { uploadFile } from "@/app/file-actions";
 import { toast } from "@/components/ui/sonner";
 
 export function FileUploader({ folderId, onUploadComplete }: { folderId?: string | null, onUploadComplete?: () => void }) {

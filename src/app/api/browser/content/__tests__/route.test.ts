@@ -1,6 +1,16 @@
 import { GET } from '../route';
 import { NextRequest } from 'next/server';
 
+// Mock systemConfig
+jest.mock('@/lib/infra/config', () => ({
+  systemConfig: {
+    sandbox: {
+      apiUrl: 'http://mock-sandbox',
+      authToken: 'mock-token'
+    }
+  }
+}));
+
 // Mock fetch
 global.fetch = jest.fn();
 
@@ -8,8 +18,6 @@ describe('Browser Content API', () => {
   beforeEach(() => {
     // @ts-ignore
     global.fetch.mockClear();
-    process.env.SANDBOX_API_URL = 'http://mock-sandbox';
-    process.env.SANDBOX_AUTH_TOKEN = 'mock-token';
   });
 
   it('should return 400 if session ID is missing', async () => {

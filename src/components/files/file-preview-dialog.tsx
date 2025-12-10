@@ -2,7 +2,7 @@
 
 import { File } from "@prisma/client";
 import { useEffect, useState } from "react";
-import { getDownloadUrl, updateFileContent, getFileContent } from "./actions";
+import { getDownloadUrl, updateFileContent, getFileContent } from "@/app/file-actions";
 import { FileEditor } from "./file-editor";
 import MDEditor from "@uiw/react-md-editor";
 

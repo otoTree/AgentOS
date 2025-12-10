@@ -26,7 +26,7 @@ import {
   moveFolder,
   getBreadcrumbs,
   getDownloadUrl
-} from "@/app/dashboard/files/actions";
+} from "@/app/file-actions";
 
 export { getFiles,
   getFolders,
@@ -71,22 +71,11 @@ export async function createConversation(title: string = "New Conversation") {
   if (!session?.user?.id) throw new Error("Not authenticated");
   const userId = session.user.id;
 
-  const conversation = await withTransaction(async (tx) => {
-    // Ensure user exists in DB before creating conversation
-    const user = await tx.user.findUnique({
-        where: { id: userId }
-    });
-
-    if (!user) {
-        throw new Error("User not found in database");
+  const conversation = await prisma.agentConversation.create({
+    data: {
+      title,
+      userId: userId,
     }
-
-    return await tx.agentConversation.create({
-      data: {
-        title,
-        userId: userId,
-      }
-    });
   });
 
   await CacheService.del(`agent:conversations:${userId}`);
@@ -175,6 +164,42 @@ export async function getPublicTools() {
 
         return tools;
     }, 300); // 300 seconds = 5 minutes
+}
+
+export async function getUserTools() {
+    const session = await auth();
+    if (!session?.user?.id) return [];
+    const userId = session.user.id;
+
+    return await CacheService.get(`user:tools:${userId}`, async () => {
+        // Find projects owned by the user that have active deployments
+        // We include both public and private tools since they belong to the user
+        const projects = await prisma.project.findMany({
+            where: {
+                userId: userId,
+            },
+            include: {
+                deployments: {
+                    where: { isActive: true },
+                    include: { tool: true },
+                    orderBy: { createdAt: 'desc' }
+                }
+            }
+        });
+        
+        // Extract tools from active deployments
+        const tools = projects.flatMap(p => p.deployments
+            .filter(d => d.tool !== null)
+            .map(d => ({
+                ...d.tool!,
+                projectName: p.name,
+                projectAvatar: p.avatar,
+                deploymentId: d.id
+            }))
+        );
+
+        return tools;
+    }, 60); // Cache for 1 minute
 }
 
 export async function addToolToConversation(conversationId: string, toolId: string) {
@@ -519,6 +544,7 @@ If you don't need to call a tool, just reply with your text response.
             if (parsed) {
                  try {
                     if (parsed.tool_calls && Array.isArray(parsed.tool_calls)) {
+                        const transactionOps: any[] = [];
                         // 1. Add Assistant Message (Tool Request) to History
                         // We save the FULL content including any thought process text
                         messages.push({ role: 'assistant', content: aiContent });
@@ -661,8 +687,8 @@ If you don't need to call a tool, just reply with your text response.
                             // --- Browser Tools ---
                             else if (call.name.startsWith('browser_')) {
                                 try {
-                                    const SANDBOX_API_URL = process.env.NEXT_PUBLIC_SANDBOX_API_URL || "http://sandbox-gupxspgugged.ns-3kjgtco0.svc.cluster.local:8080";
-                                    const SANDBOX_AUTH_TOKEN = process.env.SANDBOX_AUTH_TOKEN;
+                                    const SANDBOX_API_URL = systemConfig.sandbox.apiUrl;
+                                    const SANDBOX_AUTH_TOKEN = systemConfig.sandbox.authToken;
                                     const headers = {
                                         'Content-Type': 'application/json',
                                         ...(SANDBOX_AUTH_TOKEN ? { 'Authorization': `Bearer ${SANDBOX_AUTH_TOKEN}` } : {})
@@ -836,10 +862,10 @@ If you don't need to call a tool, just reply with your text response.
                                         if (currentUrl) updateData.browserUrl = currentUrl;
                                         if (currentScreenshot) updateData.browserScreenshot = currentScreenshot;
                                         
-                                        await prisma.agentConversation.update({
+                                        transactionOps.push(prisma.agentConversation.update({
                                             where: { id: conversationId },
                                             data: updateData
-                                        });
+                                        }));
 
                                         // Update finalBrowserState for return
                                         if (!finalBrowserState) finalBrowserState = {};
@@ -866,10 +892,10 @@ If you don't need to call a tool, just reply with your text response.
                                     if (!user || user.credits <= 0) {
                                         resultOutput = "Error: Insufficient credits.";
                                     } else {
-                                        await prisma.user.update({
+                                        transactionOps.push(prisma.user.update({
                                             where: { id: userId },
                                             data: { credits: { decrement: 1 } }
-                                        });
+                                        }));
                                         
                                         // Get or create API Token for the user to inject into the tool
                                         let apiToken = await prisma.apiToken.findFirst({
@@ -919,9 +945,9 @@ If you don't need to call a tool, just reply with your text response.
                             // Append to cumulative output for next prompt
                             toolOutputs += `Tool '${call.name}' Output:\n${resultOutput}\n\n`;
 
-                            // 3. Save to Database (Asynchronous, but order matters slightly for UI)
+                            // 3. Save to Database (BUFFERED)
                             // Save Assistant Call
-                            await prisma.agentMessage.create({
+                            transactionOps.push(prisma.agentMessage.create({
                                 data: {
                                     conversationId,
                                     role: 'assistant',
@@ -931,10 +957,10 @@ If you don't need to call a tool, just reply with your text response.
                                         args: call.arguments
                                     })
                                 }
-                            });
+                            }));
 
                             // Save System Result
-                            await prisma.agentMessage.create({
+                            transactionOps.push(prisma.agentMessage.create({
                                 data: {
                                     conversationId,
                                     role: 'system',
@@ -944,7 +970,11 @@ If you don't need to call a tool, just reply with your text response.
                                         output: resultOutput
                                     })
                                 }
-                            });
+                            }));
+                        }
+
+                        if (transactionOps.length > 0) {
+                            await prisma.$transaction(transactionOps);
                         }
 
                         // 4. Feed results back to AI for next turn

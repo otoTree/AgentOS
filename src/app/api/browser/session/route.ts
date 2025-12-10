@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 
 // Read from env, default to the value found in .env
 import { systemConfig } from '@/lib/infra/config';
-const SANDBOX_API_URL = systemConfig.sandbox.apiUrl || "http://sandbox-gupxspgugged.ns-3kjgtco0.svc.cluster.local:8080";
-const AUTH_TOKEN = systemConfig.sandbox.authToken || "";
+const SANDBOX_API_URL = systemConfig.sandbox.apiUrl;
+const AUTH_TOKEN = systemConfig.sandbox.authToken;
 
 export async function POST(req: NextRequest) {
   try {

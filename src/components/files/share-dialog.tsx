@@ -2,7 +2,7 @@
 
 import { File } from "@prisma/client";
 import { useState } from "react";
-import { shareFile } from "./actions";
+import { shareFile } from "@/app/file-actions";
 import { X } from "lucide-react";
 import { DialogDescription } from "@radix-ui/react-dialog";
 

@@ -4,12 +4,14 @@ import { createConversation } from "./actions";
 import { useRouter } from "next/navigation";
 import { useState, useRef } from "react";
 import { Loader2, ArrowUp } from "lucide-react";
+import { useChatStore } from "./store/useChatStore";
 
 export default function AgentPage() {
   const router = useRouter();
   const [input, setInput] = useState("");
   const [isCreating, setIsCreating] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const resetStore = useChatStore(state => state.reset);
 
   const SUGGESTED_PROMPTS = [
       "Write a Python crawler script",
@@ -31,6 +33,9 @@ export default function AgentPage() {
     if (!input.trim() || isCreating) return;
     setIsCreating(true);
     try {
+        // Reset store before navigating
+        resetStore();
+        
         // Create conversation with a title derived from the input
         const title = input.trim().length > 50 ? input.trim().substring(0, 50) + "..." : input.trim();
         const c = await createConversation(title);

@@ -6,8 +6,8 @@ export async function GET(req: NextRequest) {
   const sessionId = searchParams.get('sessionId');
   const tabId = searchParams.get('tabId');
 
-  const SANDBOX_API_URL = systemConfig.sandbox.apiUrl || "http://sandbox-gupxspgugged.ns-3kjgtco0.svc.cluster.local:8080";
-  const AUTH_TOKEN = systemConfig.sandbox.authToken || "";
+  const SANDBOX_API_URL = systemConfig.sandbox.apiUrl;
+  const AUTH_TOKEN = systemConfig.sandbox.authToken;
   if (!sessionId) {
     return NextResponse.json({ error: 'Missing session ID' }, { status: 400 });
   }

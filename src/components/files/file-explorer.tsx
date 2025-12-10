@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { FileWithShares, FolderWithCount, ViewMode, BreadcrumbItem } from "./types";
-import { getFiles, getFolders, getBreadcrumbs, createFolder, createFile, deleteFile, deleteFolder, renameFile, renameFolder, moveFile, moveFolder } from "./actions";
+import { getFiles, getFolders, getBreadcrumbs, createFolder, createFile, deleteFile, deleteFolder, renameFile, renameFolder, moveFile, moveFolder } from "@/app/file-actions";
 import { FileGrid } from "./file-grid";
 import { FileList } from "./file-list";
 import { FileUploader } from "./file-uploader";
