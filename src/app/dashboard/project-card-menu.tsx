@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { deleteProject, updateProjectMetadata } from '@/app/actions';
+import { toast } from '@/components/ui/sonner';
 
 interface ProjectCardMenuProps {
   projectId: string;
@@ -29,7 +30,7 @@ export default function ProjectCardMenu({ projectId, projectName, projectDescrip
       try {
         await deleteProject(projectId);
       } catch (error: any) {
-        alert('Failed to delete project: ' + error.message);
+        toast.error('Failed to delete project: ' + error.message);
         setIsDeleting(false);
       }
     }
@@ -47,7 +48,7 @@ export default function ProjectCardMenu({ projectId, projectName, projectDescrip
       
       const file = e.target.files[0];
       if (file.size > 5 * 1024 * 1024) {
-          alert("File size must be less than 5MB");
+          toast.error("File size must be less than 5MB");
           return;
       }
 
@@ -68,7 +69,7 @@ export default function ProjectCardMenu({ projectId, projectName, projectDescrip
           setNewAvatar(data.url);
       } catch (error) {
           console.error(error);
-          alert("Failed to upload image");
+          toast.error("Failed to upload image");
       } finally {
           setIsUploading(false);
       }
@@ -80,7 +81,7 @@ export default function ProjectCardMenu({ projectId, projectName, projectDescrip
       await updateProjectMetadata(projectId, newName, newDescription, newAvatar);
       setIsRenameOpen(false);
     } catch (error: any) {
-      alert('Failed to update project: ' + error.message);
+      toast.error('Failed to update project: ' + error.message);
     } finally {
       setIsSaving(false);
     }

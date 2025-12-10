@@ -2,6 +2,7 @@
 
 import { useState, useRef } from "react";
 import { uploadFile } from "./actions";
+import { toast } from "@/components/ui/sonner";
 
 export function FileUploader({ folderId, onUploadComplete }: { folderId?: string | null, onUploadComplete?: () => void }) {
   const [uploading, setUploading] = useState(false);
@@ -21,7 +22,7 @@ export function FileUploader({ folderId, onUploadComplete }: { folderId?: string
       await uploadFile(formData);
       onUploadComplete?.();
     } catch (error) {
-      alert("Upload failed");
+      toast.error("Upload failed");
       console.error(error);
     } finally {
       setUploading(false);

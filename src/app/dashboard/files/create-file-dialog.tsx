@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { Loader2 } from "lucide-react";
+import { toast } from "@/components/ui/sonner";
 
 interface CreateFileDialogProps {
   open: boolean;
@@ -32,7 +33,7 @@ export function CreateFileDialog({ open, onOpenChange, onSubmit }: CreateFileDia
       onOpenChange(false);
     } catch (error) {
       console.error(error);
-      alert("Failed to create file");
+      toast.error("Failed to create file");
     } finally {
       setLoading(false);
     }

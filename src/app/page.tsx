@@ -50,7 +50,7 @@ export default async function Home() {
                     href="/auth/signin"
                     className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-11 px-8 shadow-lg hover:shadow-primary/25"
                 >
-                    Launch Console
+                    Started
                  </Link>
                  <Link
                     href="https://github.com" // Placeholder for docs or repo

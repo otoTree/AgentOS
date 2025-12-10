@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { toast } from "@/components/ui/sonner";
 
 interface FolderDialogProps {
   open: boolean;
@@ -23,7 +24,7 @@ export function FolderDialog({ open, onOpenChange, onSubmit }: FolderDialogProps
       onOpenChange(false);
     } catch (error) {
       console.error(error);
-      alert("Failed to create folder");
+      toast.error("Failed to create folder");
     } finally {
       setIsSubmitting(false);
     }

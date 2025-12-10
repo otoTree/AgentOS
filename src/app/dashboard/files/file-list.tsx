@@ -6,6 +6,7 @@ import { FilePreviewDialog } from "./file-preview-dialog";
 import { ShareDialog } from "./share-dialog";
 import { FileWithShares, FolderWithCount } from "./types";
 import { Folder, FileText, Image as ImageIcon, File as FileIcon, Eye, Share2, Download, Pencil, Trash2 } from "lucide-react";
+import { toast } from '@/components/ui/sonner';
 
 interface FileListProps {
     files: FileWithShares[];
@@ -32,7 +33,7 @@ export function FileList({ files, folders, onNavigate, onRefresh, onFileOpen }: 
       downloadUrl.searchParams.set("download", "true");
       window.open(downloadUrl.toString(), "_blank");
     } catch (error) {
-      alert("Download failed");
+      toast.error("Download failed");
     }
   };
 
@@ -42,7 +43,7 @@ export function FileList({ files, folders, onNavigate, onRefresh, onFileOpen }: 
         await deleteFile(file.id);
         onRefresh();
       } catch (error) {
-        alert("Delete failed");
+        toast.error("Delete failed");
       }
     }
   };
@@ -53,7 +54,7 @@ export function FileList({ files, folders, onNavigate, onRefresh, onFileOpen }: 
             await deleteFolder(folder.id);
             onRefresh();
         } catch (error) {
-            alert("Delete folder failed");
+            toast.error("Delete folder failed");
         }
     }
   };
@@ -75,7 +76,7 @@ export function FileList({ files, folders, onNavigate, onRefresh, onFileOpen }: 
           setEditingId(null);
           onRefresh();
       } catch (error) {
-          alert("Rename failed");
+          toast.error("Rename failed");
       }
   };
 
@@ -91,7 +92,7 @@ export function FileList({ files, folders, onNavigate, onRefresh, onFileOpen }: 
         }
         onRefresh();
     } catch (error: any) {
-        alert(error.message || "Move failed");
+        toast.error(error.message || "Move failed");
     } finally {
         setDraggedId(null);
         setDraggedType(null);

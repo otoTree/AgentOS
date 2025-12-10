@@ -5,6 +5,7 @@ import { useRef, useState, useEffect } from "react";
 import { File } from "@prisma/client";
 import { Loader2, Save } from "lucide-react";
 import MDEditor from "@uiw/react-md-editor";
+import { toast } from "@/components/ui/sonner";
 
 interface FileEditorProps {
   file: File;
@@ -57,7 +58,7 @@ export function FileEditor({ file, initialContent, onSave, readOnly = false }: F
       setIsDirty(false);
     } catch (error) {
       console.error("Failed to save:", error);
-      alert("Failed to save file");
+      toast.error("Failed to save file");
     } finally {
       setIsSaving(false);
     }

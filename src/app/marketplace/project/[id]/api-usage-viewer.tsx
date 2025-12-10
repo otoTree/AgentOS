@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Clipboard } from "lucide-react";
+import { toast } from "@/components/ui/sonner";
 
 export default function ApiUsageViewer({ deploymentId, inputs }: { deploymentId: string, inputs: any[] }) {
     const [origin, setOrigin] = useState("");
@@ -31,7 +32,7 @@ export default function ApiUsageViewer({ deploymentId, inputs }: { deploymentId:
 
     const copyToClipboard = () => {
         navigator.clipboard.writeText(generateCurl());
-        alert("Copied to clipboard!");
+        toast.success("Copied to clipboard!");
     };
 
     return (

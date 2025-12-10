@@ -78,12 +78,12 @@ export function AuthForm() {
     <div className="bg-card/50 backdrop-blur-xl border border-white/10 rounded-2xl p-8 shadow-2xl w-full transition-all duration-500">
       <div className="mb-8 text-center">
         <h1 className="text-2xl font-bold tracking-tight text-white mb-2">
-          {isLogin ? "Welcome Agent" : "Register Agent"}
+          {isLogin ? "Sign In" : "Create Account"}
         </h1>
         <p className="text-sm text-gray-400">
           {isLogin
-            ? "Enter credentials to access AgentOS runtime."
-            : "Create new agent identity in the system."}
+            ? "Enter your email and password to sign in."
+            : "Enter your email and password to create an account."}
         </p>
       </div>
 
@@ -182,16 +182,16 @@ export function AuthForm() {
               Authenticating...
             </span>
           ) : isLogin ? (
-            "Initialize Session"
+            "Sign In"
           ) : (
-            "Register Identity"
+            "Sign Up"
           )}
         </button>
       </form>
 
       <div className="mt-8 pt-6 border-t border-white/5 text-center">
         <p className="text-sm text-gray-400">
-          {isLogin ? "New to AgentOS?" : "Already have an identity?"}
+          {isLogin ? "Don't have an account?" : "Already have an account?"}
           <button
             onClick={() => {
               setIsLogin(!isLogin);
@@ -199,7 +199,7 @@ export function AuthForm() {
             }}
             className="ml-2 font-semibold text-white hover:text-gray-300 transition-colors focus:outline-none focus:underline"
           >
-            {isLogin ? "Request Access" : "Sign In"}
+            {isLogin ? "Sign Up" : "Sign In"}
           </button>
         </p>
       </div>

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { generateApiToken, revokeApiToken, getApiTokens } from './settings-actions';
 import { ApiToken } from '@prisma/client';
 import { Settings, Copy } from 'lucide-react';
+import { toast } from '@/components/ui/sonner';
 
 interface SettingsDialogProps {
 }
@@ -43,7 +44,7 @@ export default function SettingsDialog({ }: SettingsDialogProps) {
       setNewTokenName('');
       loadTokens();
     } catch (error: any) {
-      alert('Failed to generate token: ' + error.message);
+      toast.error('Failed to generate token: ' + error.message);
     }
   };
 
@@ -53,7 +54,7 @@ export default function SettingsDialog({ }: SettingsDialogProps) {
       await revokeApiToken(id);
       loadTokens();
     } catch (error: any) {
-      alert('Failed to revoke token: ' + error.message);
+      toast.error('Failed to revoke token: ' + error.message);
     }
   };
 
@@ -119,7 +120,7 @@ export default function SettingsDialog({ }: SettingsDialogProps) {
                     <button 
                         onClick={() => {
                             navigator.clipboard.writeText(createdToken);
-                            alert('Copied to clipboard!');
+                            toast.success('Copied to clipboard!');
                         }}
                         className="text-xs bg-green-200 hover:bg-green-300 px-2 py-1 rounded"
                     >

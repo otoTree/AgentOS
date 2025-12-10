@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react';
 import { sendMessage, addToolToConversation, removeToolFromConversation, getPublicTools, deleteConversation, uploadAgentFile, removeFileFromConversation, addFileToConversation, getFiles, getFolders, updateFileContent } from '../actions';
 import { WindowManager, ActiveWindow } from './window-manager';
 import { WindowMode } from '@/components/ui/window-container';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Folder, Mail, Globe, AppWindow } from 'lucide-react';
 import { FileEditor } from '@/app/dashboard/files/file-editor';
 import { getDownloadUrl } from '@/app/dashboard/files/actions';
@@ -12,6 +13,8 @@ import { useRouter, usePathname } from 'next/navigation';
 import { ContextManager } from './context-manager';
 import { Browser } from './browser';
 import { ToolCallCard } from './tool-call-card';
+import { CommandMenu, getFilteredCommands, Command } from './command-menu';
+import { toast } from "@/components/ui/sonner";
 
 interface Tool {
     id: string;
@@ -28,13 +31,15 @@ export default function ChatInterface({ conversation }: ChatInterfaceProps) {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [messages, setMessages] = useState(conversation.messages || []);
-  const [enabledTools, setEnabledTools] = useState(conversation.tools?.map((t: any) => t.tool) || []);
+  const [enabledTools, setEnabledTools] = useState<Tool[]>(conversation.tools?.map((t: any) => t.tool) || []);
   const [attachedFiles, setAttachedFiles] = useState(conversation.files?.map((f: any) => f.file) || []);
   const [showToolSelector, setShowToolSelector] = useState(false);
   const [availableTools, setAvailableTools] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<'enabled' | 'marketplace' | 'files' | 'browser'>('marketplace');
   const [isUploading, setIsUploading] = useState(false);
+  const [showCommandMenu, setShowCommandMenu] = useState(false);
+  const [commandMenuIndex, setCommandMenuIndex] = useState(0);
   
   const SUGGESTED_PROMPTS = [
       "Write a Python crawler script",
@@ -375,7 +380,7 @@ export default function ChatInterface({ conversation }: ChatInterfaceProps) {
 
     } catch (error) {
       console.error(error);
-      alert("Failed to send message");
+      toast.error("Failed to send message");
       setIsLoading(false);
     } 
   };
@@ -538,7 +543,7 @@ export default function ChatInterface({ conversation }: ChatInterfaceProps) {
 
       } catch (error) {
           console.error("Upload failed", error);
-          alert("Failed to upload file");
+          toast.error("Failed to upload file");
       } finally {
           setIsUploading(false);
           if (fileInputRef.current) fileInputRef.current.value = '';
@@ -553,6 +558,12 @@ export default function ChatInterface({ conversation }: ChatInterfaceProps) {
       }
   };
 
+  const handleCommandSelect = (cmd: Command) => {
+      setInput(cmd.value + ' ');
+      setShowCommandMenu(false);
+      textareaRef.current?.focus();
+  };
+
   return (
     <div className="flex h-full">
       {/* Main Chat Area */}
@@ -564,34 +575,63 @@ export default function ChatInterface({ conversation }: ChatInterfaceProps) {
                 <p className="text-xs text-muted-foreground">{enabledTools.length} tools enabled</p>
             </div>
             <div className="flex gap-2">
-                 <button
-                    onClick={() => openWindow('file-browser')}
-                    className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted rounded-md transition-colors"
-                    title="Files"
-                 >
-                    <Folder className="w-4 h-4" />
-                 </button>
-                 <button
-                    onClick={() => openWindow('email')}
-                    className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted rounded-md transition-colors"
-                    title="Email"
-                 >
-                    <Mail className="w-4 h-4" />
-                 </button>
-                 <button
-                    onClick={() => openWindow('browser', { sessionId: activeBrowserSessionId, state: browserState })}
-                    className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted rounded-md transition-colors"
-                    title="Browser"
-                 >
-                    <Globe className="w-4 h-4" />
-                 </button>
-                 <button
-                    onClick={() => openWindow('workbench')}
-                    className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted rounded-md transition-colors"
-                    title="Workbench"
-                 >
-                    <AppWindow className="w-4 h-4" />
-                 </button>
+                 <TooltipProvider>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <button
+                                onClick={() => openWindow('file-browser')}
+                                className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted rounded-md transition-colors"
+                            >
+                                <Folder className="w-4 h-4" />
+                            </button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                            <p>Files</p>
+                        </TooltipContent>
+                    </Tooltip>
+
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <button
+                                onClick={() => openWindow('email')}
+                                className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted rounded-md transition-colors"
+                            >
+                                <Mail className="w-4 h-4" />
+                            </button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                            <p>Email</p>
+                        </TooltipContent>
+                    </Tooltip>
+
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <button
+                                onClick={() => openWindow('browser', { sessionId: activeBrowserSessionId, state: browserState })}
+                                className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted rounded-md transition-colors"
+                            >
+                                <Globe className="w-4 h-4" />
+                            </button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                            <p>Browser</p>
+                        </TooltipContent>
+                    </Tooltip>
+
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <button
+                                onClick={() => openWindow('workbench')}
+                                className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted rounded-md transition-colors"
+                            >
+                                <AppWindow className="w-4 h-4" />
+                            </button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                            <p>Workbench</p>
+                        </TooltipContent>
+                    </Tooltip>
+                 </TooltipProvider>
                  <div className="w-px h-4 bg-border mx-1 self-center" />
                  <button
                     onClick={loadTools}
@@ -824,21 +864,65 @@ export default function ChatInterface({ conversation }: ChatInterfaceProps) {
                     )}
                 </button>
 
-                <textarea
-                    ref={textareaRef}
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    onKeyDown={(e) => {
-                        if (e.key === 'Enter' && !e.shiftKey) {
-                            e.preventDefault();
-                            handleSendMessage();
-                        }
-                    }}
-                    placeholder="Type a message..."
-                    className="flex-1 bg-muted/50 border-none rounded-2xl px-4 py-3 focus:ring-2 focus:ring-primary/50 outline-none min-h-[48px] max-h-[120px] resize-none overflow-y-auto"
-                    disabled={isLoading}
-                    rows={1}
-                />
+                <div className="flex-1 relative">
+                    <CommandMenu 
+                        isVisible={showCommandMenu}
+                        filter={input}
+                        selectedIndex={commandMenuIndex}
+                        onSelect={handleCommandSelect}
+                    />
+                    <textarea
+                        ref={textareaRef}
+                        value={input}
+                        onChange={(e) => {
+                            const newValue = e.target.value;
+                            setInput(newValue);
+                            if (newValue.startsWith('/')) {
+                                setShowCommandMenu(true);
+                                setCommandMenuIndex(0);
+                            } else {
+                                setShowCommandMenu(false);
+                            }
+                        }}
+                        onKeyDown={(e) => {
+                            if (showCommandMenu) {
+                                if (e.key === 'ArrowDown') {
+                                    e.preventDefault();
+                                    const count = getFilteredCommands(input).length;
+                                    if (count > 0) setCommandMenuIndex(prev => (prev + 1) % count);
+                                    return;
+                                } else if (e.key === 'ArrowUp') {
+                                    e.preventDefault();
+                                    const count = getFilteredCommands(input).length;
+                                    if (count > 0) setCommandMenuIndex(prev => (prev - 1 + count) % count);
+                                    return;
+                                } else if (e.key === 'Enter' || e.key === 'Tab') {
+                                    e.preventDefault();
+                                    const cmds = getFilteredCommands(input);
+                                    if (cmds[commandMenuIndex]) {
+                                        handleCommandSelect(cmds[commandMenuIndex]);
+                                    }
+                                    return;
+                                } else if (e.key === 'Escape') {
+                                    e.preventDefault();
+                                    setShowCommandMenu(false);
+                                    return;
+                                }
+                            }
+
+                            if (e.key === 'Enter' && !e.shiftKey) {
+                                e.preventDefault();
+                                handleSendMessage();
+                            }
+                        }}
+                        placeholder={enabledTools.length > 0 
+                            ? `Type a message or /open... I can use ${enabledTools.map(t => t.name).join(', ')}.`
+                            : "Type a message or /open... I'm ready to help."}
+                        className="w-full bg-muted/50 border-none rounded-2xl px-4 py-3 focus:ring-2 focus:ring-primary/50 outline-none min-h-[48px] max-h-[120px] resize-none overflow-y-auto"
+                        disabled={isLoading}
+                        rows={1}
+                    />
+                </div>
                 <button
                     type="submit"
                     disabled={isLoading || !input.trim()}

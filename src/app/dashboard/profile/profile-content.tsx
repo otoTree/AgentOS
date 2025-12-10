@@ -5,6 +5,7 @@ import { generateApiToken, deleteApiToken, addCredits } from '@/app/actions';
 import { updateUserProfile, updateUserUsername } from '@/app/dashboard/settings-actions';
 import { useRouter } from 'next/navigation';
 import { UserConfig } from "@/lib/infra/config";
+import { toast } from "@/components/ui/sonner";
 
 interface ApiToken {
     id: string;
@@ -77,7 +78,7 @@ export default function ProfileContent({
         
         const file = e.target.files[0];
         if (file.size > 5 * 1024 * 1024) {
-            alert("File size must be less than 5MB");
+            toast.error("File size must be less than 5MB");
             return;
         }
 
@@ -98,7 +99,7 @@ export default function ProfileContent({
             setAvatarUrl(data.url);
         } catch (error) {
             console.error(error);
-            alert("Failed to upload image");
+            toast.error("Failed to upload image");
         } finally {
             setIsUploading(false);
         }
@@ -114,11 +115,11 @@ export default function ProfileContent({
                 await updateUserUsername(username);
             }
 
-            alert("Profile updated successfully!");
+            toast.success("Profile updated successfully!");
             router.refresh();
         } catch (error: any) {
             console.error(error);
-            alert("Failed to update profile: " + error.message);
+            toast.error("Failed to update profile: " + error.message);
         } finally {
             setIsSavingProfile(false);
         }
@@ -137,7 +138,7 @@ export default function ProfileContent({
             router.refresh();
         } catch (error) {
             console.error(error);
-            alert("Failed to generate token");
+            toast.error("Failed to generate token");
         } finally {
             setIsGenerating(false);
         }
@@ -152,7 +153,7 @@ export default function ProfileContent({
 
     const copyToClipboard = (text: string) => {
         navigator.clipboard.writeText(text);
-        alert("Copied to clipboard!");
+        toast.success("Copied to clipboard!");
     };
 
     // Special mode for just the credits button (used in side panel)

@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { purchaseCredits, purchaseStorage } from './actions';
 import NavBar from '@/components/nav-bar';
 import { useRouter } from 'next/navigation';
+import { toast } from '@/components/ui/sonner';
 
 export default function PricingPage() {
     const router = useRouter();
@@ -16,11 +17,11 @@ export default function PricingPage() {
         setIsProcessing(true);
         try {
             await purchaseCredits(amount, cost);
-            alert(`Successfully purchased ${amount} credits!`);
+            toast.success(`Successfully purchased ${amount} credits!`);
             router.refresh();
         } catch (error) {
             console.error(error);
-            alert("Purchase failed");
+            toast.error("Purchase failed");
         } finally {
             setIsProcessing(false);
         }
@@ -34,11 +35,11 @@ export default function PricingPage() {
         try {
             const bytes = gb * 1024 * 1024 * 1024;
             await purchaseStorage(bytes, cost);
-            alert(`Successfully purchased ${gb}GB storage!`);
+            toast.success(`Successfully purchased ${gb}GB storage!`);
             router.refresh();
         } catch (error) {
             console.error(error);
-            alert("Purchase failed");
+            toast.error("Purchase failed");
         } finally {
             setIsProcessing(false);
         }

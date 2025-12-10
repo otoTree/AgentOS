@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react';
 import { addComment } from '@/app/actions';
 import { useRouter } from 'next/navigation';
+import { toast } from '@/components/ui/sonner';
 
 interface Comment {
     id: string;
@@ -35,7 +36,7 @@ export default function CommentsSection({ projectId, initialComments, isAuthenti
                 setComment('');
                 router.refresh();
             } catch (error) {
-                alert("Failed to post comment");
+                toast.error("Failed to post comment");
             }
         });
     };

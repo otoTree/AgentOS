@@ -6,6 +6,7 @@ import Link from "next/link";
 import Editor from "@monaco-editor/react";
 import DeploymentDialog from "./deployment-dialog";
 import ToolDialog from "./tool-dialog";
+import { toast } from "@/components/ui/sonner";
 import {
     Package,
     Settings,
@@ -147,7 +148,7 @@ export default function ClientEditor({ project, isOwner = true }: { project: any
             setActiveToolId(newTool.id);
             setIsToolDialogOpen(false);
         } catch (e: any) {
-            alert("Failed to create tool: " + e.message);
+            toast.error("Failed to create tool: " + e.message);
         } finally {
             setIsNewToolLoading(false);
         }
@@ -162,7 +163,7 @@ export default function ClientEditor({ project, isOwner = true }: { project: any
             setEditingToolId(null);
             setIsToolDialogOpen(false);
         } catch (e: any) {
-            alert("Failed to update tool: " + e.message);
+            toast.error("Failed to update tool: " + e.message);
         } finally {
             setIsNewToolLoading(false);
         }
@@ -180,7 +181,7 @@ export default function ClientEditor({ project, isOwner = true }: { project: any
                 setActiveToolId(""); // Handle empty state if needed
             }
         } catch (e: any) {
-            alert("Failed to delete tool: " + e.message);
+            toast.error("Failed to delete tool: " + e.message);
         }
     };
 
@@ -248,7 +249,7 @@ export default function ClientEditor({ project, isOwner = true }: { project: any
 
             setIsDeploymentDialogOpen(false);
         } catch (error: any) {
-            alert(`Deployment failed: ${error.message}`);
+            toast.error(`Deployment failed: ${error.message}`);
         } finally {
             setIsDeploying(false);
         }
@@ -334,7 +335,7 @@ export default function ClientEditor({ project, isOwner = true }: { project: any
 
             setTempAvatar(data.url);
         } catch (error: any) {
-            alert("Failed to upload image: " + error.message);
+            toast.error("Failed to upload image: " + error.message);
         } finally {
             setIsUploading(false);
         }
@@ -347,7 +348,7 @@ export default function ClientEditor({ project, isOwner = true }: { project: any
             setIsRenameOpen(false);
             window.location.reload();
         } catch (error: any) {
-            alert("Failed to rename: " + error.message);
+            toast.error("Failed to rename: " + error.message);
         } finally {
             setIsSavingName(false);
         }
@@ -862,7 +863,7 @@ export default function ClientEditor({ project, isOwner = true }: { project: any
                                             onClick={() => {
                                                 const curl = generateCurlCommand(dep);
                                                 navigator.clipboard.writeText(curl);
-                                                alert("Curl command copied to clipboard!");
+                                                toast.success("Curl command copied to clipboard!");
                                             }}
                                             className="text-muted-foreground hover:text-primary text-xs px-1.5 transition-colors"
                                             title="Copy Curl Command"
