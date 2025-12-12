@@ -10,7 +10,7 @@ export interface AgentMessage {
 
 export interface ActiveWindow {
     id: string;
-    type: 'file-browser' | 'email' | 'browser' | 'workbench' | 'editor';
+    type: 'file-browser' | 'email' | 'browser' | 'workbench' | 'editor' | 'konva-table';
     title: string;
     mode: WindowMode;
     data?: any;

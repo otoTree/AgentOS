@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { createConversation, deleteConversation } from "./actions";
-import { Plus, Trash2, X, ChevronLeft, ChevronRight, Folder, Mail, Globe, AppWindow, User } from "lucide-react";
+import { Plus, Trash2, X, ChevronLeft, ChevronRight, Folder, Mail, Globe, AppWindow, User, Table } from "lucide-react";
 import { useChatStore } from "./store/useChatStore";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { UserProfileDialog } from "./components/user-profile-dialog";
@@ -179,6 +179,33 @@ export default function Sidebar({ initialConversations, user }: SidebarProps) {
                             </TooltipTrigger>
                             <TooltipContent>
                                 <p>Browser</p>
+                            </TooltipContent>
+                        </Tooltip>
+
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <button
+                                    onClick={() => openWindow('konva-table', {
+                                        initialData: {
+                                            columns: [
+                                                { id: 'id', title: 'ID', width: 50, type: 'text' },
+                                                { id: 'name', title: 'Name', width: 150, type: 'text' },
+                                                { id: 'status', title: 'Status', width: 100, type: 'select' },
+                                                { id: 'date', title: 'Date', width: 120, type: 'date' }
+                                            ],
+                                            rows: [
+                                                { id: '1', name: 'Task 1', status: 'Active', date: '2024-03-20' },
+                                                { id: '2', name: 'Task 2', status: 'Pending', date: '2024-03-21' },
+                                            ]
+                                        }
+                                    })}
+                                    className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-md transition-colors"
+                                >
+                                    <Table className="w-4 h-4" />
+                                </button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                                <p>Table</p>
                             </TooltipContent>
                         </Tooltip>
 

@@ -2,7 +2,7 @@ import { auth } from "@/auth";
 import { getProjects, createProject } from "@/app/actions";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import ProjectCardMenu from "@/app/dashboard/project-card-menu";
+import ProjectCardMenu from "@/components/dashboard/project-card-menu";
 import NavBar from "@/components/nav-bar";
 
 export default async function Workbench() {

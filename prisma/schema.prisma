@@ -68,6 +68,7 @@ model User {
   sopExecutions SopExecution[]
   sopTasks      SopTask[] @relation("UserSopTasks")
   assignedSopTasks SopTask[] @relation("AssignedSopTasks")
+  tables        TableDocument[]
 }
 
 model VerificationToken {
@@ -437,4 +438,16 @@ model SopTask {
   @@index([status])
   @@index([ownerId])
   @@index([assignedToUserId])
+}
+
+model TableDocument {
+  id        String   @id @default(cuid())
+  name      String
+  content   Json     // Stores the Workbook structure
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
 }

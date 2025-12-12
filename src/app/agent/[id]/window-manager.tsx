@@ -8,10 +8,11 @@ import { getDownloadUrl } from '../actions';
 import { updateFileContent } from '../actions';
 import { Browser } from './browser';
 import { EmailClient } from './email-client';
+import { TableManager } from '@/components/konva-table';
 
 export interface ActiveWindow {
     id: string;
-    type: 'file-browser' | 'workbench' | 'editor' | 'browser' | 'email';
+    type: 'file-browser' | 'workbench' | 'editor' | 'browser' | 'email' | 'konva-table';
     title: string;
     mode: WindowMode;
     data?: any;
@@ -101,6 +102,11 @@ export function WindowManager({ windows, onUpdateMode, onClose, onOpenWindow }: 
                     )}
                     {win.type === 'email' && (
                         <EmailClient />
+                    )}
+                    {win.type === 'konva-table' && (
+                        <div className="h-full w-full overflow-hidden bg-white">
+                             <TableManager />
+                        </div>
                     )}
                 </WindowContainer>
             ))}

@@ -5,13 +5,14 @@ import { useRouter } from "next/navigation";
 import { useState, useRef } from "react";
 import { Loader2, ArrowUp } from "lucide-react";
 import { useChatStore } from "./store/useChatStore";
+import { WindowManager } from "./[id]/window-manager";
 
 export default function AgentPage() {
   const router = useRouter();
   const [input, setInput] = useState("");
   const [isCreating, setIsCreating] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const resetStore = useChatStore(state => state.reset);
+  const { reset: resetStore, windows, updateWindowMode, closeWindow, openWindow } = useChatStore();
 
   const SUGGESTED_PROMPTS = [
       "Write a Python crawler script",
@@ -59,6 +60,12 @@ export default function AgentPage() {
 
   return (
     <div className="h-full flex flex-col items-center justify-center text-muted-foreground p-6">
+      <WindowManager 
+        windows={windows}
+        onUpdateMode={updateWindowMode}
+        onClose={closeWindow}
+        onOpenWindow={openWindow}
+      />
       <div className="w-full max-w-4xl space-y-8">
         <div className="text-center space-y-4">
             <h2 className="text-4xl font-bold text-foreground">Welcome to AgentOS</h2>

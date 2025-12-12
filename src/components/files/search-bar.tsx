@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
-export function SearchBar({ initialSearch, onSearch }: { initialSearch?: string, onSearch?: (val: string) => void }) {
+export function SearchBar({ initialSearch, onSearch, placeholder }: { initialSearch?: string, onSearch?: (val: string) => void, placeholder?: string }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [search, setSearch] = useState(initialSearch || "");
@@ -29,7 +29,7 @@ export function SearchBar({ initialSearch, onSearch }: { initialSearch?: string,
         type="text"
         value={search}
         onChange={(e) => setSearch(e.target.value)}
-        placeholder="Search content..."
+        placeholder={placeholder || "Search content..."}
         className="flex-1 p-2 border rounded bg-background"
       />
       <button
