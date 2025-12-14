@@ -80,6 +80,10 @@ export function generateSystemPrompt(conversation: any, context?: { browserSessi
     toolPromptSection += `Description: Set a cell value. Row and Col are 0-based indices.\n`;
     toolPromptSection += `Inputs: [{"name": "workbookId", "type": "string", "description": "ID of the workbook"}, {"name": "sheetId", "type": "string", "description": "ID of the sheet"}, {"name": "row", "type": "number", "description": "Row index (0-based)"}, {"name": "col", "type": "number", "description": "Column index (0-based)"}, {"name": "value", "type": "string|number", "description": "Value to set"}]\n\n`;
 
+    toolPromptSection += `## excel_batch_set_cell_values (ID: excel_batch_set_cell_values)\n`;
+    toolPromptSection += `Description: Set multiple cell values at once. Row and Col are 0-based indices.\n`;
+    toolPromptSection += `Inputs: [{"name": "workbookId", "type": "string", "description": "ID of the workbook"}, {"name": "sheetId", "type": "string", "description": "ID of the sheet"}, {"name": "updates", "type": "Array<{row: number, col: number, value: string|number}>", "description": "List of updates"}]\n\n`;
+
     toolPromptSection += `## excel_get_cell_value (ID: excel_get_cell_value)\n`;
     toolPromptSection += `Description: Get a cell value. Row and Col are 0-based indices.\n`;
     toolPromptSection += `Inputs: [{"name": "workbookId", "type": "string", "description": "ID of the workbook"}, {"name": "sheetId", "type": "string", "description": "ID of the sheet"}, {"name": "row", "type": "number", "description": "Row index (0-based)"}, {"name": "col", "type": "number", "description": "Column index (0-based)"}]\n\n`;

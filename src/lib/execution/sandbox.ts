@@ -1,3 +1,5 @@
+'use server';
+
 import axios from 'axios';
 import { systemConfig } from "@/lib/infra/config";
 const SANDBOX_API_URL = systemConfig.sandbox.apiUrl || 'http://localhost:8080';

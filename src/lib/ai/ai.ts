@@ -1,3 +1,5 @@
+'use server';
+
 import OpenAI from 'openai';
 import { systemConfig } from '../infra/config';
 export type AIResponse = {

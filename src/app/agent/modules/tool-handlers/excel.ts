@@ -164,6 +164,41 @@ export async function handleExcelTool(call: any) {
     return `Cell (${row}, ${col}) set to ${value}.`;
   }
 
+  if (call.name === 'excel_batch_set_cell_values') {
+    const { workbookId, sheetId, updates } = args;
+    const loadRes = await loadWorkbook(workbookId);
+    if (loadRes.error) return `Error loading workbook: ${loadRes.error}`;
+    
+    const wb = loadRes.workbook!;
+    const sheet = wb.sheets.find(s => s.id === sheetId);
+    if (!sheet) return `Sheet ${sheetId} not found.`;
+    
+    // Ensure grid size
+    if (!sheet.data) sheet.data = [];
+    
+    // Updates should be an array of { row, col, value }
+    if (!Array.isArray(updates)) return "Error: updates must be an array";
+
+    for (const update of updates) {
+        const { row, col, value } = update;
+        if (typeof row !== 'number' || typeof col !== 'number') continue;
+
+        // Expand rows if needed
+        if (sheet.data.length <= row) {
+            for (let i = sheet.data.length; i <= row; i++) {
+                if (!sheet.data[i]) sheet.data[i] = [];
+            }
+        }
+        
+        if (!sheet.data[row]) sheet.data[row] = [];
+        sheet.data[row][col] = value;
+    }
+    
+    const saveRes = await saveWorkbookToOss(wb);
+    if (saveRes.error) return `Error saving workbook: ${saveRes.error}`;
+    return `Batch updated ${updates.length} cells.`;
+  }
+
   if (call.name === 'excel_get_cell_value') {
     const { workbookId, sheetId, row, col } = args;
     const loadRes = await loadWorkbook(workbookId);

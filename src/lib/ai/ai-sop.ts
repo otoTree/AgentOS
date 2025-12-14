@@ -1,3 +1,5 @@
+'use server';
+
 import OpenAI from 'openai';
 import { WorkflowDefinition, WorkflowDefinitionSchema } from '@/lib/sop/sop-types';
 import { systemConfig } from '@/lib/infra/config';
