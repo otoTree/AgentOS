@@ -3,6 +3,8 @@ import { handleFileSystemTool } from "./filesystem";
 import { handleBrowserTool } from "./browser";
 import { handleExcelTool } from "./excel";
 import { handleUserTool } from "./user";
+import { handleDataSourceTool } from "./datasource";
+import { handleWorkbenchTool } from "./workbench";
 
 export interface ToolResult {
     output: string | null;
@@ -41,7 +43,19 @@ export async function executeTool(call: any, context: {
         if (result) return { output: result };
     }
 
-    // 5. User Tools
+    // 5. Data Source Tools
+    if (call.name.startsWith('datasource_')) {
+        const result = await handleDataSourceTool(call, context.userId);
+        if (result) return { output: result };
+    }
+
+    // 6. Workbench Tools
+    if (call.name.startsWith('workbench_')) {
+        const result = await handleWorkbenchTool(call, context.userId);
+        return { output: result };
+    }
+
+    // 7. User Tools
     const userToolResult = await handleUserTool(call, context.conversation, context.userId);
     if (userToolResult !== null) {
         return { output: userToolResult };
@@ -49,3 +63,4 @@ export async function executeTool(call: any, context: {
 
     return { output: "Tool not found or not enabled." };
 }
+

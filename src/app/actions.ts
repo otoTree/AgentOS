@@ -45,6 +45,24 @@ export async function createProject(name: string, description?: string) {
   redirect(`/project/${project.id}`);
 }
 
+export async function createProjectEmbedded(name: string, description?: string) {
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("Not authenticated");
+
+  const project = await prisma.project.create({
+    data: {
+      name,
+      description,
+      userId: session.user.id,
+    },
+  });
+
+  await createTool(project.id, "Main Tool");
+
+  revalidatePath("/dashboard");
+  return project;
+}
+
 export async function getProjects() {
   const session = await auth();
   if (!session?.user?.id) {

@@ -89,6 +89,20 @@ export function generateSystemPrompt(conversation: any, context?: { browserSessi
     toolPromptSection += `Inputs: [{"name": "workbookId", "type": "string", "description": "ID of the workbook"}, {"name": "sheetId", "type": "string", "description": "ID of the sheet"}, {"name": "row", "type": "number", "description": "Row index (0-based)"}, {"name": "col", "type": "number", "description": "Column index (0-based)"}]\n\n`;
 
 
+    // 1.7 Data Source Tools
+    toolPromptSection += `## datasource_list (ID: datasource_list)\n`;
+    toolPromptSection += `Description: List all available data sources configured by the user.\n`;
+    toolPromptSection += `Inputs: []\n\n`;
+
+    toolPromptSection += `## datasource_query (ID: datasource_query)\n`;
+    toolPromptSection += `Description: Execute a natural language query against a specific data source. Returns the query result.\n`;
+    toolPromptSection += `Inputs: [{"name": "dataSourceId", "type": "string", "description": "ID of the data source to query"}, {"name": "query", "type": "string", "description": "Natural language query (e.g., 'Show me top 10 users by age')"}]\n\n`;
+
+    toolPromptSection += `## datasource_schema (ID: datasource_schema)\n`;
+    toolPromptSection += `Description: Get the schema (tables and columns) of a data source.\n`;
+    toolPromptSection += `Inputs: [{"name": "dataSourceId", "type": "string", "description": "ID of the data source"}]\n\n`;
+
+
     toolPromptSection += `## browser_open (ID: browser_open)\n`;
     toolPromptSection += `Description: Open a URL in the browser. Returns the session ID.\n`;
     toolPromptSection += `Inputs: [{"name": "url", "type": "string", "description": "URL to open"}]\n\n`;
@@ -116,6 +130,31 @@ export function generateSystemPrompt(conversation: any, context?: { browserSessi
     toolPromptSection += `## browser_source (ID: browser_source)\n`;
     toolPromptSection += `Description: Get the HTML source of the current page (filtered JS/CSS).\n`;
     toolPromptSection += `Inputs: [{"name": "sessionId", "type": "string", "description": "Browser Session ID"}]\n\n`;
+
+    // 1.8 Workbench Tools
+    toolPromptSection += `## workbench_list_projects (ID: workbench_list_projects)\n`;
+    toolPromptSection += `Description: List all workbench projects.\n`;
+    toolPromptSection += `Inputs: []\n\n`;
+
+    toolPromptSection += `## workbench_create_project (ID: workbench_create_project)\n`;
+    toolPromptSection += `Description: Create a new workbench project. This will also create a default main tool.\n`;
+    toolPromptSection += `Inputs: [{"name": "name", "type": "string", "description": "Project name"}, {"name": "description", "type": "string", "description": "Optional project description"}]\n\n`;
+
+    toolPromptSection += `## workbench_get_project (ID: workbench_get_project)\n`;
+    toolPromptSection += `Description: Get details of a project, including its tools and their code.\n`;
+    toolPromptSection += `Inputs: [{"name": "id", "type": "string", "description": "Project ID"}]\n\n`;
+
+    toolPromptSection += `## workbench_create_tool (ID: workbench_create_tool)\n`;
+    toolPromptSection += `Description: Create a new tool (serverless function) in a project.\n`;
+    toolPromptSection += `Inputs: [{"name": "projectId", "type": "string", "description": "Project ID"}, {"name": "name", "type": "string", "description": "Tool name"}, {"name": "description", "type": "string", "description": "Optional tool description"}]\n\n`;
+
+    toolPromptSection += `## workbench_update_tool_code (ID: workbench_update_tool_code)\n`;
+    toolPromptSection += `Description: Update the code of a tool.\n`;
+    toolPromptSection += `Inputs: [{"name": "toolId", "type": "string", "description": "Tool ID"}, {"name": "code", "type": "string", "description": "New Python code"}]\n\n`;
+
+    toolPromptSection += `## workbench_delete_project (ID: workbench_delete_project)\n`;
+    toolPromptSection += `Description: Delete a project.\n`;
+    toolPromptSection += `Inputs: [{"name": "id", "type": "string", "description": "Project ID"}]\n\n`;
 
     if (context?.browserSessionId) {
         toolPromptSection += `\n# ACTIVE BROWSER SESSION\n`;

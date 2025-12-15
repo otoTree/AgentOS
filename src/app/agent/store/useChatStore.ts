@@ -10,7 +10,7 @@ export interface AgentMessage {
 
 export interface ActiveWindow {
     id: string;
-    type: 'file-browser' | 'email' | 'browser' | 'workbench' | 'editor' | 'konva-table' | 'smart-query';
+    type: 'file-browser' | 'email' | 'browser' | 'workbench' | 'editor' | 'konva-table' | 'smart-query' | 'project-editor';
     title: string;
     mode: WindowMode;
     data?: any;
@@ -64,7 +64,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
   openWindow: (type, data) => {
       const { windows } = get();
       // Check if already open
-      const existing = windows.find(w => w.type === type && (type !== 'editor' || w.data?.id === data?.id));
+      const existing = windows.find(w => w.type === type && (
+        (type !== 'editor' && type !== 'project-editor') || w.data?.id === data?.id
+      ));
       if (existing) {
           // Bring to front or highlight? (TODO)
           return;
@@ -78,6 +80,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
               title: type === 'file-browser' ? 'Files' : 
                      type === 'workbench' ? 'Workbench' : 
                      type === 'smart-query' ? 'Smart Query' :
+                     type === 'project-editor' ? (data?.name || 'Project') :
                      (data?.name || 'Editor'),
               mode: 'floating',
               data

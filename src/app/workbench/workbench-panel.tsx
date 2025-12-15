@@ -2,12 +2,16 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { getProjects, createProject } from '@/app/actions';
+import { getProjects, createProject, createProjectEmbedded } from '@/app/actions';
 import Link from 'next/link';
 //import ProjectCardMenu from '@/app/dashboard/project-card-menu';
 import { Plus, Loader2 } from 'lucide-react';
 
-export function WorkbenchPanel() {
+interface WorkbenchPanelProps {
+    onProjectSelect?: (project: any) => void;
+}
+
+export function WorkbenchPanel({ onProjectSelect }: WorkbenchPanelProps) {
   const [projects, setProjects] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
@@ -31,7 +35,11 @@ export function WorkbenchPanel() {
   const handleCreateProject = async () => {
     setIsCreating(true);
     try {
-      await createProject("Untitled Project");
+      if (onProjectSelect) {
+          await createProjectEmbedded("Untitled Project");
+      } else {
+          await createProject("Untitled Project");
+      }
       await loadProjects();
     } catch (error) {
       console.error("Failed to create project", error);
@@ -59,12 +67,9 @@ export function WorkbenchPanel() {
       </div>
 
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 overflow-y-auto pb-4">
-        {projects.map((project: any) => (
-          <Link
-            key={project.id}
-            href={`/project/${project.id}`}
-            className="group relative flex flex-col justify-between overflow-hidden rounded-xl border bg-card text-card-foreground shadow-sm hover:shadow-md transition-all hover:border-primary/50"
-          >
+        {projects.map((project: any) => {
+          const content = (
+            <>
             <div className="p-4">
               <div className="flex items-start justify-between mb-3">
                  <div className="flex items-center gap-3">
@@ -90,8 +95,31 @@ export function WorkbenchPanel() {
                    </span>
                )}
             </div>
-          </Link>
-        ))}
+            </>
+          );
+
+          if (onProjectSelect) {
+             return (
+               <div
+                 key={project.id}
+                 onClick={() => onProjectSelect(project)}
+                 className="group relative flex flex-col justify-between overflow-hidden rounded-xl border bg-card text-card-foreground shadow-sm hover:shadow-md transition-all hover:border-primary/50 cursor-pointer"
+               >
+                 {content}
+               </div>
+             );
+          }
+
+          return (
+            <Link
+              key={project.id}
+              href={`/project/${project.id}`}
+              className="group relative flex flex-col justify-between overflow-hidden rounded-xl border bg-card text-card-foreground shadow-sm hover:shadow-md transition-all hover:border-primary/50"
+            >
+              {content}
+            </Link>
+          );
+        })}
         
         {projects.length === 0 && (
             <div className="col-span-full py-12 text-center text-muted-foreground border border-dashed rounded-xl">

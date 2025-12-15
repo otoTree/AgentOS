@@ -6,12 +6,16 @@ import { ConnectorFactory, DBConfig } from "@/lib/connectors/db-connector";
 import OpenAI from 'openai';
 import { systemConfig } from "@/lib/infra/config";
 
-export async function getDataSources() {
-    const session = await auth();
-    if (!session?.user?.id) throw new Error("Unauthorized");
+export async function getDataSources(userIdOverride?: string) {
+    let userId = userIdOverride;
+    if (!userId) {
+        const session = await auth();
+        userId = session?.user?.id;
+    }
+    if (!userId) throw new Error("Unauthorized");
     
     return prisma.dataSource.findMany({
-        where: { userId: session.user.id },
+        where: { userId: userId },
         orderBy: { createdAt: 'desc' }
     });
 }
@@ -122,9 +126,20 @@ export async function syncDataSourceSchema(dataSourceId: string) {
     }
 }
 
-export async function getDataSourceSchema(dataSourceId: string) {
-    const session = await auth();
-    if (!session?.user?.id) throw new Error("Unauthorized");
+export async function getDataSourceSchema(dataSourceId: string, userIdOverride?: string) {
+    let userId = userIdOverride;
+    if (!userId) {
+        const session = await auth();
+        userId = session?.user?.id;
+    }
+    if (!userId) throw new Error("Unauthorized");
+
+    // Verify ownership
+    const dataSource = await prisma.dataSource.findUnique({
+        where: { id: dataSourceId, userId: userId }
+    });
+
+    if (!dataSource) throw new Error("Data source not found or unauthorized");
 
     return prisma.dataSourceTable.findMany({
         where: { dataSourceId },
@@ -185,12 +200,16 @@ export async function testConnection(type: string, config: DBConfig) {
     }
 }
 
-export async function executeQuery(dataSourceId: string, query: string) {
-    const session = await auth();
-    if (!session?.user?.id) throw new Error("Unauthorized");
+export async function executeQuery(dataSourceId: string, query: string, userIdOverride?: string) {
+    let userId = userIdOverride;
+    if (!userId) {
+        const session = await auth();
+        userId = session?.user?.id;
+    }
+    if (!userId) throw new Error("Unauthorized");
 
     const dataSource = await prisma.dataSource.findUnique({
-        where: { id: dataSourceId, userId: session.user.id }
+        where: { id: dataSourceId, userId: userId }
     });
 
     if (!dataSource) throw new Error("Data source not found");
@@ -209,12 +228,16 @@ export async function executeQuery(dataSourceId: string, query: string) {
     }
 }
 
-export async function executeNaturalLanguageQuery(dataSourceId: string, prompt: string) {
-    const session = await auth();
-    if (!session?.user?.id) throw new Error("Unauthorized");
+export async function executeNaturalLanguageQuery(dataSourceId: string, prompt: string, userIdOverride?: string) {
+    let userId = userIdOverride;
+    if (!userId) {
+        const session = await auth();
+        userId = session?.user?.id;
+    }
+    if (!userId) throw new Error("Unauthorized");
 
     const dataSource = await prisma.dataSource.findUnique({
-        where: { id: dataSourceId, userId: session.user.id }
+        where: { id: dataSourceId, userId: userId }
     });
 
     if (!dataSource) throw new Error("Data source not found");

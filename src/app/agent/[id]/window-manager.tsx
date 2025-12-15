@@ -5,14 +5,17 @@ import { useState, useEffect } from 'react';
 import { WindowContainer, WindowMode } from '@/components/ui/window-container';
 import { FileExplorer, WorkbenchPanel, FileEditor, SmartQueryWindow } from '../components';
 import { getDownloadUrl } from '../actions';
+import { getProject } from '@/app/actions';
 import { updateFileContent } from '../actions';
 import { Browser } from './browser';
 import { EmailClient } from './email-client';
 import { TableManager } from '@/components/konva-table';
+import ClientEditor from '@/app/project/[id]/client-editor';
+import { Loader2 } from 'lucide-react';
 
 export interface ActiveWindow {
     id: string;
-    type: 'file-browser' | 'workbench' | 'editor' | 'browser' | 'email' | 'konva-table' | 'smart-query';
+    type: 'file-browser' | 'workbench' | 'editor' | 'browser' | 'email' | 'konva-table' | 'smart-query' | 'project-editor';
     title: string;
     mode: WindowMode;
     data?: any;
@@ -23,6 +26,28 @@ interface WindowManagerProps {
     onUpdateMode: (id: string, mode: WindowMode) => void;
     onClose: (id: string) => void;
     onOpenWindow: (type: ActiveWindow['type'], data?: any) => void;
+}
+
+function ProjectLoader({ projectId }: { projectId: string }) {
+    const [project, setProject] = useState<any>(null);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        if (!projectId) return;
+        setLoading(true);
+        getProject(projectId).then(p => {
+            setProject(p);
+            setLoading(false);
+        }).catch(err => {
+            console.error("Failed to load project", err);
+            setLoading(false);
+        });
+    }, [projectId]);
+
+    if (loading) return <div className="flex items-center justify-center h-full"><Loader2 className="animate-spin" /></div>;
+    if (!project) return <div className="flex items-center justify-center h-full">Project not found</div>;
+
+    return <ClientEditor project={project} />;
 }
 
 function WindowedFileEditor({ file }: { file: any }) {
@@ -86,13 +111,16 @@ export function WindowManager({ windows, onUpdateMode, onClose, onOpenWindow }: 
                         </div>
                     )}
                     {win.type === 'workbench' && (
-                        <WorkbenchPanel />
+                        <WorkbenchPanel onProjectSelect={(p) => onOpenWindow('project-editor', { id: p.id, name: p.name })} />
                     )}
                     {win.type === 'smart-query' && (
                         <SmartQueryWindow />
                     )}
                     {win.type === 'editor' && (
                         <WindowedFileEditor file={win.data} />
+                    )}
+                    {win.type === 'project-editor' && (
+                        <ProjectLoader projectId={win.data?.id} />
                     )}
                     {win.type === 'browser' && (
                         <Browser 
