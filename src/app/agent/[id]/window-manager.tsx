@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import { WindowContainer, WindowMode } from '@/components/ui/window-container';
-import { FileExplorer, WorkbenchPanel, FileEditor } from '../components';
+import { FileExplorer, WorkbenchPanel, FileEditor, SmartQueryWindow } from '../components';
 import { getDownloadUrl } from '../actions';
 import { updateFileContent } from '../actions';
 import { Browser } from './browser';
@@ -12,7 +12,7 @@ import { TableManager } from '@/components/konva-table';
 
 export interface ActiveWindow {
     id: string;
-    type: 'file-browser' | 'workbench' | 'editor' | 'browser' | 'email' | 'konva-table';
+    type: 'file-browser' | 'workbench' | 'editor' | 'browser' | 'email' | 'konva-table' | 'smart-query';
     title: string;
     mode: WindowMode;
     data?: any;
@@ -87,6 +87,9 @@ export function WindowManager({ windows, onUpdateMode, onClose, onOpenWindow }: 
                     )}
                     {win.type === 'workbench' && (
                         <WorkbenchPanel />
+                    )}
+                    {win.type === 'smart-query' && (
+                        <SmartQueryWindow />
                     )}
                     {win.type === 'editor' && (
                         <WindowedFileEditor file={win.data} />

@@ -69,6 +69,7 @@ model User {
   sopTasks      SopTask[] @relation("UserSopTasks")
   assignedSopTasks SopTask[] @relation("AssignedSopTasks")
   tables        TableDocument[]
+  dataSources   DataSource[]
 }
 
 model VerificationToken {
@@ -446,6 +447,21 @@ model TableDocument {
   content   Json     // Stores the Workbook structure
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+}
+
+model DataSource {
+  id        String   @id @default(cuid())
+  name      String
+  type      String   // postgres, mysql, mongodb, etc.
+  config    Json     // Connection details
+  
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

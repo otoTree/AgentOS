@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { createConversation, deleteConversation } from "./actions";
-import { Plus, Trash2, X, ChevronLeft, ChevronRight, Folder, Mail, Globe, AppWindow, User, Table } from "lucide-react";
+import { Plus, Trash2, X, ChevronLeft, ChevronRight, Folder, Mail, Globe, AppWindow, User, Table, Database } from "lucide-react";
 import { useChatStore } from "./store/useChatStore";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { UserProfileDialog } from "./components/user-profile-dialog";
@@ -206,6 +206,20 @@ export default function Sidebar({ initialConversations, user }: SidebarProps) {
                             </TooltipTrigger>
                             <TooltipContent>
                                 <p>Table</p>
+                            </TooltipContent>
+                        </Tooltip>
+
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <button
+                                    onClick={() => openWindow('smart-query')}
+                                    className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-md transition-colors"
+                                >
+                                    <Database className="w-4 h-4" />
+                                </button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                                <p>Smart Query</p>
                             </TooltipContent>
                         </Tooltip>
 

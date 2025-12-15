@@ -10,7 +10,7 @@ export interface AgentMessage {
 
 export interface ActiveWindow {
     id: string;
-    type: 'file-browser' | 'email' | 'browser' | 'workbench' | 'editor' | 'konva-table';
+    type: 'file-browser' | 'email' | 'browser' | 'workbench' | 'editor' | 'konva-table' | 'smart-query';
     title: string;
     mode: WindowMode;
     data?: any;
@@ -75,7 +75,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
           windows: [...state.windows, {
               id,
               type,
-              title: type === 'file-browser' ? 'Files' : type === 'workbench' ? 'Workbench' : (data?.name || 'Editor'),
+              title: type === 'file-browser' ? 'Files' : 
+                     type === 'workbench' ? 'Workbench' : 
+                     type === 'smart-query' ? 'Smart Query' :
+                     (data?.name || 'Editor'),
               mode: 'floating',
               data
           }]

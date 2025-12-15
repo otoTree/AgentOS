@@ -8,5 +8,6 @@ export { FilePreviewDialog } from "@/components/files/file-preview-dialog";
 export { FileExplorer } from "@/components/files/file-explorer";
 export { FileEditor } from "@/components/files/file-editor";
 export { WorkbenchPanel } from "@/app/workbench/workbench-panel";
+export { SmartQueryWindow } from "./components/smart-query-window";
 
 export type { FileWithShares, FolderWithCount } from "@/components/files/types";
