@@ -38,6 +38,9 @@ export const systemConfig = {
     datasetId: process.env.DATASET_ID,
     rsUri: process.env.RS_URI,
     rsApiKey: process.env.RS_API_KEY,
+  },
+  agent:{
+    maxTurns: process.env.AGENT_MAX_TURNS || 20,
   }
 };
 

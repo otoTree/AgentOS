@@ -103,7 +103,7 @@ async function processAgentResponse(conversationId: string, userId: string, mess
         });
 
         // Main Loop for ReAct / Tool Calling
-        const maxTurns = 5; // Prevent infinite loops
+        const maxTurns = Number(systemConfig.agent.maxTurns); // Prevent infinite loops
 
         for (let i = 0; i < maxTurns; i++) {
             const response = await openai.chat.completions.create({
