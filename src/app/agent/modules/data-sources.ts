@@ -35,7 +35,7 @@ export async function saveDataSource(data: {
             }
         });
     } else {
-        return prisma.dataSource.create({
+        const newSource = await prisma.dataSource.create({
             data: {
                 name: data.name,
                 type: data.type,
@@ -43,7 +43,121 @@ export async function saveDataSource(data: {
                 userId: session.user.id
             }
         });
+        
+        // Auto-sync schema for new source
+        // Run in background (don't await) or await? User might want to see it immediately.
+        // Let's await it but catch errors so creation doesn't fail.
+        try {
+            await syncDataSourceSchema(newSource.id);
+        } catch (e) {
+            console.error("Initial schema sync failed:", e);
+        }
+        
+        return newSource;
     }
+}
+
+export async function syncDataSourceSchema(dataSourceId: string) {
+    const session = await auth();
+    if (!session?.user?.id) throw new Error("Unauthorized");
+
+    const dataSource = await prisma.dataSource.findUnique({
+        where: { id: dataSourceId, userId: session.user.id }
+    });
+
+    if (!dataSource) throw new Error("Data source not found");
+
+    const config = dataSource.config as unknown as DBConfig;
+    const connector = ConnectorFactory.getConnector(dataSource.type, config);
+
+    try {
+        await connector.connect();
+        const schema = await connector.getSchema();
+        await connector.disconnect();
+        
+        for (const table of schema) {
+            const dbTable = await prisma.dataSourceTable.upsert({
+                where: {
+                    dataSourceId_name: {
+                        dataSourceId: dataSource.id,
+                        name: table.name
+                    }
+                },
+                update: {},
+                create: {
+                    name: table.name,
+                    dataSourceId: dataSource.id
+                }
+            });
+
+            for (const col of table.columns) {
+                await prisma.dataSourceColumn.upsert({
+                    where: {
+                        tableId_name: {
+                            tableId: dbTable.id,
+                            name: col.name
+                        }
+                    },
+                    update: {
+                        type: col.type,
+                        isPrimaryKey: col.isPrimaryKey,
+                        isNullable: col.isNullable
+                    },
+                    create: {
+                        name: col.name,
+                        type: col.type,
+                        isPrimaryKey: col.isPrimaryKey || false,
+                        isNullable: col.isNullable || true,
+                        tableId: dbTable.id
+                    }
+                });
+            }
+        }
+        
+        return { success: true };
+    } catch (e: any) {
+        console.error("Sync schema failed:", e);
+        try { await connector.disconnect(); } catch {}
+        return { success: false, error: e.message };
+    }
+}
+
+export async function getDataSourceSchema(dataSourceId: string) {
+    const session = await auth();
+    if (!session?.user?.id) throw new Error("Unauthorized");
+
+    return prisma.dataSourceTable.findMany({
+        where: { dataSourceId },
+        include: {
+            columns: true
+        },
+        orderBy: { name: 'asc' }
+    });
+}
+
+export async function updateColumnDescription(columnId: string, description: string) {
+    const session = await auth();
+    if (!session?.user?.id) throw new Error("Unauthorized");
+    
+    const column = await prisma.dataSourceColumn.findUnique({
+        where: { id: columnId },
+        include: {
+            table: {
+                include: {
+                    dataSource: true
+                }
+            }
+        }
+    });
+    
+    if (!column || column.table.dataSource.userId !== session.user.id) {
+        throw new Error("Unauthorized or column not found");
+    }
+
+    return prisma.dataSourceColumn.update({
+        where: { id: columnId },
+        data: { description }
+    });
 }
 
 export async function deleteDataSource(id: string) {

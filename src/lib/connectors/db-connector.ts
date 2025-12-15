@@ -19,11 +19,25 @@ export interface QueryResult {
     rows: any[];
 }
 
+export interface TableSchema {
+    name: string;
+    columns: ColumnSchema[];
+}
+
+export interface ColumnSchema {
+    name: string;
+    type: string;
+    isPrimaryKey?: boolean;
+    isNullable?: boolean;
+    description?: string;
+}
+
 export interface DBConnector {
     connect(): Promise<void>;
     disconnect(): Promise<void>;
     execute(query: string, params?: any[]): Promise<QueryResult>;
     test(): Promise<boolean>;
+    getSchema(): Promise<TableSchema[]>;
 }
 
 export class PostgresConnector implements DBConnector {
@@ -82,6 +96,50 @@ export class PostgresConnector implements DBConnector {
             return false;
         } finally {
             await this.disconnect();
+        }
+    }
+
+    async getSchema(): Promise<TableSchema[]> {
+        if (!this.client) await this.connect();
+        try {
+            const query = `
+                SELECT 
+                    table_name, 
+                    column_name, 
+                    data_type, 
+                    is_nullable,
+                    (SELECT 'YES' FROM information_schema.key_column_usage kcu
+                     WHERE kcu.table_name = c.table_name 
+                     AND kcu.column_name = c.column_name
+                     AND kcu.table_schema = c.table_schema
+                     LIMIT 1) as is_primary
+                FROM information_schema.columns c
+                WHERE table_schema = 'public'
+                ORDER BY table_name, ordinal_position;
+            `;
+            const res = await this.client!.query(query);
+            
+            const tables: Record<string, TableSchema> = {};
+            
+            res.rows.forEach(row => {
+                if (!tables[row.table_name]) {
+                    tables[row.table_name] = {
+                        name: row.table_name,
+                        columns: []
+                    };
+                }
+                tables[row.table_name].columns.push({
+                    name: row.column_name,
+                    type: row.data_type,
+                    isNullable: row.is_nullable === 'YES',
+                    isPrimaryKey: row.is_primary === 'YES'
+                });
+            });
+
+            return Object.values(tables);
+        } catch (e) {
+            console.error("Postgres getSchema error:", e);
+            return [];
         }
     }
 }
@@ -153,6 +211,48 @@ export class MySQLConnector implements DBConnector {
             return false;
         } finally {
             await this.disconnect();
+        }
+    }
+
+    async getSchema(): Promise<TableSchema[]> {
+        if (!this.connection) await this.connect();
+        try {
+            const query = `
+                SELECT 
+                    TABLE_NAME, 
+                    COLUMN_NAME, 
+                    DATA_TYPE, 
+                    IS_NULLABLE,
+                    COLUMN_KEY
+                FROM INFORMATION_SCHEMA.COLUMNS
+                WHERE TABLE_SCHEMA = ?
+                ORDER BY TABLE_NAME, ORDINAL_POSITION;
+            `;
+            const [rows] = await this.connection!.execute(query, [this.config.database]);
+            
+            const tables: Record<string, TableSchema> = {};
+            
+            if (Array.isArray(rows)) {
+                rows.forEach((row: any) => {
+                    if (!tables[row.TABLE_NAME]) {
+                        tables[row.TABLE_NAME] = {
+                            name: row.TABLE_NAME,
+                            columns: []
+                        };
+                    }
+                    tables[row.TABLE_NAME].columns.push({
+                        name: row.COLUMN_NAME,
+                        type: row.DATA_TYPE,
+                        isNullable: row.IS_NULLABLE === 'YES',
+                        isPrimaryKey: row.COLUMN_KEY === 'PRI'
+                    });
+                });
+            }
+
+            return Object.values(tables);
+        } catch (e) {
+            console.error("MySQL getSchema error:", e);
+            return [];
         }
     }
 }
@@ -285,6 +385,20 @@ export class MongoDBConnector implements DBConnector {
             await this.disconnect();
         }
     }
+
+    async getSchema(): Promise<TableSchema[]> {
+        if (!this.client) await this.connect();
+        try {
+            const collections = await this.db!.listCollections().toArray();
+            return collections.map(col => ({
+                name: col.name,
+                columns: [] // Schema is dynamic
+            }));
+        } catch (e) {
+            console.error("MongoDB getSchema error:", e);
+            return [];
+        }
+    }
 }
 
 export class Neo4jConnector implements DBConnector {
@@ -367,6 +481,10 @@ export class Neo4jConnector implements DBConnector {
             await this.disconnect();
         }
     }
+
+    async getSchema(): Promise<TableSchema[]> {
+        return [];
+    }
 }
 
 export class RedisConnector implements DBConnector {
@@ -439,6 +557,10 @@ export class RedisConnector implements DBConnector {
         } finally {
             await this.disconnect();
         }
+    }
+
+    async getSchema(): Promise<TableSchema[]> {
+        return [];
     }
 }
 

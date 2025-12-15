@@ -465,5 +465,42 @@ model DataSource {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  tables    DataSourceTable[]
+
   @@index([userId])
+}
+
+model DataSourceTable {
+  id           String     @id @default(cuid())
+  name         String
+  description  String?
+  
+  dataSourceId String
+  dataSource   DataSource @relation(fields: [dataSourceId], references: [id], onDelete: Cascade)
+  
+  columns      DataSourceColumn[]
+  
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@unique([dataSourceId, name])
+  @@index([dataSourceId])
+}
+
+model DataSourceColumn {
+  id           String          @id @default(cuid())
+  name         String
+  type         String
+  description  String?
+  isPrimaryKey Boolean         @default(false)
+  isNullable   Boolean         @default(true)
+  
+  tableId      String
+  table        DataSourceTable @relation(fields: [tableId], references: [id], onDelete: Cascade)
+  
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  @@unique([tableId, name])
+  @@index([tableId])
 }

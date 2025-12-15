@@ -8,12 +8,12 @@ import { Card } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Play, Database, History, Settings, BarChart, Table as TableIcon, Terminal, Plus, Trash2, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
-import { getDataSources, saveDataSource, deleteDataSource, testConnection, executeQuery, executeNaturalLanguageQuery } from '../modules/data-sources';
+import { Play, Database, History, Settings, BarChart, Table as TableIcon, Terminal, Plus, Trash2, CheckCircle2, AlertCircle, Loader2, RefreshCw, ChevronRight, ChevronDown } from 'lucide-react';
+import { getDataSources, saveDataSource, deleteDataSource, testConnection, executeQuery, executeNaturalLanguageQuery, getDataSourceSchema, syncDataSourceSchema, updateColumnDescription } from '../modules/data-sources';
 import { toast } from 'sonner';
 
 export function SmartQueryWindow() {
-    const [activeTab, setActiveTab] = useState<'query' | 'history' | 'sources'>('query');
+    const [activeTab, setActiveTab] = useState<'query' | 'history' | 'sources' | 'structure'>('query');
     const [queryMode, setQueryMode] = useState<'sql' | 'nl'>('sql');
     const [query, setQuery] = useState('');
     const [results, setResults] = useState<any>(null);
@@ -25,6 +25,11 @@ export function SmartQueryWindow() {
     const [selectedDataSourceId, setSelectedDataSourceId] = useState<string>('');
     const [isAddSourceOpen, setIsAddSourceOpen] = useState(false);
     const [editingSource, setEditingSource] = useState<any>(null);
+
+    // Schema State
+    const [schema, setSchema] = useState<any[]>([]);
+    const [isLoadingSchema, setIsLoadingSchema] = useState(false);
+    const [expandedTables, setExpandedTables] = useState<Set<string>>(new Set());
 
     // Form State
     const [formData, setFormData] = useState({
@@ -44,6 +49,12 @@ export function SmartQueryWindow() {
         loadDataSources();
     }, []);
 
+    useEffect(() => {
+        if (activeTab === 'structure' && selectedDataSourceId) {
+            loadSchema(selectedDataSourceId);
+        }
+    }, [activeTab, selectedDataSourceId]);
+
     const loadDataSources = async () => {
         try {
             const sources = await getDataSources();
@@ -53,6 +64,58 @@ export function SmartQueryWindow() {
             }
         } catch (e) {
             console.error("Failed to load data sources", e);
+        }
+    };
+
+    const loadSchema = async (id: string) => {
+        setIsLoadingSchema(true);
+        try {
+            const data = await getDataSourceSchema(id);
+            setSchema(data);
+        } catch (e) {
+            toast.error("Failed to load schema");
+        } finally {
+            setIsLoadingSchema(false);
+        }
+    };
+
+    const handleSyncSchema = async () => {
+        if (!selectedDataSourceId) return;
+        setIsLoadingSchema(true);
+        try {
+            await syncDataSourceSchema(selectedDataSourceId);
+            await loadSchema(selectedDataSourceId);
+            toast.success("Schema synced successfully");
+        } catch (e) {
+            toast.error("Failed to sync schema");
+        } finally {
+            setIsLoadingSchema(false);
+        }
+    };
+
+    const toggleTable = (tableId: string) => {
+        const newExpanded = new Set(expandedTables);
+        if (newExpanded.has(tableId)) {
+            newExpanded.delete(tableId);
+        } else {
+            newExpanded.add(tableId);
+        }
+        setExpandedTables(newExpanded);
+    };
+
+    const handleDescriptionChange = async (columnId: string, description: string) => {
+        try {
+            await updateColumnDescription(columnId, description);
+            // Update local state without reload
+             setSchema(prev => prev.map(table => ({
+                ...table,
+                columns: table.columns.map((col: any) => 
+                    col.id === columnId ? { ...col, description } : col
+                )
+            })));
+            toast.success("Description updated");
+        } catch (e) {
+            toast.error("Failed to update description");
         }
     };
 
@@ -208,6 +271,15 @@ export function SmartQueryWindow() {
                     <Database className="w-4 h-4" />
                     Data Sources
                 </Button>
+                <Button 
+                    variant={activeTab === 'structure' ? 'secondary' : 'ghost'} 
+                    size="sm"
+                    onClick={() => setActiveTab('structure')}
+                    className="gap-2"
+                >
+                    <TableIcon className="w-4 h-4" />
+                    Structure
+                </Button>
             </div>
 
             {/* Content */}
@@ -340,6 +412,101 @@ export function SmartQueryWindow() {
                             {dataSources.length === 0 && (
                                 <div className="text-center py-8 text-muted-foreground border border-dashed rounded-lg">
                                     No data sources configured. Add one to get started.
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
+
+                {activeTab === 'structure' && (
+                    <div className="flex flex-col h-full gap-4">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <Label>Source:</Label>
+                                <Select value={selectedDataSourceId} onValueChange={setSelectedDataSourceId}>
+                                    <SelectTrigger className="w-[200px] h-8">
+                                        <SelectValue placeholder="Select Data Source" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {dataSources.map(ds => (
+                                            <SelectItem key={ds.id} value={ds.id}>{ds.name} ({ds.type})</SelectItem>
+                                        ))}
+                                        {dataSources.length === 0 && (
+                                            <div className="p-2 text-xs text-muted-foreground text-center">No sources configured</div>
+                                        )}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <Button size="sm" onClick={handleSyncSchema} disabled={isLoadingSchema} className="gap-2">
+                                <RefreshCw className={`w-3 h-3 ${isLoadingSchema ? 'animate-spin' : ''}`} />
+                                Sync Structure
+                            </Button>
+                        </div>
+                        
+                        <div className="flex-1 border rounded-md overflow-auto bg-muted/10 p-2">
+                            {isLoadingSchema ? (
+                                <div className="flex items-center justify-center h-full">
+                                    <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                                </div>
+                            ) : schema.length === 0 ? (
+                                <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-2">
+                                    <p>No structure data available.</p>
+                                    <Button variant="outline" size="sm" onClick={handleSyncSchema}>Sync Now</Button>
+                                </div>
+                            ) : (
+                                <div className="space-y-2">
+                                    {schema.map(table => (
+                                        <Card key={table.id} className="overflow-hidden">
+                                            <div 
+                                                className="p-3 flex items-center gap-2 cursor-pointer hover:bg-muted/50"
+                                                onClick={() => toggleTable(table.id)}
+                                            >
+                                                {expandedTables.has(table.id) ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                                                <TableIcon className="w-4 h-4 text-blue-500" />
+                                                <span className="font-medium">{table.name}</span>
+                                                <span className="text-xs text-muted-foreground ml-auto">{table.columns.length} columns</span>
+                                            </div>
+                                            
+                                            {expandedTables.has(table.id) && (
+                                                <div className="border-t bg-background p-2">
+                                                    <table className="w-full text-sm">
+                                                        <thead>
+                                                            <tr className="text-xs text-muted-foreground border-b">
+                                                                <th className="text-left py-2 px-2">Column</th>
+                                                                <th className="text-left py-2 px-2">Type</th>
+                                                                <th className="text-left py-2 px-2">Description</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            {table.columns.map((col: any) => (
+                                                                <tr key={col.id} className="border-b last:border-0 hover:bg-muted/10">
+                                                                    <td className="py-2 px-2">
+                                                                        <div className="flex items-center gap-2">
+                                                                            {col.isPrimaryKey && <div className="text-[10px] bg-yellow-100 text-yellow-800 px-1 rounded">PK</div>}
+                                                                            {col.name}
+                                                                        </div>
+                                                                    </td>
+                                                                    <td className="py-2 px-2 text-muted-foreground font-mono text-xs">{col.type}</td>
+                                                                    <td className="py-2 px-2">
+                                                                        <input 
+                                                                            className="w-full bg-transparent border-none focus:ring-0 p-0 text-sm placeholder:text-muted-foreground/50"
+                                                                            placeholder="Add description..."
+                                                                            defaultValue={col.description || ''}
+                                                                            onBlur={(e) => {
+                                                                                if (e.target.value !== (col.description || '')) {
+                                                                                    handleDescriptionChange(col.id, e.target.value);
+                                                                                }
+                                                                            }}
+                                                                        />
+                                                                    </td>
+                                                                </tr>
+                                                            ))}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            )}
+                                        </Card>
+                                    ))}
                                 </div>
                             )}
                         </div>
