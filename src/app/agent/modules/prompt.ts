@@ -1,11 +1,4 @@
-export function generateSystemPrompt(conversation: any, context?: { browserSessionId?: string }) {
-    // 4. Prepare Tools
-    // We inject tool descriptions into the system prompt as requested.
-    // Format:
-    // Tool Name: [name]
-    // Description: [desc]
-    // Inputs: [json inputs]
-    
+export function getToolDefinitions(conversation?: any, context?: { browserSessionId?: string }) {
     let toolPromptSection = "\n\n# AVAILABLE TOOLS\n\n";
 
     // 1. Built-in Tools
@@ -164,11 +157,26 @@ export function generateSystemPrompt(conversation: any, context?: { browserSessi
     }
 
     // 2. User Enabled Tools
-    conversation.tools.forEach((t: any) => {
-        toolPromptSection += `## ${t.tool.name} (ID: ${t.tool.id})\n`;
-        toolPromptSection += `Description: ${t.tool.description || 'No description'}\n`;
-        toolPromptSection += `Inputs: ${JSON.stringify(t.tool.inputs)}\n\n`;
-    });
+    if (conversation?.tools) {
+        conversation.tools.forEach((t: any) => {
+            toolPromptSection += `## ${t.tool.name} (ID: ${t.tool.id})\n`;
+            toolPromptSection += `Description: ${t.tool.description || 'No description'}\n`;
+            toolPromptSection += `Inputs: ${JSON.stringify(t.tool.inputs)}\n\n`;
+        });
+    }
+
+    return toolPromptSection;
+}
+
+export function generateSystemPrompt(conversation: any, context?: { browserSessionId?: string }) {
+    // 4. Prepare Tools
+    // We inject tool descriptions into the system prompt as requested.
+    // Format:
+    // Tool Name: [name]
+    // Description: [desc]
+    // Inputs: [json inputs]
+    
+    const toolPromptSection = getToolDefinitions(conversation, context);
 
     // 5. Prepare Files Context
     // We inject a list of available files

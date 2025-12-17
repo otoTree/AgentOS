@@ -34,7 +34,7 @@ export async function sendMessage(conversationId: string, message: string, conte
     return { status: 'queued' };
 }
 
-async function processAgentResponse(conversationId: string, userId: string, message: string, context?: { browserSessionId?: string }) {
+export async function processAgentResponse(conversationId: string, userId: string, message: string, context?: { browserSessionId?: string }) {
     // 2. Get Conversation Context
     const conversation = await prisma.agentConversation.findUnique({
         where: { id: conversationId },

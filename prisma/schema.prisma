@@ -377,6 +377,8 @@ model SopWorkflow {
   
   executions  SopExecution[]
   
+  deployed    Boolean  @default(false)
+
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -386,8 +388,8 @@ model SopWorkflow {
 model SopExecution {
   id          String   @id @default(cuid())
   
-  workflowId  String
-  workflow    SopWorkflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  workflowId  String?
+  workflow    SopWorkflow? @relation(fields: [workflowId], references: [id], onDelete: Cascade)
   
   userId      String
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)

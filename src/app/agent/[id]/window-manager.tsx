@@ -12,10 +12,11 @@ import { EmailClient } from './email-client';
 import { TableManager } from '@/components/konva-table';
 import ClientEditor from '@/app/project/[id]/client-editor';
 import { Loader2 } from 'lucide-react';
+import SOPAgentWindow from '../components/SOPAgentWindow';
 
 export interface ActiveWindow {
     id: string;
-    type: 'file-browser' | 'workbench' | 'editor' | 'browser' | 'email' | 'konva-table' | 'smart-query' | 'project-editor';
+    type: 'file-browser' | 'workbench' | 'editor' | 'browser' | 'email' | 'konva-table' | 'smart-query' | 'project-editor' | 'sop-agent';
     title: string;
     mode: WindowMode;
     data?: any;
@@ -115,6 +116,9 @@ export function WindowManager({ windows, onUpdateMode, onClose, onOpenWindow }: 
                     )}
                     {win.type === 'smart-query' && (
                         <SmartQueryWindow />
+                    )}
+                    {win.type === 'sop-agent' && (
+                        <SOPAgentWindow />
                     )}
                     {win.type === 'editor' && (
                         <WindowedFileEditor file={win.data} />
