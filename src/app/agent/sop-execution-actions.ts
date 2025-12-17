@@ -236,3 +236,44 @@ Please execute the instructions in the prompt below.`;
         throw new Error("Failed to execute step: " + error.message);
     }
 }
+
+export async function finishSopExecution(executionId: string, deliverables: any) {
+    const session = await auth();
+    if (!session?.user?.id) throw new Error("Not authenticated");
+
+    await prisma.sopExecution.update({
+        where: { id: executionId },
+        data: {
+            status: "COMPLETED",
+            deliverables: deliverables
+        }
+    });
+}
+
+export async function getSopExecutions(workflowId: string) {
+    const session = await auth();
+    if (!session?.user?.id) throw new Error("Not authenticated");
+
+    return await prisma.sopExecution.findMany({
+        where: { 
+            workflowId,
+            userId: session.user.id
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 20 // Limit to recent 20
+    });
+}
+
+export async function getSopExecution(executionId: string) {
+    const session = await auth();
+    if (!session?.user?.id) throw new Error("Not authenticated");
+
+    return await prisma.sopExecution.findUnique({
+        where: { id: executionId },
+        include: {
+            tasks: {
+                orderBy: { createdAt: 'asc' }
+            }
+        }
+    });
+}

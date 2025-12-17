@@ -5,7 +5,7 @@ import { toast } from 'sonner';
 import { generateSopSequence } from '@/lib/ai/ai-sop';
 import { modifySop } from '../sop-actions';
 import { SOPSequence, SOPStep, SavedSop, StepStatus } from '@/lib/ai/sop-types';
-import { startSopExecution, executeSopStep } from '../sop-execution-actions';
+import { startSopExecution, executeSopStep, finishSopExecution } from '../sop-execution-actions';
 import { useChatStore } from '../store/useChatStore';
 
 // Components
@@ -181,6 +181,8 @@ export default function SOPAgentWindow() {
         setIsRunningAll(true);
         isRunningAllRef.current = true;
         
+        const outputs: Record<string, string> = {...stepOutputs};
+
         try {
             // Ensure Execution ID first
             let currentExecId = executionId;
@@ -197,13 +199,15 @@ export default function SOPAgentWindow() {
             for (const step of stepsToRun) {
                 if (!isRunningAllRef.current) break; // User stopped?
 
-                await executeStepInternal(step, currentExecId!);
+                const output = await executeStepInternal(step, currentExecId!);
+                outputs[step.id] = output;
                 
                 // Small delay for UI
                 await new Promise(r => setTimeout(r, 500));
             }
 
             if (isRunningAllRef.current) {
+                await finishSopExecution(currentExecId!, outputs);
                 toast.success("All steps completed");
             }
         } catch (e) {
@@ -246,6 +250,7 @@ export default function SOPAgentWindow() {
             // Auto expand to show result
             setExpandedSteps(prev => ({ ...prev, [step.id]: true }));
 
+            return result.output;
         } catch (e: any) {
             console.error(e);
             setStatus(prev => ({ ...prev, [step.id]: 'pending' })); 
@@ -383,6 +388,7 @@ export default function SOPAgentWindow() {
                     ) : (
                         <SOPPlanView 
                             sequence={sequence}
+                            currentSopId={currentSopId}
                             status={status}
                             stepOutputs={stepOutputs}
                             expandedSteps={expandedSteps}

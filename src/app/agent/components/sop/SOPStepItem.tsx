@@ -14,6 +14,7 @@ interface SOPStepItemProps {
     onEdit: (step: SOPStep) => void;
     onDelete: (id: string) => void;
     isRunningAll: boolean;
+    readOnly?: boolean;
 }
 
 export function SOPStepItem({
@@ -26,7 +27,8 @@ export function SOPStepItem({
     onExecute,
     onEdit,
     onDelete,
-    isRunningAll
+    isRunningAll,
+    readOnly = false
 }: SOPStepItemProps) {
     const isRunning = status === 'running';
     const isCompleted = status === 'completed';
@@ -90,34 +92,36 @@ export function SOPStepItem({
                     )}
                 </div>
 
-                <div className="flex items-center gap-2">
-                    {!isRunning && (
-                        <>
-                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onEdit(step)}>
-                                <Edit className="w-4 h-4" />
+                {!readOnly && (
+                    <div className="flex items-center gap-2">
+                        {!isRunning && (
+                            <>
+                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onEdit(step)}>
+                                    <Edit className="w-4 h-4" />
+                                </Button>
+                                <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-destructive" onClick={() => onDelete(step.id)}>
+                                    <Trash2 className="w-4 h-4" />
+                                </Button>
+                            </>
+                        )}
+                        {!isCompleted && !isRunning && (
+                            <Button size="sm" onClick={() => onExecute(step)} disabled={isRunningAll}>
+                                <Play className="w-3 h-3 mr-2" />
+                                Run
                             </Button>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-destructive" onClick={() => onDelete(step.id)}>
-                                <Trash2 className="w-4 h-4" />
+                        )}
+                        {isRunning && (
+                            <Button size="sm" disabled variant="secondary">
+                                Running...
                             </Button>
-                        </>
-                    )}
-                    {!isCompleted && !isRunning && (
-                        <Button size="sm" onClick={() => onExecute(step)} disabled={isRunningAll}>
-                            <Play className="w-3 h-3 mr-2" />
-                            Run
-                        </Button>
-                    )}
-                    {isRunning && (
-                        <Button size="sm" disabled variant="secondary">
-                            Running...
-                        </Button>
-                    )}
-                    {isCompleted && (
-                        <Button size="sm" variant="ghost" onClick={() => onExecute(step)} disabled={isRunningAll}>
-                            Rerun
-                        </Button>
-                    )}
-                </div>
+                        )}
+                        {isCompleted && (
+                            <Button size="sm" variant="ghost" onClick={() => onExecute(step)} disabled={isRunningAll}>
+                                Rerun
+                            </Button>
+                        )}
+                    </div>
+                )}
             </div>
         </div>
     );

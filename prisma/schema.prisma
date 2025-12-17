@@ -399,6 +399,9 @@ model SopExecution {
   // The Blackboard: Global variables and task outputs
   context     Json     @default("{}") 
   
+  // Deliverables: Final artifacts or outputs
+  deliverables Json?   @default("{}")
+
   // Current node ID being executed
   currentNodeId String?
   
