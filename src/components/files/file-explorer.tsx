@@ -11,7 +11,7 @@ import { FolderDialog } from "./folder-dialog";
 import { CreateFileDialog } from "./create-file-dialog";
 import { FilePreviewDialog } from "./file-preview-dialog";
 import { useSearchParams, useRouter } from "next/navigation";
-import { ArrowLeft, Grid, List, Plus } from "lucide-react";
+import { ArrowLeft, Grid, List, Plus, ChevronRight, Upload } from "lucide-react";
 
 export function FileExplorer({ 
     initialSearch,
@@ -116,86 +116,91 @@ export function FileExplorer({
   };
 
   return (
-    <div className="h-full flex flex-col gap-4">
-      {/* Toolbar */}
-      <div className="flex flex-wrap gap-4 justify-between items-center bg-card p-2 rounded-lg border">
-        <div className="flex items-center gap-2 overflow-hidden">
-             {/* Navigation Controls */}
-             <button 
-                onClick={() => handleNavigate(breadcrumbs.length > 1 ? breadcrumbs[breadcrumbs.length - 2].id : null)}
-                disabled={!currentFolderId}
-                className="p-2 hover:bg-muted rounded disabled:opacity-30"
-             >
-                 <ArrowLeft className="w-5 h-5" />
-             </button>
-             
-             {/* Breadcrumbs */}
-             <div className="flex items-center text-sm font-medium overflow-x-auto whitespace-nowrap no-scrollbar">
-                 <button 
-                    onClick={() => handleNavigate(null)}
-                    className={`hover:bg-muted px-2 py-1 rounded ${!currentFolderId ? 'text-primary font-bold' : 'text-muted-foreground'}`}
-                 >
-                     Home
-                 </button>
-                 {breadcrumbs.map((crumb, index) => (
-                     <div key={crumb.id} className="flex items-center">
-                         <span className="text-muted-foreground mx-1">/</span>
-                         <button 
-                            onClick={() => handleNavigate(crumb.id)}
-                            className={`hover:bg-muted px-2 py-1 rounded ${index === breadcrumbs.length - 1 ? 'text-primary font-bold' : 'text-muted-foreground'}`}
-                         >
-                             {crumb.name}
-                         </button>
-                     </div>
-                 ))}
-             </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-             {/* View Toggles */}
-             <div className="flex bg-muted p-1 rounded-md">
-                 <button 
-                    onClick={() => setViewMode('grid')}
-                    className={`p-1.5 rounded ${viewMode === 'grid' ? 'bg-background shadow-sm' : 'hover:bg-background/50'}`}
-                    title="Grid View"
+    <div className="h-full flex flex-col gap-6">
+      {/* Header Area */}
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-wrap gap-4 justify-between items-center">
+            {/* Breadcrumbs & Navigation */}
+            <div className="flex items-center gap-3 overflow-hidden">
+                <button 
+                    onClick={() => handleNavigate(breadcrumbs.length > 1 ? breadcrumbs[breadcrumbs.length - 2].id : null)}
+                    disabled={!currentFolderId}
+                    className="p-1.5 hover:bg-zinc-100 rounded-md disabled:opacity-30 transition-colors text-zinc-500"
                 >
-                    <Grid className="w-4 h-4" />
+                    <ArrowLeft className="w-5 h-5" strokeWidth={1.5} />
                 </button>
+                
+                <div className="flex items-center text-sm overflow-x-auto whitespace-nowrap no-scrollbar">
+                    <button 
+                        onClick={() => handleNavigate(null)}
+                        className={`hover:bg-zinc-100 px-2 py-1 rounded-md transition-colors ${!currentFolderId ? 'text-zinc-900 font-medium' : 'text-zinc-500'}`}
+                    >
+                        Home
+                    </button>
+                    {breadcrumbs.map((crumb, index) => (
+                        <div key={crumb.id} className="flex items-center">
+                            <ChevronRight className="w-4 h-4 text-zinc-300 mx-0.5" />
+                            <button 
+                                onClick={() => handleNavigate(crumb.id)}
+                                className={`hover:bg-zinc-100 px-2 py-1 rounded-md transition-colors ${index === breadcrumbs.length - 1 ? 'text-zinc-900 font-medium' : 'text-zinc-500'}`}
+                            >
+                                {crumb.name}
+                            </button>
+                        </div>
+                    ))}
+                </div>
+            </div>
+
+            {/* Actions */}
+            <div className="flex items-center gap-3">
+                <SearchBar initialSearch={search} onSearch={(val) => setSearch(val)} />
+                
+                {/* View Toggle */}
+                <div className="flex bg-zinc-100 p-1 rounded-lg">
+                    <button 
+                        onClick={() => setViewMode('grid')}
+                        className={`p-1.5 rounded-md transition-all ${viewMode === 'grid' ? 'bg-white shadow-sm text-zinc-900' : 'text-zinc-400 hover:text-zinc-600'}`}
+                        title="Grid View"
+                    >
+                        <Grid className="w-4 h-4" strokeWidth={1.5} />
+                    </button>
+                    <button
+                    onClick={() => setViewMode('list')}
+                    className={`p-1.5 rounded-md transition-all ${viewMode === 'list' ? 'bg-white shadow-sm text-zinc-900' : 'text-zinc-400 hover:text-zinc-600'}`}
+                    title="List View"
+                    >
+                        <List className="w-4 h-4" strokeWidth={1.5} />
+                    </button>
+                </div>
+                
+                <div className="h-6 w-px bg-zinc-200 mx-1"></div>
+
                 <button
-                   onClick={() => setViewMode('list')}
-                   className={`p-1.5 rounded ${viewMode === 'list' ? 'bg-background shadow-sm' : 'hover:bg-background/50'}`}
-                   title="List View"
+                    onClick={() => setIsCreateFileOpen(true)}
+                    className="px-3 py-2 rounded-lg text-sm font-medium flex items-center gap-2 hover:bg-zinc-100 text-zinc-600 transition-colors"
                 >
-                    <List className="w-4 h-4" />
+                    <Plus className="w-4 h-4" /> File
                 </button>
-             </div>
-             
-             <button
-                onClick={() => setIsCreateFileOpen(true)}
-                className="bg-secondary hover:bg-secondary/80 text-secondary-foreground px-3 py-2 rounded text-sm font-medium flex items-center gap-2"
-             >
-                 <Plus className="w-4 h-4" /> File
-             </button>
 
-             <button
-                onClick={() => setIsCreateFolderOpen(true)}
-                className="bg-secondary hover:bg-secondary/80 text-secondary-foreground px-3 py-2 rounded text-sm font-medium flex items-center gap-2"
-             >
-                 <Plus className="w-4 h-4" /> Folder
-             </button>
-             
-             <FileUploader folderId={currentFolderId} onUploadComplete={handleFileUploaded} />
+                <button
+                    onClick={() => setIsCreateFolderOpen(true)}
+                    className="px-3 py-2 rounded-lg text-sm font-medium flex items-center gap-2 hover:bg-zinc-100 text-zinc-600 transition-colors"
+                >
+                    <Plus className="w-4 h-4" /> Folder
+                </button>
+                
+                <div className="ml-1">
+                    <FileUploader folderId={currentFolderId} onUploadComplete={handleFileUploaded} />
+                </div>
+            </div>
         </div>
       </div>
 
-      {/* Search */}
-      <SearchBar initialSearch={search} onSearch={(val) => setSearch(val)} />
-
       {/* Main Content */}
-      <div className="flex-1 min-h-0 bg-card rounded-lg border p-4 overflow-y-auto">
+      <div className="flex-1 min-h-0 bg-white/50 rounded-xl overflow-y-auto">
           {isLoading ? (
-              <div className="flex items-center justify-center h-full text-muted-foreground">
-                  Loading...
+              <div className="flex items-center justify-center h-full text-zinc-400">
+                  <div className="animate-pulse">Loading...</div>
               </div>
           ) : (
               viewMode === 'grid' ? (
@@ -204,6 +209,7 @@ export function FileExplorer({
                     folders={folders} 
                     onNavigate={handleNavigate}
                     onRefresh={loadData}
+                    onFileOpen={onFileOpen}
                   />
               ) : (
                   <FileList 
@@ -211,6 +217,7 @@ export function FileExplorer({
                     folders={folders} 
                     onNavigate={handleNavigate}
                     onRefresh={loadData}
+                    onFileOpen={onFileOpen}
                   />
               )
           )}

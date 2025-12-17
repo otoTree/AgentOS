@@ -43,7 +43,7 @@ export function FileUploader({ folderId, onUploadComplete }: { folderId?: string
       />
       <label
         htmlFor="file-upload"
-        className={`cursor-pointer inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-black bg-primary hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary ${
+        className={`cursor-pointer inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg shadow-sm text-white bg-zinc-900 hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-zinc-900 transition-colors ${
           uploading ? "opacity-50 cursor-not-allowed" : ""
         }`}
       >

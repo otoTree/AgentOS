@@ -8,6 +8,7 @@ export interface ThemeColors {
   mutedForeground: string;
   primary: string;
   selection: string;
+  selectionBackground: string;
   gridLines: string;
 }
 
@@ -20,6 +21,7 @@ export function useThemeColors() {
     mutedForeground: '#71717a',
     primary: '#18181b',
     selection: '#3b82f6',
+    selectionBackground: 'rgba(59, 130, 246, 0.1)',
     gridLines: '#e4e4e7',
   });
 
@@ -29,7 +31,14 @@ export function useThemeColors() {
       
       const getVal = (variable: string, fallback: string) => {
         const val = computedStyle.getPropertyValue(variable);
-        return val ? `hsl(${val.trim()})` : fallback;
+        // Check if the value is likely OKLCH (numbers only) or HSL
+        // But based on globals.css, we are using OKLCH numbers
+        return val ? `oklch(${val.trim()})` : fallback;
+      };
+
+      const getValWithOpacity = (variable: string, opacity: number, fallback: string) => {
+        const val = computedStyle.getPropertyValue(variable);
+        return val ? `oklch(${val.trim()} / ${opacity})` : fallback;
       };
 
       setColors({
@@ -39,7 +48,8 @@ export function useThemeColors() {
         muted: getVal('--muted', '#f4f4f5'),
         mutedForeground: getVal('--muted-foreground', '#71717a'),
         primary: getVal('--primary', '#18181b'),
-        selection: getVal('--ring', '#3b82f6'), // Using ring color for selection focus
+        selection: getVal('--ring', '#3b82f6'),
+        selectionBackground: getValWithOpacity('--ring', 0.1, 'rgba(59, 130, 246, 0.1)'),
         gridLines: getVal('--border', '#e4e4e7'),
       });
     };

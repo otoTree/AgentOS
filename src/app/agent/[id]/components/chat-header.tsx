@@ -1,5 +1,6 @@
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Folder, Mail, Globe, AppWindow } from 'lucide-react';
+import { Folder, Mail, Globe, AppWindow, Settings, Trash2, Box, Wrench } from 'lucide-react';
+import { Button } from "@/components/ui/button";
 
 interface ChatHeaderProps {
   title: string;
@@ -21,25 +22,42 @@ export function ChatHeader({
   browserState
 }: ChatHeaderProps) {
   return (
-    <div className="p-4 border-b flex items-center justify-between bg-card/50 backdrop-blur-sm absolute top-0 left-0 right-0 z-10">
-        <div>
-            <h1 className="font-semibold">{title}</h1>
-            <p className="text-xs text-muted-foreground">{toolsCount} tools enabled</p>
+    <div className="absolute top-0 left-0 right-0 z-10 px-6 py-4 flex items-center justify-between bg-white/80 backdrop-blur-md border-b border-black/5 transition-all">
+        <div className="flex flex-col">
+            <h1 className="font-serif font-medium text-lg text-black tracking-tight">{title || "Untitled Conversation"}</h1>
+            <div className="flex items-center gap-2 mt-0.5">
+              <span className="flex h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
+              <p className="text-[10px] uppercase tracking-widest text-black/40 font-medium">{toolsCount} Active Tools</p>
+            </div>
         </div>
-        <div className="flex gap-2">
-             <div className="w-px h-4 bg-border mx-1 self-center" />
-             <button
+        <div className="flex items-center gap-2">
+             <Button
+                variant="ghost"
+                size="sm"
                 onClick={onLoadTools}
-                className="text-xs px-3 py-1.5 bg-secondary text-secondary-foreground rounded-md hover:bg-secondary/80 transition-colors"
+                className="h-8 gap-2 text-black/60 hover:text-black hover:bg-black/5 rounded-full text-xs font-medium px-3"
              >
-                Manage Context
-             </button>
-             <button
-                onClick={onDelete}
-                className="text-xs px-3 py-1.5 text-destructive hover:bg-destructive/10 rounded-md transition-colors"
-             >
-                Delete
-             </button>
+                <Wrench className="w-3.5 h-3.5" />
+                Context
+             </Button>
+             
+             <div className="w-px h-4 bg-black/10 mx-1" />
+             
+             <TooltipProvider>
+               <Tooltip>
+                 <TooltipTrigger asChild>
+                   <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={onDelete}
+                      className="h-8 w-8 text-black/40 hover:text-red-600 hover:bg-red-50 rounded-full transition-colors"
+                   >
+                      <Trash2 className="w-4 h-4" />
+                   </Button>
+                 </TooltipTrigger>
+                 <TooltipContent>Delete Conversation</TooltipContent>
+               </Tooltip>
+             </TooltipProvider>
         </div>
     </div>
   );

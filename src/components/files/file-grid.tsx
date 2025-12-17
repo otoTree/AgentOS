@@ -101,12 +101,12 @@ export function FileGrid({ files, folders, onNavigate, onRefresh, onFileOpen }: 
 
   return (
     <>
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
         {/* Folders */}
         {folders.map((folder) => (
           <div 
             key={folder.id} 
-            className={`group border rounded-lg p-4 flex flex-col gap-2 hover:shadow-md transition-shadow bg-card cursor-pointer relative ${draggedId === folder.id ? 'opacity-50' : ''}`}
+            className={`group relative flex flex-col items-center p-6 rounded-xl transition-all duration-300 hover:shadow-lg cursor-pointer bg-white border border-transparent hover:border-black/5 ${draggedId === folder.id ? 'opacity-50' : ''}`}
             onClick={() => onNavigate(folder.id)}
             draggable
             onDragStart={(e) => {
@@ -121,8 +121,8 @@ export function FileGrid({ files, folders, onNavigate, onRefresh, onFileOpen }: 
                 handleDrop(folder.id);
             }}
           >
-            <div className="flex items-center justify-center h-24 bg-blue-50 dark:bg-blue-900/20 rounded mb-2 text-blue-500">
-               <Folder className="w-12 h-12" />
+            <div className="flex items-center justify-center w-16 h-16 bg-zinc-50 rounded-2xl mb-4 text-zinc-400 group-hover:text-zinc-600 transition-colors">
+               <Folder className="w-8 h-8" strokeWidth={1.5} />
             </div>
             
             {editingId === folder.id ? (
@@ -132,22 +132,22 @@ export function FileGrid({ files, folders, onNavigate, onRefresh, onFileOpen }: 
                     onChange={(e) => setEditName(e.target.value)}
                     onBlur={() => handleRename('folder')}
                     onKeyDown={(e) => e.key === 'Enter' && handleRename('folder')}
-                    className="text-center border rounded px-1 text-sm w-full"
+                    className="text-center border-b border-black outline-none px-1 text-sm w-full bg-transparent"
                     autoFocus
                     onClick={(e) => e.stopPropagation()}
                 />
             ) : (
-                <div className="font-medium truncate text-center text-sm" title={folder.name}>{folder.name}</div>
+                <div className="font-medium truncate text-center text-sm text-zinc-900 w-full" title={folder.name}>{folder.name}</div>
             )}
             
-            <div className="text-xs text-muted-foreground text-center">
+            <div className="text-xs text-zinc-400 text-center mt-1">
                 {folder._count?.files || 0} files
             </div>
 
             {/* Hover Actions */}
-            <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1 bg-background/80 rounded shadow-sm" onClick={(e) => e.stopPropagation()}>
-                <button onClick={() => startRename(folder.id, folder.name)} className="p-1 hover:bg-muted rounded text-xs" title="Rename"><Pencil className="w-3.5 h-3.5" /></button>
-                <button onClick={() => handleDeleteFolder(folder)} className="p-1 hover:bg-destructive hover:text-destructive-foreground rounded text-xs" title="Delete"><Trash2 className="w-3.5 h-3.5" /></button>
+            <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1 bg-white/90 backdrop-blur-sm rounded-lg shadow-sm border border-zinc-100 p-1" onClick={(e) => e.stopPropagation()}>
+                <button onClick={() => startRename(folder.id, folder.name)} className="p-1.5 hover:bg-zinc-100 rounded-md text-zinc-500 hover:text-zinc-900 transition-colors" title="Rename"><Pencil className="w-3.5 h-3.5" /></button>
+                <button onClick={() => handleDeleteFolder(folder)} className="p-1.5 hover:bg-red-50 hover:text-red-600 rounded-md text-zinc-500 transition-colors" title="Delete"><Trash2 className="w-3.5 h-3.5" /></button>
             </div>
           </div>
         ))}
@@ -156,7 +156,7 @@ export function FileGrid({ files, folders, onNavigate, onRefresh, onFileOpen }: 
         {files.map((file) => (
           <div 
             key={file.id} 
-            className={`group border rounded-lg p-4 flex flex-col gap-2 hover:shadow-md transition-shadow bg-card relative ${draggedId === file.id ? 'opacity-50' : ''}`}
+            className={`group relative flex flex-col items-center p-6 rounded-xl transition-all duration-300 hover:shadow-lg bg-white border border-transparent hover:border-black/5 ${draggedId === file.id ? 'opacity-50' : ''}`}
             draggable
             onDragStart={(e) => {
                 setDraggedId(file.id);
@@ -164,12 +164,10 @@ export function FileGrid({ files, folders, onNavigate, onRefresh, onFileOpen }: 
                 e.dataTransfer.setData('text/plain', file.id);
             }}
           >
-            <div className="flex items-center justify-center h-24 bg-muted rounded mb-2 cursor-pointer" onClick={() => onFileOpen ? onFileOpen(file) : setPreviewFile(file)}>
-              <span className="text-4xl text-muted-foreground">
-                 {file.mimeType.startsWith("image/") ? <ImageIcon className="w-10 h-10" /> :
-                  file.mimeType === "application/pdf" ? <FileText className="w-10 h-10" /> :
-                  <FileIcon className="w-10 h-10" />}
-              </span>
+            <div className="flex items-center justify-center w-16 h-16 bg-zinc-50 rounded-2xl mb-4 text-zinc-400 group-hover:text-zinc-600 transition-colors cursor-pointer" onClick={() => onFileOpen ? onFileOpen(file) : setPreviewFile(file)}>
+               {file.mimeType.startsWith("image/") ? <ImageIcon className="w-8 h-8" strokeWidth={1.5} /> :
+                file.mimeType === "application/pdf" ? <FileText className="w-8 h-8" strokeWidth={1.5} /> :
+                <FileIcon className="w-8 h-8" strokeWidth={1.5} />}
             </div>
             
             {editingId === file.id ? (
@@ -179,31 +177,35 @@ export function FileGrid({ files, folders, onNavigate, onRefresh, onFileOpen }: 
                     onChange={(e) => setEditName(e.target.value)}
                     onBlur={() => handleRename('file')}
                     onKeyDown={(e) => e.key === 'Enter' && handleRename('file')}
-                    className="text-center border rounded px-1 text-sm w-full"
+                    className="text-center border-b border-black outline-none px-1 text-sm w-full bg-transparent"
                     autoFocus
                 />
             ) : (
-                <div className="font-medium truncate text-center text-sm" title={file.name}>{file.name}</div>
+                <div className="font-medium truncate text-center text-sm text-zinc-900 w-full" title={file.name}>{file.name}</div>
             )}
 
-            <div className="text-xs text-muted-foreground text-center">
+            <div className="text-xs text-zinc-400 text-center mt-1">
               {(file.size / 1024).toFixed(1)} KB
             </div>
             
             {/* Hover Actions */}
-             <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1 bg-background/80 rounded shadow-sm">
-                <button onClick={() => onFileOpen ? onFileOpen(file) : setPreviewFile(file)} className="p-1 hover:bg-muted rounded text-xs" title="Preview/Edit"><Eye className="w-3.5 h-3.5" /></button>
-                <button onClick={() => setShareFile(file)} className="p-1 hover:bg-muted rounded text-xs" title="Share"><Share2 className="w-3.5 h-3.5" /></button>
-                <button onClick={() => handleDownload(file)} className="p-1 hover:bg-muted rounded text-xs" title="Download"><Download className="w-3.5 h-3.5" /></button>
-                <button onClick={() => startRename(file.id, file.name)} className="p-1 hover:bg-muted rounded text-xs" title="Rename"><Pencil className="w-3.5 h-3.5" /></button>
-                <button onClick={() => handleDeleteFile(file)} className="p-1 hover:bg-destructive hover:text-destructive-foreground rounded text-xs" title="Delete"><Trash2 className="w-3.5 h-3.5" /></button>
+             <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1 bg-white/90 backdrop-blur-sm rounded-lg shadow-sm border border-zinc-100 p-1">
+                <button onClick={() => onFileOpen ? onFileOpen(file) : setPreviewFile(file)} className="p-1.5 hover:bg-zinc-100 rounded-md text-zinc-500 hover:text-zinc-900 transition-colors" title="Preview/Edit"><Eye className="w-3.5 h-3.5" /></button>
+                <button onClick={() => setShareFile(file)} className="p-1.5 hover:bg-zinc-100 rounded-md text-zinc-500 hover:text-zinc-900 transition-colors" title="Share"><Share2 className="w-3.5 h-3.5" /></button>
+                <button onClick={() => handleDownload(file)} className="p-1.5 hover:bg-zinc-100 rounded-md text-zinc-500 hover:text-zinc-900 transition-colors" title="Download"><Download className="w-3.5 h-3.5" /></button>
+                <button onClick={() => startRename(file.id, file.name)} className="p-1.5 hover:bg-zinc-100 rounded-md text-zinc-500 hover:text-zinc-900 transition-colors" title="Rename"><Pencil className="w-3.5 h-3.5" /></button>
+                <button onClick={() => handleDeleteFile(file)} className="p-1.5 hover:bg-red-50 hover:text-red-600 rounded-md text-zinc-500 transition-colors" title="Delete"><Trash2 className="w-3.5 h-3.5" /></button>
             </div>
           </div>
         ))}
         
         {files.length === 0 && folders.length === 0 && (
-          <div className="col-span-full text-center text-muted-foreground py-12">
-            This folder is empty.
+          <div className="col-span-full flex flex-col items-center justify-center py-24 border border-dashed border-zinc-200 rounded-2xl bg-zinc-50/50">
+            <div className="w-12 h-12 bg-zinc-100 rounded-full flex items-center justify-center mb-4">
+                <Folder className="w-6 h-6 text-zinc-300" />
+            </div>
+            <p className="text-zinc-500 font-medium">This folder is empty</p>
+            <p className="text-sm text-zinc-400 mt-1">Upload files or create a folder to get started</p>
           </div>
         )}
       </div>

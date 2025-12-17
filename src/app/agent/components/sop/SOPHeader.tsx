@@ -1,6 +1,6 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
-import { Loader2, Wand2, Save, Play, Rocket, Sidebar as SidebarIcon } from 'lucide-react';
+import { Loader2, Wand2, Save, Play, Rocket, Sidebar as SidebarIcon, ChevronRight } from 'lucide-react';
 import { SOPSequence } from '@/lib/ai/sop-types';
 
 interface SOPHeaderProps {
@@ -27,36 +27,69 @@ export function SOPHeader({
     onDeployOpen
 }: SOPHeaderProps) {
     return (
-        <div className="p-4 border-b bg-muted/30 flex items-center justify-between shrink-0">
-            <div className="flex items-center gap-2">
-                <Button variant="ghost" size="icon" className="h-8 w-8 -ml-2" onClick={() => setIsSidebarOpen(!isSidebarOpen)}>
+        <div className="h-14 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 flex items-center justify-between px-4 shrink-0 z-10">
+            <div className="flex items-center gap-3 overflow-hidden">
+                <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-8 w-8 text-muted-foreground hover:text-foreground" 
+                    onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+                >
                     <SidebarIcon className="w-4 h-4" />
                 </Button>
-                <div className="flex flex-col">
-                    <div className="flex items-center gap-2 font-medium">
-                        <Wand2 className="w-4 h-4 text-primary" />
-                        SOP Agent
+                
+                <div className="flex items-center gap-2 text-sm overflow-hidden">
+                    <div className="flex items-center gap-2 font-semibold text-foreground shrink-0">
+                        <div className="w-6 h-6 rounded-md bg-primary/10 flex items-center justify-center">
+                            <Wand2 className="w-3.5 h-3.5 text-primary" />
+                        </div>
+                        <span className="hidden sm:inline">SOP Agent</span>
                     </div>
-                    <p className="text-xs text-muted-foreground hidden sm:block">
-                        {sequence ? sequence.title : "Create or load a Standard Operating Procedure"}
-                    </p>
+                    
+                    {sequence && (
+                        <>
+                            <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
+                            <span className="truncate font-medium text-muted-foreground">{sequence.title}</span>
+                        </>
+                    )}
                 </div>
             </div>
+
             <div className="flex items-center gap-2">
                  {sequence && (
-                    <Button variant="outline" size="sm" onClick={onSave} disabled={isSaving}>
-                        {isSaving ? <Loader2 className="w-3 h-3 animate-spin mr-2" /> : <Save className="w-3 h-3 mr-2" />}
-                        Save
-                    </Button>
+                    <>
+                        <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={onSave} 
+                            disabled={isSaving}
+                            className="h-8 text-xs"
+                        >
+                            {isSaving ? <Loader2 className="w-3 h-3 animate-spin mr-1.5" /> : <Save className="w-3 h-3 mr-1.5" />}
+                            Save
+                        </Button>
+                        <div className="w-px h-4 bg-border mx-1" />
+                        <Button 
+                            variant="default" 
+                            size="sm" 
+                            onClick={onRunAll} 
+                            disabled={isRunningAll} 
+                            className="h-8 text-xs shadow-sm"
+                        >
+                            {isRunningAll ? <Loader2 className="w-3 h-3 mr-1.5 animate-spin" /> : <Play className="w-3 h-3 mr-1.5" />}
+                            Run All
+                        </Button>
+                        <Button 
+                            variant={isDeployed ? "secondary" : "ghost"} 
+                            size="sm" 
+                            onClick={onDeployOpen} 
+                            className={`h-8 text-xs ${isDeployed ? 'text-green-600 bg-green-500/10 hover:bg-green-500/20' : ''}`}
+                        >
+                            <Rocket className={`w-3 h-3 mr-1.5 ${isDeployed ? 'text-green-600' : ''}`} />
+                            {isDeployed ? 'Deployed' : 'Deploy'}
+                        </Button>
+                    </>
                  )}
-                 <Button variant="ghost" size="sm" onClick={onRunAll} disabled={isRunningAll} title="Run All Steps">
-                    {isRunningAll ? <Loader2 className="w-3 h-3 mr-2 animate-spin" /> : <Play className="w-3 h-3 mr-2" />}
-                    Run
-                 </Button>
-                 <Button variant="ghost" size="sm" onClick={onDeployOpen} title="Deploy">
-                     <Rocket className={`w-3 h-3 mr-2 ${isDeployed ? 'text-green-500' : ''}`} />
-                     Deploy
-                 </Button>
             </div>
         </div>
     );

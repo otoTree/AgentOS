@@ -2,13 +2,13 @@
 
 import Editor, { OnMount } from "@monaco-editor/react";
 import { useRef, useState, useEffect } from "react";
-import { File } from "@prisma/client";
+import { FileWithShares } from "./types";
 import { Loader2, Save } from "lucide-react";
 import MDEditor from "@uiw/react-md-editor";
 import { toast } from "@/components/ui/sonner";
 
 interface FileEditorProps {
-  file: File;
+  file: FileWithShares;
   initialContent: string;
   onSave: (content: string) => Promise<void>;
   readOnly?: boolean;
@@ -80,20 +80,20 @@ export function FileEditor({ file, initialContent, onSave, readOnly = false }: F
   }, [content, isDirty, isSaving, readOnly]);
 
   return (
-    <div className="flex flex-col h-full w-full">
-      <div className="flex justify-between items-center px-4 py-2 bg-muted border-b">
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-mono bg-background px-2 py-1 rounded border">
+    <div className="flex flex-col h-full w-full bg-white">
+      <div className="flex justify-between items-center px-6 py-3 border-b border-zinc-100 bg-white">
+        <div className="flex items-center gap-3">
+          <span className="text-xs font-medium text-zinc-500 bg-zinc-100 px-2 py-1 rounded-md border border-zinc-200 uppercase tracking-wider">
             {language}
           </span>
-          {isDirty && <span className="text-xs text-amber-500 font-medium">● Unsaved changes</span>}
+          {isDirty && <span className="text-xs text-amber-600 font-medium flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span> Unsaved changes</span>}
         </div>
         <div className="flex items-center gap-2">
             {!readOnly && (
             <button
                 onClick={handleSave}
                 disabled={!isDirty || isSaving}
-                className="px-3 py-1 text-xs font-medium bg-primary text-primary-foreground rounded hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-2"
+                className="px-4 py-1.5 text-xs font-medium bg-zinc-900 text-white rounded-lg hover:bg-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-2 shadow-sm"
             >
                 {isSaving ? (
                 <>
@@ -109,45 +109,40 @@ export function FileEditor({ file, initialContent, onSave, readOnly = false }: F
         </div>
       </div>
       <div className="flex-1 overflow-hidden relative">
-        {isMarkdown ? (
-            <div className="h-full flex flex-col" data-color-mode="auto">
-                 <MDEditor
-                    value={content}
-                    onChange={(val) => {
-                        setContent(val || "");
-                        setIsDirty(val !== initialContent);
-                    }}
-                    height="100%"
-                    preview="live"
-                    hideToolbar={false}
-                    visibleDragbar={false}
-                    className="!border-none"
-                    style={{ height: '100%' }}
-                 />
-            </div>
-        ) : (
-            <Editor
-            height="100%"
-            defaultLanguage={language}
-            value={content}
-            onChange={(value) => {
-                setContent(value || "");
-                setIsDirty(value !== initialContent);
-            }}
-            onMount={handleEditorDidMount}
-            theme="vs-dark"
-            options={{
-                minimap: { enabled: false },
-                fontSize: 14,
-                lineHeight: 24,
-                wordWrap: "on",
-                readOnly: readOnly,
-                padding: { top: 16, bottom: 16 },
-                scrollBeyondLastLine: false,
-                automaticLayout: true,
-            }}
-            />
-        )}
+        <Editor
+          height="100%"
+          defaultLanguage={language}
+          language={language}
+          value={content}
+          onChange={(value) => {
+            setContent(value || "");
+            setIsDirty(true);
+          }}
+          theme="light"
+          options={{
+            minimap: { enabled: false },
+            fontSize: 14,
+            lineHeight: 24,
+            padding: { top: 24, bottom: 24 },
+            fontFamily: "'JetBrains Mono', 'Fira Code', Consolas, monospace",
+            fontLigatures: true,
+            scrollBeyondLastLine: false,
+            smoothScrolling: true,
+            cursorBlinking: "smooth",
+            cursorSmoothCaretAnimation: "on",
+            renderLineHighlight: "line",
+            readOnly: readOnly,
+            wordWrap: "on",
+            scrollbar: {
+                vertical: "visible",
+                horizontal: "visible",
+                verticalScrollbarSize: 10,
+                horizontalScrollbarSize: 10,
+                useShadows: false
+            }
+          }}
+          loading={<div className="flex items-center justify-center h-full text-zinc-400"><Loader2 className="w-5 h-5 animate-spin" /></div>}
+        />
       </div>
     </div>
   );

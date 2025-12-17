@@ -3,146 +3,76 @@
 @layer base {
   :root {
     /* 
-      Simple White Design System 
-      Based on HSL values for fine control.
+      Eastern Editorial Minimalism - OKLCH Color System
+      Base: Pure White + Pure Black
     */
-    
-    /* Base Colors - Ultra clean white background, deep crisp text */
-    --background: 0 0% 100%;
-    --foreground: 240 10% 3.9%;
+    --background: 1 0 0;
+    --foreground: 0 0 0;
 
-    /* Card Colors - Seamless integration with background, relying on shadows/borders */
-    --card: 0 0% 100%;
-    --card-foreground: 240 10% 3.9%;
+    --card: 1 0 0;
+    --card-foreground: 0 0 0;
 
-    /* Popover - Slight elevation */
-    --popover: 0 0% 100%;
-    --popover-foreground: 240 10% 3.9%;
+    --popover: 1 0 0;
+    --popover-foreground: 0 0 0;
 
-    /* Primary - Stark black for high contrast actions (Apple/Notion style) */
-    --primary: 240 5.9% 10%;
-    --primary-foreground: 0 0% 98%;
+    --primary: 0 0 0;
+    --primary-foreground: 1 0 0;
 
-    /* Secondary - Subtle gray for secondary actions */
-    --secondary: 240 4.8% 95.9%;
-    --secondary-foreground: 240 5.9% 10%;
+    --secondary: 0.985 0 0;
+    --secondary-foreground: 0 0 0;
 
-    /* Muted - For background areas/subtle text */
-    --muted: 240 4.8% 95.9%;
-    --muted-foreground: 240 3.8% 46.1%;
+    --muted: 0.985 0 0;
+    --muted-foreground: 0.55 0 0;
 
-    /* Accent - For hover states/selection */
-    --accent: 240 4.8% 95.9%;
-    --accent-foreground: 240 5.9% 10%;
+    --accent: 0.985 0 0;
+    --accent-foreground: 0 0 0;
 
-    /* Destructive - Refined red */
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
+    --destructive: 0.62 0.18 25;
+    --destructive-foreground: 1 0 0;
 
-    /* Borders - Very subtle, just enough to define structure */
-    --border: 240 5.9% 90%;
-    --input: 240 5.9% 90%;
-    --ring: 240 5.9% 10%;
+    --border: 0.92 0 0; /* Light gray border for structure */
+    --input: 0.92 0 0;
+    --ring: 0 0 0;
 
-    /* Radius - 8pt grid alignment usually implies 8px or 12px radius */
-    --radius: 0.75rem; /* 12px */
-
-    /* Custom Properties for Manual Usage */
-    --card-bg: hsl(var(--card));
-    --text-main: hsl(var(--foreground));
-    
-    /* Typography - System Stack */
-    --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  }
-
-  @media (prefers-color-scheme: dark) {
-    :root {
-      /* Dark Mode - Deep grays instead of pure black for easier reading */
-      --background: 240 10% 3.9%;
-      --foreground: 0 0% 98%;
-
-      --card: 240 10% 3.9%;
-      --card-foreground: 0 0% 98%;
-
-      --popover: 240 10% 3.9%;
-      --popover-foreground: 0 0% 98%;
-
-      --primary: 0 0% 98%;
-      --primary-foreground: 240 5.9% 10%;
-
-      --secondary: 240 3.7% 15.9%;
-      --secondary-foreground: 0 0% 98%;
-
-      --muted: 240 3.7% 15.9%;
-      --muted-foreground: 240 5% 64.9%;
-
-      --accent: 240 3.7% 15.9%;
-      --accent-foreground: 0 0% 98%;
-
-      --destructive: 0 62.8% 30.6%;
-      --destructive-foreground: 0 0% 98%;
-
-      --border: 240 3.7% 15.9%;
-      --input: 240 3.7% 15.9%;
-      --ring: 240 4.9% 83.9%;
-    }
+    --radius: 0.5rem;
   }
 }
 
 @theme {
   --font-sans: var(--font-sans);
+  --font-serif: var(--font-serif);
 
-  --color-border: hsl(var(--border));
-  --color-input: hsl(var(--input));
-  --color-ring: hsl(var(--ring));
-  --color-background: hsl(var(--background));
-  --color-foreground: hsl(var(--foreground));
+  --color-background: oklch(var(--background));
+  --color-foreground: oklch(var(--foreground));
 
-  --color-primary: hsl(var(--primary));
-  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-card: oklch(var(--card));
+  --color-card-foreground: oklch(var(--card-foreground));
 
-  --color-secondary: hsl(var(--secondary));
-  --color-secondary-foreground: hsl(var(--secondary-foreground));
+  --color-popover: oklch(var(--popover));
+  --color-popover-foreground: oklch(var(--popover-foreground));
 
-  --color-destructive: hsl(var(--destructive));
-  --color-destructive-foreground: hsl(var(--destructive-foreground));
+  --color-primary: oklch(var(--primary));
+  --color-primary-foreground: oklch(var(--primary-foreground));
 
-  --color-muted: hsl(var(--muted));
-  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-secondary: oklch(var(--secondary));
+  --color-secondary-foreground: oklch(var(--secondary-foreground));
 
-  --color-accent: hsl(var(--accent));
-  --color-accent-foreground: hsl(var(--accent-foreground));
+  --color-muted: oklch(var(--muted));
+  --color-muted-foreground: oklch(var(--muted-foreground));
 
-  --color-popover: hsl(var(--popover));
-  --color-popover-foreground: hsl(var(--popover-foreground));
+  --color-accent: oklch(var(--accent));
+  --color-accent-foreground: oklch(var(--accent-foreground));
 
-  --color-card: hsl(var(--card));
-  --color-card-foreground: hsl(var(--card-foreground));
+  --color-destructive: oklch(var(--destructive));
+  --color-destructive-foreground: oklch(var(--destructive-foreground));
+
+  --color-border: oklch(var(--border));
+  --color-input: oklch(var(--input));
+  --color-ring: oklch(var(--ring));
 
   --radius-lg: var(--radius);
   --radius-md: calc(var(--radius) - 2px);
   --radius-sm: calc(var(--radius) - 4px);
-
-  /* 
-    Light & Shadow Layering Strategy 
-    Level 1: Subtle ambient light (environment) + Sharp direct light (key)
-    Level 2: Elevated ambient + Deeper direct
-  */
-  --shadow-sm: 
-    0 1px 2px -1px rgba(0, 0, 0, 0.05), /* Ambient */
-    0 1px 3px 0 rgba(0, 0, 0, 0.05);    /* Direct */
-  
-  --shadow-md: 
-    0 2px 5px -1px rgba(0, 0, 0, 0.04), 
-    0 4px 10px 0 rgba(0, 0, 0, 0.04);
-    
-  --shadow-lg: 
-    0 4px 6px -2px rgba(0, 0, 0, 0.03), 
-    0 12px 16px -4px rgba(0, 0, 0, 0.06);
-
-  --shadow-float:
-    0 8px 20px -4px rgba(0, 0, 0, 0.06),
-    0 20px 30px -8px rgba(0, 0, 0, 0.04);
 }
 
 @layer base {
@@ -150,23 +80,6 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground font-sans antialiased;
-    /* Improved font rendering */
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
+    @apply bg-background text-foreground;
   }
-}
-
-/* 
-  Utility classes for transitions and interaction 
-*/
-@layer utilities {
-  .card-hover {
-    @apply transition-all duration-300 ease-out;
-  }
-  .card-hover:hover {
-    @apply -translate-y-1 shadow-lg;
-  }
-  
-  /* 8pt grid spacing helpers if needed, though tailwind handles this well */
 }

@@ -264,7 +264,6 @@ const TableCanvas: React.FC<TableCanvasProps> = ({
         
         for (let c = cStart; c < cEnd; c++) {
             const x = config.rowHeaderWidth + c * config.colWidth;
-            const isSelected = state.selection.row === r && state.selection.col === c;
             
             // Get value safely
             const val = data[r]?.[c];
@@ -281,15 +280,18 @@ const TableCanvas: React.FC<TableCanvasProps> = ({
                         width={config.colWidth}
                         height={config.rowHeight}
                         fill={colors.background}
-                        stroke={colors.border}
-                        strokeWidth={1}
+                        stroke={colors.gridLines}
+                        strokeWidth={0.5}
                     />
                     <Text
-                        x={4}
-                        y={config.rowHeight / 2 - 7}
+                        x={8}
+                        y={0}
+                        height={config.rowHeight}
+                        verticalAlign="middle"
                         text={val !== undefined && val !== null ? String(val) : ''}
-                        width={config.colWidth - 8}
-                        fontSize={14}
+                        width={config.colWidth - 16}
+                        fontSize={13}
+                        fontFamily="ui-sans-serif, system-ui, sans-serif"
                         fill={colors.foreground}
                         ellipsis={true}
                         listening={false}
@@ -314,7 +316,6 @@ const TableCanvas: React.FC<TableCanvasProps> = ({
       // Column Headers (A, B, C...)
       for (let c = cStart; c < cEnd; c++) {
           const x = config.rowHeaderWidth + c * config.colWidth;
-          const isSelected = state.selection.col === c; // Highlight if column selected?
           
           colHeaders.push(
               <Group key={`col-${c}`} x={x} y={0}>
@@ -323,16 +324,20 @@ const TableCanvas: React.FC<TableCanvasProps> = ({
                       height={config.headerHeight}
                       fill={colors.muted}
                       stroke={colors.border}
-                      strokeWidth={1}
+                      strokeWidth={0.5}
                   />
                   <Text
                       x={0}
-                      y={config.headerHeight / 2 - 7}
+                      y={0}
+                      height={config.headerHeight}
+                      verticalAlign="middle"
                       width={config.colWidth}
                       text={getColumnLabel(c)}
                       align="center"
-                      fontSize={14}
+                      fontSize={12}
+                      fontFamily="ui-sans-serif, system-ui, sans-serif"
                       fill={colors.mutedForeground}
+                      fontStyle="bold"
                   />
               </Group>
           );
@@ -349,15 +354,18 @@ const TableCanvas: React.FC<TableCanvasProps> = ({
                       height={config.rowHeight}
                       fill={colors.muted}
                       stroke={colors.border}
-                      strokeWidth={1}
+                      strokeWidth={0.5}
                   />
                   <Text
                       x={0}
-                      y={config.rowHeight / 2 - 7}
-                      width={config.rowHeaderWidth - 4}
+                      y={0}
+                      height={config.rowHeight}
+                      verticalAlign="middle"
+                      width={config.rowHeaderWidth - 8}
                       text={String(r + 1)}
                       align="right"
-                      fontSize={12}
+                      fontSize={11}
+                      fontFamily="ui-sans-serif, system-ui, sans-serif"
                       fill={colors.mutedForeground}
                   />
               </Group>
@@ -374,7 +382,7 @@ const TableCanvas: React.FC<TableCanvasProps> = ({
                 height={config.headerHeight} 
                 fill={colors.muted}
                 stroke={colors.border}
-                strokeWidth={1}
+                strokeWidth={0.5}
             />
           </>
       );
@@ -394,6 +402,7 @@ const TableCanvas: React.FC<TableCanvasProps> = ({
                   y={y}
                   width={config.colWidth}
                   height={config.rowHeight}
+                  fill={colors.selectionBackground}
                   stroke={colors.selection}
                   strokeWidth={2}
                   listening={false}

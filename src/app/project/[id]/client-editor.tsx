@@ -19,7 +19,8 @@ import {
     Check,
     ArrowLeft,
     Bot,
-    Code2
+    Code2,
+    Plus
 } from "lucide-react";
 
 function generateCurlCommand(deployment: any) {
@@ -355,7 +356,7 @@ export default function ClientEditor({ project, isOwner = true }: { project: any
     };
 
     return (
-        <div className="flex flex-col h-screen max-h-screen overflow-hidden bg-background text-foreground">
+        <div className="flex flex-col h-screen max-h-screen overflow-hidden bg-white text-zinc-900">
             <DeploymentDialog
                 isOpen={isDeploymentDialogOpen}
                 onClose={() => setIsDeploymentDialogOpen(false)}
@@ -380,16 +381,16 @@ export default function ClientEditor({ project, isOwner = true }: { project: any
 
             {isRenameOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setIsRenameOpen(false)}>
-                    <div className="w-full max-w-md bg-card p-6 rounded-xl shadow-lg border" onClick={e => e.stopPropagation()}>
-                        <h2 className="text-lg font-semibold mb-4">Edit Project Details</h2>
+                    <div className="w-full max-w-md bg-white p-6 rounded-xl shadow-lg border border-zinc-200" onClick={e => e.stopPropagation()}>
+                        <h2 className="text-lg font-semibold mb-4 text-zinc-900">Edit Project Details</h2>
                         <div className="space-y-4">
                             {/* Avatar Upload */}
                             <div className="flex flex-col items-center gap-3 mb-4">
-                                <div className="relative w-20 h-20 rounded-full bg-muted overflow-hidden border flex items-center justify-center group">
+                                <div className="relative w-20 h-20 rounded-full bg-zinc-100 overflow-hidden border flex items-center justify-center group">
                                     {tempAvatar ? (
                                         <img src={tempAvatar} alt="Project Avatar" className="w-full h-full object-cover" />
                                     ) : (
-                                        <Package className="w-8 h-8 text-muted-foreground" />
+                                        <Package className="w-8 h-8 text-zinc-400" />
                                     )}
                                     <div
                                         className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
@@ -405,68 +406,68 @@ export default function ClientEditor({ project, isOwner = true }: { project: any
                                     className="hidden"
                                     onChange={handleAvatarUpload}
                                 />
-                                {isUploading && <span className="text-xs text-muted-foreground">Uploading...</span>}
+                                {isUploading && <span className="text-xs text-zinc-500">Uploading...</span>}
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium mb-1">Name</label>
+                                <label className="block text-sm font-medium mb-1 text-zinc-700">Name</label>
                                 <input
                                     value={tempName}
                                     onChange={e => setTempName(e.target.value)}
-                                    className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm"
+                                    className="w-full rounded-md border border-zinc-200 bg-transparent px-3 py-2 text-sm shadow-sm focus:border-zinc-400 focus:outline-none"
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium mb-1">Description</label>
+                                <label className="block text-sm font-medium mb-1 text-zinc-700">Description</label>
                                 <textarea
                                     value={tempDesc}
                                     onChange={e => setTempDesc(e.target.value)}
-                                    className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm"
+                                    className="w-full rounded-md border border-zinc-200 bg-transparent px-3 py-2 text-sm shadow-sm focus:border-zinc-400 focus:outline-none"
                                     rows={3}
                                 />
                             </div>
                         </div>
                         <div className="flex justify-end gap-2 mt-6">
-                            <button onClick={() => setIsRenameOpen(false)} className="px-4 py-2 text-sm font-medium rounded-md bg-secondary text-secondary-foreground">Cancel</button>
-                            <button onClick={handleRenameSave} disabled={isSavingName} className="px-4 py-2 text-sm font-medium rounded-md bg-primary text-primary-foreground">{isSavingName ? "Saving..." : "Save"}</button>
+                            <button onClick={() => setIsRenameOpen(false)} className="px-4 py-2 text-sm font-medium rounded-md bg-zinc-100 text-zinc-700 hover:bg-zinc-200">Cancel</button>
+                            <button onClick={handleRenameSave} disabled={isSavingName} className="px-4 py-2 text-sm font-medium rounded-md bg-zinc-900 text-white hover:bg-zinc-800">{isSavingName ? "Saving..." : "Save"}</button>
                         </div>
                     </div>
                 </div>
             )}
 
             {/* Header */}
-            <header className="h-16 border-b flex justify-between items-center px-6 shrink-0 bg-card/50 backdrop-blur-sm">
+            <header className="h-16 border-b border-zinc-100 flex justify-between items-center px-6 shrink-0 bg-white">
                 <div className="flex items-center gap-4">
-                    <Link href={backLink} className="text-muted-foreground hover:text-foreground transition-colors p-2 -ml-2 rounded-md hover:bg-muted/50">
+                    <Link href={backLink} className="text-zinc-400 hover:text-zinc-900 transition-colors p-2 -ml-2 rounded-md hover:bg-zinc-50">
                         <ArrowLeft className="w-4 h-4 mr-1" /> {backLink.includes('/agent') ? 'Back to Chat' : 'Back'}
                     </Link>
-                    <div className="h-6 w-[1px] bg-border/50"></div>
+                    <div className="h-6 w-[1px] bg-zinc-100"></div>
                     {isOwner ? (
                         <button onClick={() => setIsRenameOpen(true)} className="flex items-center gap-3 group">
                             {project.avatar ? (
-                                <img src={project.avatar} alt={project.name} className="w-8 h-8 rounded-full border object-cover bg-muted" />
+                                <img src={project.avatar} alt={project.name} className="w-8 h-8 rounded-full border object-cover bg-zinc-50" />
                             ) : (
-                                <div className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center border border-primary/20">
+                                <div className="w-8 h-8 rounded-full bg-zinc-100 text-zinc-500 flex items-center justify-center border border-zinc-200">
                                     <Package className="w-4 h-4" />
                                 </div>
                             )}
                             <div className="flex items-center gap-2">
-                                <span className="font-semibold text-base hover:underline decoration-dotted underline-offset-4">{project.name}</span>
-                                <Pencil className="w-3 h-3 opacity-0 group-hover:opacity-50 transition-opacity" />
+                                <span className="font-semibold text-base text-zinc-900 hover:text-zinc-600 transition-colors">{project.name}</span>
+                                <Pencil className="w-3 h-3 opacity-0 group-hover:opacity-50 transition-opacity text-zinc-400" />
                             </div>
                         </button>
                     ) : (
                         <div className="flex items-center gap-3">
                             {project.avatar ? (
-                                <img src={project.avatar} alt={project.name} className="w-8 h-8 rounded-full border object-cover bg-muted" />
+                                <img src={project.avatar} alt={project.name} className="w-8 h-8 rounded-full border object-cover bg-zinc-50" />
                             ) : (
-                                <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center border">
-                                    <Package className="w-4 h-4 text-muted-foreground" />
+                                <div className="w-8 h-8 rounded-full bg-zinc-100 flex items-center justify-center border">
+                                    <Package className="w-4 h-4 text-zinc-400" />
                                 </div>
                             )}
                             <div className="flex flex-col">
-                                <span className="font-semibold text-base">{project.name}</span>
-                                <span className="text-xs text-muted-foreground">by {project.user?.name || 'Unknown'}</span>
+                                <span className="font-semibold text-base text-zinc-900">{project.name}</span>
+                                <span className="text-xs text-zinc-500">by {project.user?.name || 'Unknown'}</span>
                             </div>
                         </div>
                     )}
@@ -475,7 +476,7 @@ export default function ClientEditor({ project, isOwner = true }: { project: any
                     <button
                         onClick={handleRun}
                         disabled={isRunning || !activeToolId}
-                        className="inline-flex items-center justify-center rounded-lg text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 bg-secondary text-secondary-foreground hover:bg-secondary/80 h-10 px-5 py-2 shadow-sm border border-border"
+                        className="inline-flex items-center justify-center rounded-lg text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 bg-white text-zinc-700 hover:bg-zinc-50 hover:text-zinc-900 h-9 px-4 shadow-sm border border-zinc-200"
                     >
                         {isRunning ? "Running..." : <><Play className="w-4 h-4 mr-2" /> Run</>}
                     </button>
@@ -483,7 +484,7 @@ export default function ClientEditor({ project, isOwner = true }: { project: any
                         <button
                             onClick={() => setIsDeploymentDialogOpen(true)}
                             disabled={isDeploying || !activeToolId}
-                            className="inline-flex items-center justify-center rounded-lg text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:opacity-90 hover:shadow-md h-10 px-5 py-2 shadow-sm"
+                            className="inline-flex items-center justify-center rounded-lg text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 bg-zinc-900 text-white hover:bg-zinc-800 hover:shadow-md h-9 px-4 shadow-sm"
                         >
                             Deploy
                         </button>
@@ -495,9 +496,9 @@ export default function ClientEditor({ project, isOwner = true }: { project: any
             <div className="flex-1 flex overflow-hidden">
 
                 {/* Sidebar: Tools List */}
-                <div className="w-64 border-r bg-muted/5 flex flex-col">
-                    <div className="p-4 border-b flex items-center justify-between">
-                        <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wider">Tools</h3>
+                <div className="w-64 border-r border-zinc-100 bg-zinc-50/50 flex flex-col">
+                    <div className="p-4 flex items-center justify-between">
+                        <h3 className="font-medium text-xs text-zinc-400 uppercase tracking-wider">Tools</h3>
                         {isOwner && (
                             <button
                                 onClick={() => {
@@ -505,28 +506,25 @@ export default function ClientEditor({ project, isOwner = true }: { project: any
                                     setIsToolDialogOpen(true);
                                 }}
                                 disabled={isNewToolLoading}
-                                className="text-xs bg-primary/10 text-primary hover:bg-primary/20 px-2 py-1 rounded transition-colors"
+                                className="text-xs text-zinc-500 hover:text-zinc-900 transition-colors flex items-center gap-1"
                             >
-                                + New
+                                <Plus className="w-3 h-3" /> New
                             </button>
                         )}
                     </div>
-                    <div className="flex-1 overflow-y-auto">
+                    <div className="flex-1 overflow-y-auto px-2 space-y-1">
                         {tools.map(tool => (
                             <div
                                 key={tool.id}
                                 onClick={() => setActiveToolId(tool.id)}
-                                className={`px-4 py-3 cursor-pointer border-l-2 transition-all hover:bg-muted/50 group ${activeToolId === tool.id
-                                        ? 'border-primary bg-muted/30'
-                                        : 'border-transparent'
+                                className={`px-3 py-2 rounded-lg cursor-pointer transition-all group ${activeToolId === tool.id
+                                        ? 'bg-white shadow-sm text-zinc-900'
+                                        : 'text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900'
                                     }`}
                             >
                                 <div className="flex justify-between items-center">
                                     <div className="flex flex-col overflow-hidden">
                                         <div className="font-medium text-sm truncate">{tool.name}</div>
-                                        {tool.description && (
-                                            <div className="text-xs text-muted-foreground truncate">{tool.description}</div>
-                                        )}
                                     </div>
                                     {isOwner && (
                                         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -536,17 +534,17 @@ export default function ClientEditor({ project, isOwner = true }: { project: any
                                                     setEditingToolId(tool.id);
                                                     setIsToolDialogOpen(true);
                                                 }}
-                                                className="text-muted-foreground hover:text-primary p-1"
+                                                className="text-zinc-400 hover:text-zinc-900 p-1"
                                                 title="Edit Tool"
                                             >
-                                                <Settings className="w-3.5 h-3.5" />
+                                                <Settings className="w-3 h-3" />
                                             </button>
                                             <button
                                                 onClick={(e) => { e.stopPropagation(); handleDeleteTool(tool.id); }}
-                                                className="text-muted-foreground hover:text-destructive p-1"
+                                                className="text-zinc-400 hover:text-red-600 p-1"
                                                 title="Delete Tool"
                                             >
-                                                <Trash2 className="w-3.5 h-3.5" />
+                                                <Trash2 className="w-3 h-3" />
                                             </button>
                                         </div>
                                     )}
@@ -557,15 +555,15 @@ export default function ClientEditor({ project, isOwner = true }: { project: any
                 </div>
 
                 {/* Left: Tabs & Content */}
-                <div className="w-1/2 flex flex-col border-r bg-muted/5">
-                    {/* Tabs (Segmented Control) */}
-                    <div className="flex-none p-3 border-b bg-card">
-                        <div className="flex p-1 bg-muted/50 rounded-lg border">
+                <div className="w-1/2 flex flex-col border-r border-zinc-100 bg-white">
+                    {/* Tabs (Clean Line) */}
+                    <div className="flex-none px-4 border-b border-zinc-100">
+                        <div className="flex gap-6">
                             <button
                                 onClick={() => setActiveTab('chat')}
-                                className={`flex-1 flex items-center justify-center gap-2 py-1.5 text-sm font-medium rounded-md transition-all duration-200 ${activeTab === 'chat'
-                                        ? 'bg-background text-foreground shadow-sm ring-1 ring-black/5 dark:ring-white/5'
-                                        : 'text-muted-foreground hover:text-foreground hover:bg-background/50'
+                                className={`flex items-center gap-2 py-3 text-sm font-medium border-b-2 transition-all ${activeTab === 'chat'
+                                        ? 'border-zinc-900 text-zinc-900'
+                                        : 'border-transparent text-zinc-400 hover:text-zinc-600'
                                     }`}
                             >
                                 <Bot className="w-4 h-4" />
@@ -573,9 +571,9 @@ export default function ClientEditor({ project, isOwner = true }: { project: any
                             </button>
                             <button
                                 onClick={() => setActiveTab('code')}
-                                className={`flex-1 flex items-center justify-center gap-2 py-1.5 text-sm font-medium rounded-md transition-all duration-200 ${activeTab === 'code'
-                                        ? 'bg-background text-foreground shadow-sm ring-1 ring-black/5 dark:ring-white/5'
-                                        : 'text-muted-foreground hover:text-foreground hover:bg-background/50'
+                                className={`flex items-center gap-2 py-3 text-sm font-medium border-b-2 transition-all ${activeTab === 'code'
+                                        ? 'border-zinc-900 text-zinc-900'
+                                        : 'border-transparent text-zinc-400 hover:text-zinc-600'
                                     }`}
                             >
                                 <Code2 className="w-4 h-4" />
@@ -588,13 +586,13 @@ export default function ClientEditor({ project, isOwner = true }: { project: any
                     <div className="flex-1 relative overflow-hidden">
 
                         {/* CHAT TAB */}
-                        <div className={`absolute inset-0 flex flex-col bg-background transition-opacity duration-200 ${activeTab === 'chat' ? 'opacity-100 z-10' : 'opacity-0 z-0 pointer-events-none'}`}>
+                        <div className={`absolute inset-0 flex flex-col bg-white transition-opacity duration-200 ${activeTab === 'chat' ? 'opacity-100 z-10' : 'opacity-0 z-0 pointer-events-none'}`}>
                             <div className="flex-1 overflow-y-auto p-6 space-y-6">
                                 {messages.map((msg, idx) => (
                                     <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                                        <div className={`max-w-[85%] rounded-2xl px-5 py-3 text-sm leading-relaxed shadow-sm ${msg.role === 'user'
-                                                ? 'bg-primary text-primary-foreground rounded-tr-sm'
-                                                : 'bg-card text-foreground border rounded-tl-sm'
+                                        <div className={`max-w-[85%] px-5 py-3 text-sm leading-relaxed ${msg.role === 'user'
+                                                ? 'bg-zinc-100 text-zinc-900 rounded-2xl rounded-tr-sm'
+                                                : 'bg-white text-zinc-800 border border-zinc-100 shadow-sm rounded-2xl rounded-tl-sm'
                                             }`}>
                                             {msg.content}
                                         </div>
@@ -602,18 +600,18 @@ export default function ClientEditor({ project, isOwner = true }: { project: any
                                 ))}
                                 {isGenerating && (
                                     <div className="flex justify-start">
-                                        <div className="bg-muted text-foreground border rounded-2xl rounded-tl-sm px-5 py-3 text-sm animate-pulse">
+                                        <div className="bg-white text-zinc-400 border border-zinc-100 rounded-2xl rounded-tl-sm px-5 py-3 text-sm animate-pulse">
                                             Thinking...
                                         </div>
                                     </div>
                                 )}
                                 <div ref={messagesEndRef} />
                             </div>
-                            <div className="p-6 border-t bg-card/50 backdrop-blur-sm">
-                                <div className="flex gap-3 shadow-sm rounded-xl bg-background border p-1 focus-within:ring-2 focus-within:ring-ring/20 transition-all">
+                            <div className="p-4 border-t border-zinc-100 bg-white">
+                                <div className="flex gap-2 bg-zinc-50 border border-zinc-200 rounded-xl p-1 focus-within:ring-2 focus-within:ring-black/5 transition-all">
                                     <input
                                         type="text"
-                                        className="flex-1 h-10 rounded-lg bg-transparent px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none"
+                                        className="flex-1 h-10 rounded-lg bg-transparent px-3 py-2 text-sm placeholder:text-zinc-400 focus:outline-none text-zinc-900"
                                         placeholder="Ask me to write or modify code..."
                                         value={input}
                                         onChange={(e) => setInput(e.target.value)}
@@ -623,7 +621,7 @@ export default function ClientEditor({ project, isOwner = true }: { project: any
                                     <button
                                         onClick={handleSendMessage}
                                         disabled={isGenerating || !input.trim()}
-                                        className="inline-flex items-center justify-center rounded-lg text-sm font-medium transition-colors disabled:opacity-50 bg-primary text-primary-foreground hover:opacity-90 h-10 px-5 py-2 shadow-sm"
+                                        className="inline-flex items-center justify-center rounded-lg text-sm font-medium transition-colors disabled:opacity-50 bg-zinc-900 text-white hover:bg-zinc-800 h-9 px-4 shadow-sm my-auto"
                                     >
                                         Send
                                     </button>

@@ -1,6 +1,6 @@
 "use client";
 
-import { File } from "@prisma/client";
+import { FileWithShares } from "./types";
 import { useEffect, useState } from "react";
 import { getDownloadUrl, updateFileContent, getFileContent } from "@/app/file-actions";
 import { FileEditor } from "./file-editor";
@@ -11,7 +11,7 @@ export function FilePreviewDialog({
   open,
   onOpenChange
 }: {
-  file: File;
+  file: FileWithShares;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
@@ -64,40 +64,40 @@ export function FilePreviewDialog({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={() => onOpenChange(false)}>
-      <div className="bg-background rounded-lg shadow-lg w-[90vw] h-[90vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
-        <div className="p-4 border-b flex justify-between items-center">
-          <div className="flex items-center gap-4">
-             <h2 className="text-lg font-bold truncate max-w-[400px]" title={file.name}>{file.name}</h2>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => onOpenChange(false)}>
+      <div className="bg-white rounded-xl shadow-2xl w-[90vw] h-[90vh] flex flex-col overflow-hidden border border-zinc-200" onClick={e => e.stopPropagation()}>
+        <div className="px-6 py-4 border-b border-zinc-100 flex justify-between items-center bg-white">
+          <div className="flex items-center gap-6">
+             <h2 className="text-lg font-medium text-zinc-900 truncate max-w-[400px]" title={file.name}>{file.name}</h2>
              {isEditable && !loading && content !== null && (
-                 <div className="flex bg-muted rounded-lg p-1">
+                 <div className="flex bg-zinc-100 rounded-lg p-1">
                      <button
                         onClick={() => setIsEditing(false)}
-                        className={`px-3 py-1 text-xs font-medium rounded ${!isEditing ? 'bg-background shadow text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                        className={`px-4 py-1.5 text-xs font-medium rounded-md transition-all ${!isEditing ? 'bg-white shadow-sm text-zinc-900' : 'text-zinc-500 hover:text-zinc-900'}`}
                      >
                          Preview
                      </button>
                      <button
                         onClick={() => setIsEditing(true)}
-                        className={`px-3 py-1 text-xs font-medium rounded ${isEditing ? 'bg-background shadow text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                        className={`px-4 py-1.5 text-xs font-medium rounded-md transition-all ${isEditing ? 'bg-white shadow-sm text-zinc-900' : 'text-zinc-500 hover:text-zinc-900'}`}
                      >
                          Edit
                      </button>
                  </div>
              )}
           </div>
-          <button onClick={() => onOpenChange(false)} className="text-muted-foreground hover:text-foreground">
-            Close
+          <button onClick={() => onOpenChange(false)} className="text-zinc-400 hover:text-zinc-900 transition-colors p-2 hover:bg-zinc-100 rounded-full">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
           </button>
         </div>
         
-        <div className="flex-1 bg-muted/10 overflow-hidden flex flex-col relative">
+        <div className="flex-1 bg-zinc-50 overflow-hidden flex flex-col relative">
           {loading ? (
-             <div className="flex items-center justify-center h-full">
+             <div className="flex items-center justify-center h-full text-zinc-400">
                 <div className="animate-pulse">Loading...</div>
              </div>
           ) : !url ? (
-             <div className="flex items-center justify-center h-full">
+             <div className="flex items-center justify-center h-full text-zinc-400">
                 <div className="text-destructive">Failed to load file</div>
              </div>
           ) : isEditing && content !== null ? (
@@ -130,11 +130,13 @@ function TextPreview({ content }: { content: string | null }) {
 }
 
 function MarkdownPreview({ content }: { content: string | null }) {
-  if (content === null) return <div className="animate-pulse">Loading markdown...</div>;
+  if (content === null) return <div className="flex items-center justify-center h-full text-zinc-400"><div className="animate-pulse">Loading markdown...</div></div>;
 
   return (
-    <div className="w-full h-full overflow-auto bg-white dark:bg-[#0d1117] p-4 rounded shadow-sm border" data-color-mode="auto">
-      <MDEditor.Markdown source={content} style={{ whiteSpace: 'pre-wrap', backgroundColor: 'transparent' }} />
+    <div className="w-full h-full overflow-auto bg-white p-8 rounded-lg" data-color-mode="light">
+      <div className="prose prose-zinc max-w-none">
+        <MDEditor.Markdown source={content} style={{ whiteSpace: 'pre-wrap', backgroundColor: 'transparent', color: 'inherit' }} />
+      </div>
     </div>
   );
 }
@@ -163,7 +165,7 @@ function OfficePreview({ url, mimeType }: { url: string; mimeType: string }) {
     );
 }
 
-function PreviewContent({ file, url, content }: { file: File; url: string; content: string | null }) {
+function PreviewContent({ file, url, content }: { file: FileWithShares; url: string; content: string | null }) {
   if (file.mimeType.startsWith("image/")) {
     return <img src={url} alt={file.name} className="max-w-full max-h-full object-contain" />;
   }

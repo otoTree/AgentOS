@@ -52,17 +52,17 @@ export function SOPPlanView({
     return (
         <div className="flex flex-1 overflow-hidden">
             {/* Left Column: Plan & Steps */}
-            <div className="flex-1 flex flex-col overflow-hidden">
+            <div className="flex-1 flex flex-col overflow-hidden bg-muted/5">
                 {/* Tabs Header */}
-                <div className="flex items-center justify-between border-b p-2 px-4 bg-muted/10 shrink-0">
-                    <div className="flex items-center gap-2">
+                <div className="flex items-center justify-between border-b px-4 h-12 bg-background shrink-0">
+                    <div className="flex items-center gap-1">
                         <Button 
                             variant={activeTab === 'plan' ? 'secondary' : 'ghost'} 
                             size="sm"
                             onClick={() => setActiveTab('plan')}
-                            className="h-8"
+                            className={`h-8 text-xs font-medium ${activeTab === 'plan' ? 'bg-secondary text-secondary-foreground' : 'text-muted-foreground'}`}
                         >
-                            <LayoutList className="w-4 h-4 mr-2" />
+                            <LayoutList className="w-3.5 h-3.5 mr-1.5" />
                             Plan
                         </Button>
                         <Button 
@@ -70,54 +70,52 @@ export function SOPPlanView({
                             size="sm"
                             onClick={() => setActiveTab('history')}
                             disabled={!currentSopId}
-                            className="h-8"
+                            className={`h-8 text-xs font-medium ${activeTab === 'history' ? 'bg-secondary text-secondary-foreground' : 'text-muted-foreground'}`}
                         >
-                            <History className="w-4 h-4 mr-2" />
+                            <History className="w-3.5 h-3.5 mr-1.5" />
                             History
                         </Button>
                     </div>
-
-                    {activeTab === 'plan' && (
-                        <div className="flex items-center gap-1">
-                            <Button variant="ghost" size="sm" onClick={onRunAll} disabled={isRunningAll} className="h-8">
-                                {isRunningAll ? <Loader2 className="w-3 h-3 mr-2 animate-spin" /> : <Play className="w-3 h-3 mr-2" />}
-                                Run
-                            </Button>
-                            <Button variant="ghost" size="sm" onClick={onDeploy} className="h-8">
-                                <Rocket className={`w-3 h-3 mr-2 ${isDeployed ? 'text-green-500' : ''}`} />
-                                Deploy
-                            </Button>
-                        </div>
-                    )}
                 </div>
 
                 {activeTab === 'plan' ? (
-                    <div className="flex-1 overflow-y-auto p-4 space-y-6">
-                        <div className="mb-4">
-                            <h2 className="text-lg font-semibold">{sequence.title}</h2>
-                            <p className="text-muted-foreground text-sm">{sequence.description}</p>
-                        </div>
+                    <div className="flex-1 overflow-y-auto p-6">
+                        <div className="max-w-3xl mx-auto space-y-8">
+                            {/* Header Section */}
+                            <div className="space-y-2">
+                                <h2 className="text-2xl font-bold tracking-tight">{sequence.title}</h2>
+                                <p className="text-muted-foreground text-base leading-relaxed">{sequence.description}</p>
+                            </div>
 
-                        {/* Steps List */}
-                        <div className="space-y-4">
-                            {sequence.steps.map((step, index) => {
-                                const stepStatus = status[step.id] || 'pending';
-                                return (
-                                    <SOPStepItem 
-                                        key={step.id}
-                                        step={step}
-                                        index={index}
-                                        status={stepStatus}
-                                        output={stepOutputs[step.id]}
-                                        isExpanded={expandedSteps[step.id]}
-                                        onToggleExpand={onToggleExpand}
-                                        onExecute={onExecuteStep}
-                                        onEdit={onEditStep}
-                                        onDelete={onDeleteStep}
-                                        isRunningAll={isRunningAll}
-                                    />
-                                );
-                            })}
+                            {/* Steps List */}
+                            <div className="space-y-6">
+                                <div className="flex items-center justify-between">
+                                    <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Execution Plan</h3>
+                                    <div className="text-xs text-muted-foreground">
+                                        {sequence.steps.length} Steps
+                                    </div>
+                                </div>
+                                <div className="space-y-4">
+                                    {sequence.steps.map((step, index) => {
+                                        const stepStatus = status[step.id] || 'pending';
+                                        return (
+                                            <SOPStepItem 
+                                                key={step.id}
+                                                step={step}
+                                                index={index}
+                                                status={stepStatus}
+                                                output={stepOutputs[step.id]}
+                                                isExpanded={expandedSteps[step.id]}
+                                                onToggleExpand={onToggleExpand}
+                                                onExecute={onExecuteStep}
+                                                onEdit={onEditStep}
+                                                onDelete={onDeleteStep}
+                                                isRunningAll={isRunningAll}
+                                            />
+                                        );
+                                    })}
+                                </div>
+                            </div>
                         </div>
                     </div>
                 ) : (
@@ -126,7 +124,7 @@ export function SOPPlanView({
             </div>
 
             {/* Vertical Divider */}
-            <div className="w-[1px] bg-border" />
+            <div className="w-px bg-border shadow-sm" />
 
             {/* Right Column: Modification Section */}
             <SOPModificationPanel 

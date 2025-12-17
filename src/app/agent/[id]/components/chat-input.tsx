@@ -1,5 +1,9 @@
 import { useRef, useEffect, useState } from 'react';
 import { CommandMenu, getFilteredCommands, Command } from '../command-menu';
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Paperclip, SendHorizontal, Sparkles } from 'lucide-react';
+import { cn } from "@/lib/infra/utils";
 
 interface ChatInputProps {
   input: string;
@@ -26,6 +30,7 @@ export function ChatInput({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [showCommandMenu, setShowCommandMenu] = useState(false);
   const [commandMenuIndex, setCommandMenuIndex] = useState(0);
+  const [isFocused, setIsFocused] = useState(false);
 
   const SUGGESTED_PROMPTS = [
       "Write a Python crawler script",
@@ -48,18 +53,25 @@ export function ChatInput({
       textareaRef.current?.focus();
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        onSendMessage();
+    }
+  };
+
   return (
-    <div className="p-4 bg-background">
-        <div className="max-w-2xl  mx-auto space-y-4">
+    <div className="p-6 bg-transparent w-full">
+        <div className="max-w-3xl mx-auto space-y-6">
             {/* Suggested Prompts */}
             {showEmptyState && (
-               <div className="flex flex-wrap gap-2 justify-center pb-2">
+               <div className="flex flex-wrap gap-3 justify-center pb-4 opacity-0 animate-in fade-in slide-in-from-bottom-4 duration-700 delay-300 fill-mode-forwards">
                    {SUGGESTED_PROMPTS.map((prompt, i) => (
                        <button
                            key={i}
                            type="button"
                            onClick={() => setInput(prompt)}
-                           className="text-xs px-3 py-1.5 bg-muted/50 hover:bg-muted text-muted-foreground hover:text-foreground rounded-full transition-colors border"
+                           className="text-xs px-4 py-2 bg-white border border-black/5 text-black/60 hover:text-black hover:border-black/20 hover:shadow-sm rounded-full transition-all duration-300"
                        >
                            {prompt}
                        </button>
@@ -67,96 +79,79 @@ export function ChatInput({
                </div>
             )}
 
-            <form onSubmit={(e) => onSendMessage(e)} className="flex gap-2 w-full items-end">
-            <input
-                type="file"
-                ref={fileInputRef}
-                onChange={onFileUpload}
-                className="hidden"
-            />
-            <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={isLoading || isUploading}
-                className="p-3 text-muted-foreground hover:text-foreground bg-muted/50 rounded-2xl transition-colors disabled:opacity-50"
-                title="Upload file"
-            >
-                {isUploading ? (
-                    <div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                ) : (
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
-                    </svg>
+            <form 
+                onSubmit={(e) => onSendMessage(e)} 
+                className={cn(
+                    "relative flex items-end gap-2 bg-white rounded-[2rem] p-2 shadow-2xl shadow-black/5 border transition-all duration-300",
+                    isFocused ? "border-black/10 ring-1 ring-black/5" : "border-black/5"
                 )}
-            </button>
-
-            <div className="flex-1 relative">
-                <CommandMenu 
-                    isVisible={showCommandMenu}
-                    filter={input}
-                    selectedIndex={commandMenuIndex}
-                    onSelect={handleCommandSelect}
-                />
-                <textarea
-                    ref={textareaRef}
-                    value={input}
-                    onChange={(e) => {
-                        const newValue = e.target.value;
-                        setInput(newValue);
-                        if (newValue.startsWith('/')) {
-                            setShowCommandMenu(true);
-                            setCommandMenuIndex(0);
-                        } else {
-                            setShowCommandMenu(false);
-                        }
-                    }}
-                    onKeyDown={(e) => {
-                        if (showCommandMenu) {
-                            if (e.key === 'ArrowDown') {
-                                e.preventDefault();
-                                const count = getFilteredCommands(input).length;
-                                if (count > 0) setCommandMenuIndex(prev => (prev + 1) % count);
-                                return;
-                            } else if (e.key === 'ArrowUp') {
-                                e.preventDefault();
-                                const count = getFilteredCommands(input).length;
-                                if (count > 0) setCommandMenuIndex(prev => (prev - 1 + count) % count);
-                                return;
-                            } else if (e.key === 'Enter' || e.key === 'Tab') {
-                                e.preventDefault();
-                                const cmds = getFilteredCommands(input);
-                                if (cmds[commandMenuIndex]) {
-                                    handleCommandSelect(cmds[commandMenuIndex]);
-                                }
-                                return;
-                            } else if (e.key === 'Escape') {
-                                e.preventDefault();
-                                setShowCommandMenu(false);
-                                return;
-                            }
-                        }
-
-                        if (e.key === 'Enter' && !e.shiftKey) {
-                            e.preventDefault();
-                            onSendMessage();
-                        }
-                    }}
-                    placeholder={enabledTools.length > 0 
-                        ? `Type a message or /open... I can use ${enabledTools.map(t => t.name).join(', ')}.`
-                        : "Type a message or /open... I'm ready to help."}
-                    className="w-full bg-muted/50 border-none rounded-2xl px-4 py-3 focus:ring-2 focus:ring-primary/50 outline-none min-h-[48px] max-h-[120px] resize-none overflow-y-auto"
-                    disabled={isLoading}
-                    rows={1}
-                />
-            </div>
-            <button
-                type="submit"
-                disabled={isLoading || !input.trim()}
-                className="bg-primary text-primary-foreground px-4 py-3 rounded-2xl font-medium disabled:opacity-50 disabled:cursor-not-allowed h-[48px]"
             >
-                Send
-            </button>
+                <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={onFileUpload}
+                    className="hidden"
+                />
+                
+                <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isLoading || isUploading}
+                    className="h-10 w-10 rounded-full text-black/40 hover:text-black hover:bg-black/5 transition-colors mb-0.5"
+                    title="Upload file"
+                >
+                    {isUploading ? (
+                        <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                        <Paperclip className="w-5 h-5" />
+                    )}
+                </Button>
+
+                <div className="flex-1 relative mb-2">
+                    <CommandMenu 
+                        isVisible={showCommandMenu}
+                        filter={input}
+                        selectedIndex={commandMenuIndex}
+                        onSelect={handleCommandSelect}
+                    />
+                    <Textarea
+                        ref={textareaRef}
+                        value={input}
+                        onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => {
+                            setInput(e.target.value);
+                            setShowCommandMenu(e.target.value.endsWith('/'));
+                        }}
+                        onKeyDown={handleKeyDown}
+                        onFocus={() => setIsFocused(true)}
+                        onBlur={() => setIsFocused(false)}
+                        placeholder="Type a message or type '/' for commands..."
+                        className="min-h-[24px] max-h-[120px] w-full resize-none border-0 bg-transparent p-0 shadow-none focus-visible:ring-0 placeholder:text-muted-foreground leading-relaxed"
+                        rows={1}
+                    />
+                </div>
+
+                <Button
+                    type="submit"
+                    size="icon"
+                    disabled={isLoading || !input.trim()}
+                    className={cn(
+                        "h-10 w-10 rounded-full transition-all duration-300 mb-0.5",
+                        input.trim() 
+                            ? "bg-black text-white hover:bg-black/90 shadow-md" 
+                            : "bg-black/5 text-black/20 hover:bg-black/10"
+                    )}
+                >
+                    <SendHorizontal className="w-5 h-5 ml-0.5" />
+                </Button>
             </form>
+            
+            <div className="text-center">
+                <p className="text-[10px] text-black/20 font-medium tracking-widest uppercase">
+                    AI Agent can make mistakes. Verify important info.
+                </p>
+            </div>
         </div>
     </div>
   );

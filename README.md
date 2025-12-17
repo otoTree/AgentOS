@@ -49,8 +49,6 @@ AgentOS is a powerful platform for building, executing, and managing AI agents. 
 
    ```bash
    npm install
-   # or
-   pnpm install
    ```
 
 3. **Environment Setup:**

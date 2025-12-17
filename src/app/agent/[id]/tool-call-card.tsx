@@ -1,6 +1,7 @@
 
 import { useState } from 'react';
-import { ChevronDown, ChevronUp, Terminal, CheckCircle2, AlertCircle, Clock } from 'lucide-react';
+import { ChevronDown, ChevronUp, Terminal, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
+import { cn } from '@/lib/infra/utils';
 
 interface ToolCallCardProps {
   toolName: string;
@@ -13,70 +14,72 @@ interface ToolCallCardProps {
 export function ToolCallCard({ toolName, args, result, status, isExpanded: initialExpanded = false }: ToolCallCardProps) {
   const [isExpanded, setIsExpanded] = useState(initialExpanded);
 
-  const getStatusColor = () => {
-    switch (status) {
-      case 'success':
-        return 'bg-green-500/10 border-green-500/20 text-green-700 dark:text-green-400';
-      case 'error':
-        return 'bg-red-500/10 border-red-500/20 text-red-700 dark:text-red-400';
-      default:
-        return 'bg-blue-500/10 border-blue-500/20 text-blue-700 dark:text-blue-400';
-    }
-  };
-
   const getStatusIcon = () => {
     switch (status) {
       case 'success':
-        return <CheckCircle2 className="w-4 h-4 text-green-500" />;
+        return <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />;
       case 'error':
-        return <AlertCircle className="w-4 h-4 text-red-500" />;
+        return <AlertCircle className="w-3.5 h-3.5 text-red-600" />;
       default:
-        return <Clock className="w-4 h-4 text-blue-500 animate-pulse" />;
+        return <Loader2 className="w-3.5 h-3.5 text-zinc-500 animate-spin" />;
     }
   };
 
   return (
-    <div className="flex justify-start w-full my-2">
-      <div className={`max-w-[90%] w-full rounded-lg border overflow-hidden shadow-sm transition-all duration-200 ${
-        status === 'calling' ? 'border-blue-500/20' : 
-        status === 'success' ? 'border-green-500/20' : 
-        'border-red-500/20'
-      }`}>
+    <div className="flex justify-start w-full my-2 font-sans">
+      <div className={cn(
+        "max-w-[90%] w-full rounded-xl border bg-white shadow-[0_2px_8px_rgba(0,0,0,0.04)] transition-all duration-200 overflow-hidden",
+        status === 'calling' ? "border-zinc-200" :
+        status === 'success' ? "border-zinc-200" :
+        "border-red-200"
+      )}>
         {/* Header */}
         <button 
           onClick={() => setIsExpanded(!isExpanded)}
-          className={`w-full flex items-center justify-between p-3 transition-colors hover:bg-muted/50 ${getStatusColor()}`}
+          className="w-full flex items-center justify-between p-3 hover:bg-zinc-50/50 transition-colors group"
         >
-          <div className="flex items-center gap-2.5">
-            <div className="p-1.5 rounded-md bg-background/50 backdrop-blur-sm border shadow-sm">
-              <Terminal className="w-3.5 h-3.5" />
+          <div className="flex items-center gap-3">
+            <div className={cn(
+              "p-2 rounded-lg border shadow-sm transition-colors",
+              status === 'calling' ? "bg-zinc-50 border-zinc-200" :
+              status === 'success' ? "bg-emerald-50/50 border-emerald-100" :
+              "bg-red-50/50 border-red-100"
+            )}>
+              <Terminal className={cn(
+                "w-3.5 h-3.5",
+                status === 'calling' ? "text-zinc-500" :
+                status === 'success' ? "text-emerald-600" :
+                "text-red-600"
+              )} />
             </div>
-            <div className="flex flex-col items-start">
-              <span className="font-semibold text-xs flex items-center gap-2">
+            <div className="flex flex-col items-start gap-0.5">
+              <span className="text-sm font-medium text-zinc-900 flex items-center gap-2">
                 {toolName}
+              </span>
+              <div className="flex items-center gap-1.5">
                 {getStatusIcon()}
-              </span>
-              <span className="text-[10px] opacity-80 font-mono mt-0.5">
-                {status === 'calling' ? 'Executing...' : status === 'success' ? 'Completed' : 'Failed'}
-              </span>
+                <span className="text-[11px] text-zinc-500 font-medium">
+                  {status === 'calling' ? 'Executing...' : status === 'success' ? 'Completed' : 'Failed'}
+                </span>
+              </div>
             </div>
           </div>
-          <div className="text-muted-foreground">
+          <div className="text-zinc-400 group-hover:text-zinc-600 transition-colors">
             {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
           </div>
         </button>
         
         {/* Content */}
         {isExpanded && (
-          <div className="bg-background/50 backdrop-blur-sm divide-y divide-border/50">
+          <div className="border-t border-zinc-100 bg-zinc-50/30 divide-y divide-zinc-100">
             {/* Arguments Section */}
             {args && Object.keys(args).length > 0 && (
               <div className="p-3">
-                <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-2 flex items-center gap-1">
-                  <span>Input Arguments</span>
+                <div className="text-[10px] uppercase tracking-wider text-zinc-400 font-semibold mb-2 pl-1">
+                  Input Arguments
                 </div>
-                <div className="bg-muted/50 rounded-md p-2.5 font-mono text-xs overflow-x-auto border border-border/50">
-                  <pre className="whitespace-pre-wrap break-all text-foreground/90">
+                <div className="bg-white rounded-lg border border-zinc-200 p-3 font-mono text-xs overflow-x-auto shadow-sm">
+                  <pre className="whitespace-pre-wrap break-all text-zinc-700">
                     {typeof args === 'string' ? args : JSON.stringify(args, null, 2)}
                   </pre>
                 </div>
@@ -86,11 +89,17 @@ export function ToolCallCard({ toolName, args, result, status, isExpanded: initi
             {/* Result Section */}
             {result && (
               <div className="p-3">
-                 <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-2 flex items-center gap-1">
-                  <span>Execution Result</span>
+                 <div className="text-[10px] uppercase tracking-wider text-zinc-400 font-semibold mb-2 pl-1">
+                  Execution Result
                 </div>
-                <div className="bg-muted/50 rounded-md p-2.5 font-mono text-xs overflow-x-auto max-h-60 border border-border/50">
-                  <pre className="whitespace-pre-wrap break-all text-foreground/90">
+                <div className={cn(
+                  "rounded-lg border p-3 font-mono text-xs overflow-x-auto max-h-60 shadow-sm bg-white",
+                  status === 'error' ? "border-red-200 bg-red-50/30" : "border-zinc-200"
+                )}>
+                  <pre className={cn(
+                    "whitespace-pre-wrap break-all",
+                    status === 'error' ? "text-red-700" : "text-zinc-700"
+                  )}>
                     {result}
                   </pre>
                 </div>

@@ -1,22 +1,22 @@
 'use client';
 
 import { useState, useEffect } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { User } from "lucide-react"; 
+import { User, Copy, RefreshCw, Loader2 } from "lucide-react"; 
 import { updateUserProfile, uploadAvatar, getApiToken, generateApiToken } from "../user-actions";
 import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 
 interface UserProfileDialogProps {
-    isOpen: boolean;
-    onClose: () => void;
+    open: boolean;
+    onOpenChange: (open: boolean) => void;
     user: any; 
-    onUserUpdated: () => void; 
 }
 
-export function UserProfileDialog({ isOpen, onClose, user, onUserUpdated }: UserProfileDialogProps) {
+export function UserProfileDialog({ open, onOpenChange, user }: UserProfileDialogProps) {
     const [activeTab, setActiveTab] = useState<'profile' | 'api'>('profile');
     const [username, setUsername] = useState(user?.username || '');
     const [name, setName] = useState(user?.name || '');
@@ -25,20 +25,22 @@ export function UserProfileDialog({ isOpen, onClose, user, onUserUpdated }: User
     
     const [apiToken, setApiToken] = useState<string | null>(null);
     const [isLoadingToken, setIsLoadingToken] = useState(false);
+    
+    const router = useRouter();
 
     useEffect(() => {
-        if (isOpen) {
+        if (open) {
             setUsername(user?.username || '');
             setName(user?.name || '');
             setAvatarUrl(user?.image);
         }
-    }, [isOpen, user]);
+    }, [open, user]);
 
     useEffect(() => {
-        if (activeTab === 'api' && isOpen) {
+        if (activeTab === 'api' && open) {
             fetchToken();
         }
-    }, [activeTab, isOpen]);
+    }, [activeTab, open]);
 
     const fetchToken = async () => {
         setIsLoadingToken(true);
@@ -56,7 +58,8 @@ export function UserProfileDialog({ isOpen, onClose, user, onUserUpdated }: User
         try {
             await updateUserProfile({ username, name });
             toast.success("Profile updated");
-            onUserUpdated();
+            router.refresh();
+            onOpenChange(false);
         } catch (error) {
             toast.error("Failed to update profile");
         }
@@ -72,7 +75,7 @@ export function UserProfileDialog({ isOpen, onClose, user, onUserUpdated }: User
         try {
             await uploadAvatar(formData);
             toast.success("Avatar uploaded");
-            onUserUpdated(); 
+            router.refresh();
         } catch (error) {
             toast.error("Failed to upload avatar");
         } finally {
@@ -92,115 +95,152 @@ export function UserProfileDialog({ isOpen, onClose, user, onUserUpdated }: User
         }
     };
 
+    const copyToken = () => {
+        if (apiToken) {
+            navigator.clipboard.writeText(apiToken);
+            toast.success("Token copied to clipboard");
+        }
+    };
+
     return (
-        <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-            <DialogContent className="sm:max-w-[425px]">
-                <DialogHeader>
-                    <DialogTitle>User Settings</DialogTitle>
-                </DialogHeader>
-                
-                <div className="flex gap-4 border-b mb-4">
-                    <button 
-                        className={`pb-2 text-sm font-medium ${activeTab === 'profile' ? 'border-b-2 border-primary text-primary' : 'text-muted-foreground'}`}
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent className="sm:max-w-[425px] p-0 gap-0 overflow-hidden bg-white border-black/5">
+                <div className="p-6 border-b border-black/5 bg-black/[0.02]">
+                    <DialogHeader>
+                        <DialogTitle className="text-xl">Settings</DialogTitle>
+                        <DialogDescription>Manage your profile and API access</DialogDescription>
+                    </DialogHeader>
+                </div>
+
+                <div className="flex border-b border-black/5">
+                    <button
                         onClick={() => setActiveTab('profile')}
+                        className={`flex-1 py-3 text-sm font-medium transition-colors ${
+                            activeTab === 'profile' 
+                                ? 'bg-white text-black border-b-2 border-black' 
+                                : 'bg-black/[0.02] text-black/40 hover:text-black/60 hover:bg-black/[0.04]'
+                        }`}
                     >
                         Profile
                     </button>
-                    <button 
-                        className={`pb-2 text-sm font-medium ${activeTab === 'api' ? 'border-b-2 border-primary text-primary' : 'text-muted-foreground'}`}
+                    <button
                         onClick={() => setActiveTab('api')}
+                        className={`flex-1 py-3 text-sm font-medium transition-colors ${
+                            activeTab === 'api' 
+                                ? 'bg-white text-black border-b-2 border-black' 
+                                : 'bg-black/[0.02] text-black/40 hover:text-black/60 hover:bg-black/[0.04]'
+                        }`}
                     >
-                        API Token
+                        API Access
                     </button>
                 </div>
 
-                {activeTab === 'profile' && (
-                    <div className="space-y-4">
-                        <div className="flex items-center gap-4">
-                            <div className="relative w-16 h-16 rounded-full overflow-hidden bg-muted flex items-center justify-center border shrink-0">
-                                {avatarUrl ? (
-                                    <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
-                                ) : (
-                                    <User className="w-8 h-8 text-muted-foreground" />
-                                )}
-                                <input 
-                                    type="file" 
-                                    accept="image/*" 
-                                    className="absolute inset-0 opacity-0 cursor-pointer"
-                                    onChange={handleAvatarUpload}
-                                    disabled={isUploading}
-                                />
-                            </div>
-                            <div className="flex-1">
-                                <p className="text-sm font-medium">Profile Picture</p>
-                                <p className="text-xs text-muted-foreground">Click image to upload. Max 5MB.</p>
-                            </div>
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label htmlFor="username">Username</Label>
-                            <Input 
-                                id="username" 
-                                value={username} 
-                                onChange={(e) => setUsername(e.target.value)}
-                                placeholder="johndoe"
-                            />
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label htmlFor="name">Display Name</Label>
-                            <Input 
-                                id="name" 
-                                value={name} 
-                                onChange={(e) => setName(e.target.value)} 
-                                placeholder="John Doe"
-                            />
-                        </div>
-                        
-                        <div className="pt-2 flex justify-end">
-                            <Button onClick={handleSaveProfile}>Save Changes</Button>
-                        </div>
-                    </div>
-                )}
-
-                {activeTab === 'api' && (
-                    <div className="space-y-4">
-                        <div className="space-y-2">
-                            <Label>Your API Token</Label>
-                            {isLoadingToken ? (
-                                <div className="text-sm text-muted-foreground">Loading...</div>
-                            ) : apiToken ? (
-                                <div className="relative">
-                                    <Input readOnly value={apiToken} className="pr-20 font-mono text-xs" />
-                                    <Button 
-                                        variant="ghost" 
-                                        size="sm" 
-                                        className="absolute right-1 top-1/2 -translate-y-1/2 h-7"
-                                        onClick={() => {
-                                            navigator.clipboard.writeText(apiToken);
-                                            toast.success("Copied!");
-                                        }}
-                                    >
-                                        Copy
-                                    </Button>
+                <div className="p-6">
+                    {activeTab === 'profile' ? (
+                        <div className="space-y-6">
+                            <div className="flex items-center gap-4">
+                                <div className="relative h-16 w-16 rounded-full overflow-hidden bg-black/5 flex items-center justify-center border border-black/10">
+                                    {avatarUrl ? (
+                                        <img src={avatarUrl} alt="Avatar" className="h-full w-full object-cover" />
+                                    ) : (
+                                        <User className="h-8 w-8 text-black/20" />
+                                    )}
+                                    {isUploading && (
+                                        <div className="absolute inset-0 bg-black/20 flex items-center justify-center backdrop-blur-sm">
+                                            <Loader2 className="h-5 w-5 text-white animate-spin" />
+                                        </div>
+                                    )}
                                 </div>
-                            ) : (
-                                <div className="text-sm text-muted-foreground">No API token generated yet.</div>
-                            )}
-                        </div>
+                                <div className="flex-1">
+                                    <Label htmlFor="avatar-upload" className="cursor-pointer inline-flex h-9 items-center justify-center rounded-full border border-black/10 bg-white px-4 py-2 text-sm font-medium shadow-sm transition-colors hover:bg-black/5 hover:text-black">
+                                        Change Avatar
+                                    </Label>
+                                    <Input
+                                        id="avatar-upload"
+                                        type="file"
+                                        accept="image/*"
+                                        className="hidden"
+                                        onChange={handleAvatarUpload}
+                                        disabled={isUploading}
+                                    />
+                                    <p className="text-[10px] text-black/40 mt-2">
+                                        Recommended: Square JPG, PNG. Max 2MB.
+                                    </p>
+                                </div>
+                            </div>
 
-                        <div className="pt-2">
-                            <Button onClick={handleGenerateToken} variant="outline" className="w-full">
-                                {apiToken ? "Regenerate Token" : "Generate Token"}
-                            </Button>
-                            {apiToken && (
-                                <p className="text-xs text-muted-foreground mt-2 text-center">
-                                    Warning: Regenerating will invalidate the old token.
-                                </p>
-                            )}
+                            <div className="space-y-4">
+                                <div className="grid gap-2">
+                                    <Label htmlFor="name">Display Name</Label>
+                                    <Input
+                                        id="name"
+                                        value={name}
+                                        onChange={(e) => setName(e.target.value)}
+                                        className="h-10"
+                                    />
+                                </div>
+                                <div className="grid gap-2">
+                                    <Label htmlFor="username">Username</Label>
+                                    <Input
+                                        id="username"
+                                        value={username}
+                                        onChange={(e) => setUsername(e.target.value)}
+                                        className="h-10"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="flex justify-end pt-4">
+                                <Button onClick={handleSaveProfile} className="w-full rounded-full">
+                                    Save Changes
+                                </Button>
+                            </div>
                         </div>
-                    </div>
-                )}
+                    ) : (
+                        <div className="space-y-6">
+                            <div className="rounded-xl bg-amber-50 border border-amber-100 p-4">
+                                <p className="text-xs text-amber-800 leading-relaxed">
+                                    Your API token allows external applications to access AgentOS on your behalf. 
+                                    Keep it secure.
+                                </p>
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label>API Token</Label>
+                                {isLoadingToken ? (
+                                    <div className="h-10 w-full rounded-md bg-black/5 animate-pulse" />
+                                ) : (
+                                    <div className="flex gap-2">
+                                        <Input
+                                            value={apiToken || ''}
+                                            readOnly
+                                            placeholder="No token generated"
+                                            className="font-mono text-xs bg-black/[0.02]"
+                                        />
+                                        <Button
+                                            variant="outline"
+                                            size="icon"
+                                            onClick={copyToken}
+                                            disabled={!apiToken}
+                                            className="shrink-0"
+                                        >
+                                            <Copy className="h-4 w-4" />
+                                        </Button>
+                                    </div>
+                                )}
+                            </div>
+
+                            <Button 
+                                onClick={handleGenerateToken} 
+                                variant="outline" 
+                                className="w-full gap-2 rounded-full border-black/10 hover:bg-black/5"
+                            >
+                                <RefreshCw className="h-4 w-4" />
+                                Generate New Token
+                            </Button>
+                        </div>
+                    )}
+                </div>
             </DialogContent>
         </Dialog>
     );
