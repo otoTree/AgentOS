@@ -68,6 +68,7 @@ export async function executeTool(call: any, context: {
         return { output: userToolResult };
     }
 
-    return { output: "Tool not found or not enabled." };
+    const availableTools = context.conversation.tools?.map((t: any) => t.tool.name).join(", ");
+    return { output: `Tool '${call.name}' not found or not enabled. Available user tools: ${availableTools || 'None'}. Please check the tool name.` };
 }
 
