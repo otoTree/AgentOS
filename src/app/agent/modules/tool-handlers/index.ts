@@ -5,6 +5,7 @@ import { handleExcelTool } from "./excel";
 import { handleUserTool } from "./user";
 import { handleDataSourceTool } from "./datasource";
 import { handleWorkbenchTool } from "./workbench";
+import { handleEmailTool } from "./email";
 
 export interface ToolResult {
     output: string | null;
@@ -55,7 +56,13 @@ export async function executeTool(call: any, context: {
         return { output: result };
     }
 
-    // 7. User Tools
+    // 7. Email Tools
+    if (call.name.startsWith('email_')) {
+        const result = await handleEmailTool(call, context.userId);
+        if (result) return { output: result };
+    }
+
+    // 8. User Tools
     const userToolResult = await handleUserTool(call, context.conversation, context.userId);
     if (userToolResult !== null) {
         return { output: userToolResult };

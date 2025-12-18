@@ -35,12 +35,17 @@ export async function POST(req: NextRequest) {
     const fullEmail = match[1];
     const [localPart] = fullEmail.split('@');
     
-    // Check if we have a user with this username
+    // Check if we have a user with this username or email
     // Note: We store username in lowercase in DB (enforced by our update action), so we should search lowercase
     const targetUsername = localPart.toLowerCase();
 
-    const user = await prisma.user.findUnique({
-      where: { username: targetUsername }
+    const user = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { username: targetUsername },
+          { email: fullEmail }
+        ]
+      }
     });
 
     if (!user) {

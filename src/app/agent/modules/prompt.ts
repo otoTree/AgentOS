@@ -15,6 +15,16 @@ export function getToolDefinitions(conversation?: any, context?: { browserSessio
     toolPromptSection += `Inputs: [{"name": "window_type", "type": "string", "description": "Type of window: 'files', 'workbench', 'editor'"}, {"name": "file_id", "type": "string", "description": "Optional: File ID if opening editor"}]\n\n`;
 
 
+    // 1.2 Email Tools
+    toolPromptSection += `## email_list (ID: email_list)\n`;
+    toolPromptSection += `Description: List emails in the inbox. Can filter by query.\n`;
+    toolPromptSection += `Inputs: [{"name": "query", "type": "string", "description": "Optional search query"}, {"name": "limit", "type": "number", "description": "Max emails to return (default 10)"}, {"name": "page", "type": "number", "description": "Page number (default 1)"}]\n\n`;
+
+    toolPromptSection += `## email_get (ID: email_get)\n`;
+    toolPromptSection += `Description: Get the full content of an email.\n`;
+    toolPromptSection += `Inputs: [{"name": "emailId", "type": "string", "description": "The ID of the email to read"}]\n\n`;
+
+
     // 1.5 File System Tools
     toolPromptSection += `## fs_list_files (ID: fs_list_files)\n`;
     toolPromptSection += `Description: List files and folders in a specific directory. Use folderId=null for root.\n`;
