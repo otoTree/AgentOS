@@ -1,7 +1,7 @@
 'use server'
 
 import { auth } from "@/auth";
-import { prisma } from "@/lib/infra/prisma";
+import { dataSourceRepository, dataSourceTableRepository, dataSourceColumnRepository } from "@/lib/repositories/datasource-repository";
 import { ConnectorFactory, DBConfig } from "@/lib/connectors/db-connector";
 import OpenAI from 'openai';
 import { systemConfig } from "@/lib/infra/config";
@@ -14,10 +14,7 @@ export async function getDataSources(userIdOverride?: string) {
     }
     if (!userId) throw new Error("Unauthorized");
     
-    return prisma.dataSource.findMany({
-        where: { userId: userId },
-        orderBy: { createdAt: 'desc' }
-    });
+    return dataSourceRepository.findByUserId(userId);
 }
 
 export async function saveDataSource(data: {
@@ -30,27 +27,26 @@ export async function saveDataSource(data: {
     if (!session?.user?.id) throw new Error("Unauthorized");
 
     if (data.id) {
-        return prisma.dataSource.update({
-            where: { id: data.id, userId: session.user.id },
-            data: {
-                name: data.name,
-                type: data.type,
-                config: data.config as any
-            }
+        // Verify ownership
+        const existing = await dataSourceRepository.findById(data.id);
+        if (!existing || existing.userId !== session.user.id) {
+            throw new Error("Data source not found or unauthorized");
+        }
+
+        return dataSourceRepository.update(data.id, {
+            name: data.name,
+            type: data.type,
+            config: data.config
         });
     } else {
-        const newSource = await prisma.dataSource.create({
-            data: {
-                name: data.name,
-                type: data.type,
-                config: data.config as any,
-                userId: session.user.id
-            }
+        const newSource = await dataSourceRepository.create({
+            name: data.name,
+            type: data.type,
+            config: data.config,
+            userId: session.user.id
         });
         
         // Auto-sync schema for new source
-        // Run in background (don't await) or await? User might want to see it immediately.
-        // Let's await it but catch errors so creation doesn't fail.
         try {
             await syncDataSourceSchema(newSource.id);
         } catch (e) {
@@ -65,11 +61,9 @@ export async function syncDataSourceSchema(dataSourceId: string) {
     const session = await auth();
     if (!session?.user?.id) throw new Error("Unauthorized");
 
-    const dataSource = await prisma.dataSource.findUnique({
-        where: { id: dataSourceId, userId: session.user.id }
-    });
+    const dataSource = await dataSourceRepository.findById(dataSourceId);
 
-    if (!dataSource) throw new Error("Data source not found");
+    if (!dataSource || dataSource.userId !== session.user.id) throw new Error("Data source not found");
 
     const config = dataSource.config as unknown as DBConfig;
     const connector = ConnectorFactory.getConnector(dataSource.type, config);
@@ -80,48 +74,41 @@ export async function syncDataSourceSchema(dataSourceId: string) {
         await connector.disconnect();
         
         for (const table of schema) {
-            const dbTable = await prisma.dataSourceTable.upsert({
-                where: {
-                    dataSourceId_name: {
-                        dataSourceId: dataSource.id,
-                        name: table.name
-                    }
-                },
-                update: {},
-                create: {
+            // Find existing table or create
+            let dbTable = await dataSourceTableRepository.findByName(dataSource.id, table.name);
+            
+            if (!dbTable) {
+                dbTable = await dataSourceTableRepository.create({
                     name: table.name,
                     dataSourceId: dataSource.id
-                }
-            });
+                });
+            }
 
             for (const col of table.columns) {
-                await prisma.dataSourceColumn.upsert({
-                    where: {
-                        tableId_name: {
-                            tableId: dbTable.id,
-                            name: col.name
-                        }
-                    },
-                    update: {
+                const existingCol = await dataSourceColumnRepository.findByName(dbTable.id, col.name);
+                
+                if (existingCol) {
+                    await dataSourceColumnRepository.update(existingCol.id, {
                         type: col.type,
-                        isPrimaryKey: col.isPrimaryKey,
-                        isNullable: col.isNullable
-                    },
-                    create: {
+                        isPrimaryKey: col.isPrimaryKey || false,
+                        isNullable: col.isNullable || true
+                    });
+                } else {
+                    await dataSourceColumnRepository.create({
                         name: col.name,
                         type: col.type,
                         isPrimaryKey: col.isPrimaryKey || false,
                         isNullable: col.isNullable || true,
                         tableId: dbTable.id
-                    }
-                });
+                    });
+                }
             }
         }
         
         return { success: true };
     } catch (e: any) {
         console.error("Sync schema failed:", e);
-        try { await connector.disconnect(); } catch {}
+        try { await connector.disconnect(); } catch { /* ignore */ }
         return { success: false, error: e.message };
     }
 }
@@ -135,62 +122,57 @@ export async function getDataSourceSchema(dataSourceId: string, userIdOverride?:
     if (!userId) throw new Error("Unauthorized");
 
     // Verify ownership
-    const dataSource = await prisma.dataSource.findUnique({
-        where: { id: dataSourceId, userId: userId }
-    });
+    const dataSource = await dataSourceRepository.findById(dataSourceId);
 
-    if (!dataSource) throw new Error("Data source not found or unauthorized");
+    if (!dataSource || dataSource.userId !== userId) throw new Error("Data source not found or unauthorized");
 
-    return prisma.dataSourceTable.findMany({
-        where: { dataSourceId },
-        include: {
-            columns: true
-        },
-        orderBy: { name: 'asc' }
-    });
+    const tables = await dataSourceTableRepository.findByDataSourceId(dataSourceId);
+    
+    // Enrich with columns (N+1 but limited scope for MVP)
+    const tablesWithColumns = await Promise.all(tables.map(async (table) => {
+        const columns = await dataSourceColumnRepository.findByTableId(table.id);
+        return {
+            ...table,
+            columns
+        };
+    }));
+    
+    return tablesWithColumns.sort((a, b) => a.name.localeCompare(b.name));
 }
 
 export async function updateColumnDescription(columnId: string, description: string) {
     const session = await auth();
     if (!session?.user?.id) throw new Error("Unauthorized");
     
-    const column = await prisma.dataSourceColumn.findUnique({
-        where: { id: columnId },
-        include: {
-            table: {
-                include: {
-                    dataSource: true
-                }
-            }
-        }
-    });
+    const column = await dataSourceColumnRepository.findById(columnId);
+    if (!column) throw new Error("Column not found");
     
-    if (!column || column.table.dataSource.userId !== session.user.id) {
+    const table = await dataSourceTableRepository.findById(column.tableId);
+    if (!table) throw new Error("Table not found");
+    
+    const dataSource = await dataSourceRepository.findById(table.dataSourceId);
+    
+    if (!dataSource || dataSource.userId !== session.user.id) {
         throw new Error("Unauthorized or column not found");
     }
 
-    return prisma.dataSourceColumn.update({
-        where: { id: columnId },
-        data: { description }
-    });
+    return dataSourceColumnRepository.update(columnId, { description });
 }
 
 export async function deleteDataSource(id: string) {
     const session = await auth();
     if (!session?.user?.id) throw new Error("Unauthorized");
 
-    return prisma.dataSource.delete({
-        where: { id, userId: session.user.id }
-    });
+    const dataSource = await dataSourceRepository.findById(id);
+    if (!dataSource || dataSource.userId !== session.user.id) throw new Error("Unauthorized");
+
+    return dataSourceRepository.delete(id);
 }
 
 export async function testConnection(type: string, config: DBConfig) {
     const session = await auth();
     if (!session?.user?.id) throw new Error("Unauthorized");
     
-    // Safety check: Don't allow connecting to localhost in production unless intended
-    // For local desktop app, localhost is fine.
-
     try {
         const connector = ConnectorFactory.getConnector(type, config);
         const success = await connector.test();
@@ -208,11 +190,9 @@ export async function executeQuery(dataSourceId: string, query: string, userIdOv
     }
     if (!userId) throw new Error("Unauthorized");
 
-    const dataSource = await prisma.dataSource.findUnique({
-        where: { id: dataSourceId, userId: userId }
-    });
+    const dataSource = await dataSourceRepository.findById(dataSourceId);
 
-    if (!dataSource) throw new Error("Data source not found");
+    if (!dataSource || dataSource.userId !== userId) throw new Error("Data source not found");
 
     const config = dataSource.config as unknown as DBConfig;
     const connector = ConnectorFactory.getConnector(dataSource.type, config);
@@ -223,7 +203,7 @@ export async function executeQuery(dataSourceId: string, query: string, userIdOv
         await connector.disconnect();
         return { success: true, data: result };
     } catch (e: any) {
-        try { await connector.disconnect(); } catch {}
+        try { await connector.disconnect(); } catch { /* ignore */ }
         return { success: false, error: e.message };
     }
 }
@@ -236,11 +216,9 @@ export async function executeNaturalLanguageQuery(dataSourceId: string, prompt: 
     }
     if (!userId) throw new Error("Unauthorized");
 
-    const dataSource = await prisma.dataSource.findUnique({
-        where: { id: dataSourceId, userId: userId }
-    });
+    const dataSource = await dataSourceRepository.findById(dataSourceId);
 
-    if (!dataSource) throw new Error("Data source not found");
+    if (!dataSource || dataSource.userId !== userId) throw new Error("Data source not found");
 
     const apiKey = systemConfig.openai.apiKey;
     const baseUrl = systemConfig.openai.baseUrl;
@@ -308,4 +286,3 @@ Example: SELECT * FROM users WHERE age > 18 LIMIT 10;`;
         return { success: false, error: e.message };
     }
 }
-

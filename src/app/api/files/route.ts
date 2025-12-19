@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthenticatedUser } from "@/lib/infra/auth-helper";
-import { prisma } from "@/lib/infra/prisma";
+import { fileRepository } from "@/lib/repositories/file-repository";
+import { fileShareRepository } from "@/lib/repositories/file-share-repository";
 import { FileStorage } from "@/lib/storage/file-storage";
 import { extractText } from "@/lib/storage/text-extractor";
 import { StorageHelper } from "@/lib/storage/storage-helper";
@@ -15,35 +16,24 @@ export async function GET(request: NextRequest) {
   const search = searchParams.get("search");
   const folderId = searchParams.get("folderId");
 
-  const where: any = {
-    userId: user.id,
-  };
-
-  if (folderId !== undefined) { // Allow filtering by null (root) if explicit null/empty string logic needed
-      where.folderId = folderId || null;
-  }
-
+  let files;
   if (search) {
-    where.OR = [
-      { name: { contains: search, mode: "insensitive" } },
-      { content: { contains: search, mode: "insensitive" } },
-    ];
+      files = await fileRepository.search(user.id, search, folderId);
+  } else {
+      files = await fileRepository.findByFolder(user.id, folderId);
   }
 
-  const files = await prisma.file.findMany({
-    where,
-    select: {
-      id: true,
-      name: true,
-      size: true,
-      mimeType: true,
-      folderId: true,
-      createdAt: true,
-      updatedAt: true,
-    }
-  });
+  const response = files.map(f => ({
+    id: f.id,
+    name: f.name,
+    size: f.size,
+    mimeType: f.mimeType,
+    folderId: f.folderId,
+    createdAt: f.createdAt,
+    updatedAt: f.updatedAt,
+  }));
 
-  return NextResponse.json(files);
+  return NextResponse.json(response);
 }
 
 export async function POST(request: NextRequest) {
@@ -82,8 +72,7 @@ export async function POST(request: NextRequest) {
     await FileStorage.uploadFile(key, buffer, file.type);
     const content = await extractText(buffer, file.type);
 
-    const newFile = await prisma.file.create({
-      data: {
+    const newFile = await fileRepository.create({
         id,
         name: Buffer.from(file.name, "latin1").toString("utf8"),
         size: file.size,
@@ -91,8 +80,7 @@ export async function POST(request: NextRequest) {
         s3Key: key,
         content,
         userId: user.id,
-        folderId: folderId || null,
-      },
+        folderId: folderId || undefined,
     });
 
     let responseData: any = newFile;
@@ -100,12 +88,11 @@ export async function POST(request: NextRequest) {
     if (isPublic) {
       // Create public link
       const token = crypto.randomUUID();
-      await prisma.fileShare.create({
-        data: {
+      await fileShareRepository.create({
           fileId: newFile.id,
           isPublic: true,
           token,
-        },
+          expiresAt: undefined // Optional
       });
 
       const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";

@@ -1,13 +1,16 @@
 'use server'
 
 import { auth } from "@/auth";
-import { prisma } from "@/lib/infra/prisma";
+import { chatRepository } from "@/lib/repositories/chat-repository";
+import { toolRepository } from "@/lib/repositories/tool-repository";
+import { fileRepository } from "@/lib/repositories/file-repository";
 import { CacheService } from "@/lib/infra/cache";
 import { revalidatePath } from "next/cache";
 import { getUserConfig, systemConfig } from "@/lib/infra/config";
 import OpenAI from 'openai';
 import { generateSystemPrompt, prepareMessages } from "./prompt";
 import { executeTool } from "./tool-handlers";
+import { AgentConversation } from "@/lib/core/entities/chat";
 
 export async function sendMessage(conversationId: string, message: string, context?: { browserSessionId?: string }) {
     const session = await auth();
@@ -15,12 +18,9 @@ export async function sendMessage(conversationId: string, message: string, conte
     if (!userId) throw new Error("Not authenticated");
 
     // 1. Save User Message
-    await prisma.agentMessage.create({
-        data: {
-            conversationId,
-            role: 'user',
-            content: message
-        }
+    await chatRepository.addMessage(conversationId, {
+        role: 'user',
+        content: message
     });
 
     // Start background processing
@@ -34,52 +34,57 @@ export async function sendMessage(conversationId: string, message: string, conte
     return { status: 'queued' };
 }
 
+// Helper to reconstruct the full conversation object with tools and files
+async function getConversationWithDetails(conversationId: string) {
+    const conversation = await chatRepository.findById(conversationId);
+    if (!conversation) return null;
+
+    const toolIds = await chatRepository.getTools(conversationId);
+    const fileIds = await chatRepository.getFiles(conversationId);
+
+    // Fetch tool and file details
+    // Ideally use findMany if available, or Promise.all
+    const tools = (await Promise.all(toolIds.map(id => toolRepository.findById(id)))).filter(Boolean);
+    const files = (await Promise.all(fileIds.map(id => fileRepository.findById(id)))).filter(Boolean);
+
+    // Get messages (last 20 for context)
+    const allMessages = await chatRepository.getMessages(conversationId);
+    // Sort by createdAt just in case, though List is usually ordered
+    const sortedMessages = allMessages.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+    const messages = sortedMessages.slice(-20);
+
+    return {
+        ...conversation,
+        tools: tools.map(t => ({ tool: t })), // Match structure expected by executeTool or prompt
+        files: files.map(f => ({ file: f })),
+        messages: messages
+    };
+}
+
 export async function processAgentResponse(conversationId: string, userId: string, message: string, context?: { browserSessionId?: string }) {
     // 2. Get Conversation Context
-    const conversation = await prisma.agentConversation.findUnique({
-        where: { id: conversationId },
-        include: {
-            messages: {
-                orderBy: { createdAt: 'asc' },
-                // Take last 20 messages to fit context window
-                take: -20 
-            },
-            tools: {
-                include: {
-                    tool: true
-                }
-            },
-            files: {
-                include: {
-                    file: true
-                }
-            }
-        }
-    });
+    const conversation = await getConversationWithDetails(conversationId);
 
     if (!conversation) throw new Error("Conversation not found");
 
     // Auto-generate title if it's "New Conversation" and we have first user message
     if (conversation.title === "New Conversation") {
-        const messageCount = await prisma.agentMessage.count({ where: { conversationId } });
-        if (messageCount <= 1) {
+        const messageCount = (await chatRepository.getMessages(conversationId)).length;
+        if (messageCount <= 1) { // <= 1 because we just added the user message
              // Simple heuristic: take first 30 chars
              const newTitle = message.length > 30 ? message.substring(0, 30) + "..." : message;
-             await prisma.agentConversation.update({
-                 where: { id: conversationId },
-                 data: { title: newTitle }
-             });
+             await chatRepository.update(conversationId, { title: newTitle });
         }
     }
 
     // 3. Prepare History
-    const dbMessages = await prisma.agentMessage.findMany({
-        where: { conversationId },
-        orderBy: { createdAt: 'asc' }
-    });
+    // We already fetched messages in getConversationWithDetails, but for prepareMessages we might want all of them or more?
+    // The original code fetched all messages again.
+    const dbMessages = await chatRepository.getMessages(conversationId);
+    const sortedDbMessages = dbMessages.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
 
-    const systemPrompt = generateSystemPrompt(conversation, context);
-    const messages = prepareMessages(dbMessages, systemPrompt);
+    const systemPrompt = generateSystemPrompt(conversation as any, context);
+    const messages = prepareMessages(sortedDbMessages, systemPrompt);
 
     let lastContent = "";
     // Keep track of latest browser state to return
@@ -135,7 +140,6 @@ export async function processAgentResponse(conversationId: string, userId: strin
             if (parsed) {
                  try {
                     if (parsed.tool_calls && Array.isArray(parsed.tool_calls)) {
-                        const transactionOps: any[] = [];
                         // 1. Add Assistant Message (Tool Request) to History
                         messages.push({ role: 'assistant', content: aiContent });
 
@@ -147,7 +151,7 @@ export async function processAgentResponse(conversationId: string, userId: strin
                         
                         for (const call of callsToProcess) {
                             
-                            const result = await executeTool(call, { conversationId, userId, conversation });
+                            const result = await executeTool(call, { conversationId, userId, conversation: conversation as any });
                             const resultOutput = result.output || "(No output)";
 
                             // Handle Browser State Updates
@@ -156,10 +160,7 @@ export async function processAgentResponse(conversationId: string, userId: strin
                                 if (result.browserState.url) updateData.browserUrl = result.browserState.url;
                                 if (result.browserState.screenshot) updateData.browserScreenshot = result.browserState.screenshot;
                                 
-                                transactionOps.push(prisma.agentConversation.update({
-                                    where: { id: conversationId },
-                                    data: updateData
-                                }));
+                                await chatRepository.update(conversationId, updateData);
 
                                 if (!finalBrowserState) finalBrowserState = {};
                                 finalBrowserState.sessionId = result.browserState.sessionId;
@@ -170,36 +171,26 @@ export async function processAgentResponse(conversationId: string, userId: strin
                             // Append to cumulative output for next prompt
                             toolOutputs += `Tool '${call.name}' Output:\n${resultOutput}\n\n`;
 
-                            // 3. Save to Database (BUFFERED)
+                            // 3. Save to Database
                             // Save Assistant Call
-                            transactionOps.push(prisma.agentMessage.create({
-                                data: {
-                                    conversationId,
-                                    role: 'assistant',
-                                    content: JSON.stringify({
-                                        type: 'tool_call',
-                                        tool: call.name,
-                                        args: call.arguments
-                                    })
-                                }
-                            }));
+                            await chatRepository.addMessage(conversationId, {
+                                role: 'assistant',
+                                content: JSON.stringify({
+                                    type: 'tool_call',
+                                    tool: call.name,
+                                    args: call.arguments
+                                })
+                            });
 
                             // Save System Result
-                            transactionOps.push(prisma.agentMessage.create({
-                                data: {
-                                    conversationId,
-                                    role: 'system',
-                                    content: JSON.stringify({
-                                        type: 'tool_result',
-                                        tool: call.name,
-                                        output: resultOutput
-                                    })
-                                }
-                            }));
-                        }
-
-                        if (transactionOps.length > 0) {
-                            await prisma.$transaction(transactionOps);
+                            await chatRepository.addMessage(conversationId, {
+                                role: 'system',
+                                content: JSON.stringify({
+                                    type: 'tool_result',
+                                    tool: call.name,
+                                    output: resultOutput
+                                })
+                            });
                         }
 
                         // 4. Feed results back to AI for next turn
@@ -218,12 +209,9 @@ export async function processAgentResponse(conversationId: string, userId: strin
             }
 
             // If we get here, it's a final text response (or invalid JSON treated as text)
-            await prisma.agentMessage.create({
-                data: {
-                    conversationId,
-                    role: 'assistant',
-                    content: aiContent
-                }
+            await chatRepository.addMessage(conversationId, {
+                role: 'assistant',
+                content: aiContent
             });
             
             // Break the loop since we have a final answer

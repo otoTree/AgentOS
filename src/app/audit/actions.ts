@@ -1,7 +1,8 @@
 'use server'
 
 import { auth } from "@/auth";
-import { prisma } from "@/lib/infra/prisma";
+import { userRepository } from "@/lib/repositories/auth-repository";
+import { projectRepository, deploymentRepository } from "@/lib/repositories/project-repository";
 import { redirect } from "next/navigation";
 
 export interface AuditStats {
@@ -29,40 +30,24 @@ export async function getAuditData() {
   const userId = session.user.id;
 
   // Fetch User Credits
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { credits: true },
-  });
+  const user = await userRepository.findById(userId);
 
   // Fetch All Projects with Deployments for the User
-  const projects = await prisma.project.findMany({
-    where: { userId },
-    select: {
-      id: true,
-      name: true,
-      createdAt: true,
-      deployments: {
-        select: {
-          id: true,
-          isActive: true,
-          callCount: true,
-          lastCalled: true,
-        },
-      },
-    },
-  });
-
+  const projects = await projectRepository.findByUserId(userId);
+  
   // Aggregate Data
   let totalCalls = 0;
   let totalDeployments = 0;
   const projectStats: ProjectAuditData[] = [];
 
-  projects.forEach((project) => {
+  for (const project of projects) {
+    const deployments = await deploymentRepository.findByProjectId(project.id);
+    
     let projectCallCount = 0;
     let projectLastCalled: Date | null = null;
     let hasActiveDeployment = false;
 
-    project.deployments.forEach((deployment) => {
+    deployments.forEach((deployment) => {
       totalDeployments++;
       totalCalls += deployment.callCount;
       projectCallCount += deployment.callCount;
@@ -84,7 +69,7 @@ export async function getAuditData() {
       createdAt: project.createdAt,
       isActive: hasActiveDeployment,
     });
-  });
+  }
 
   // Sort Projects by Call Count (Descending)
   projectStats.sort((a, b) => b.callCount - a.callCount);

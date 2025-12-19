@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/infra/prisma";
+import { tableRepository } from "@/lib/repositories/table-repository";
 import { getAuthenticatedUser } from "@/lib/infra/auth-helper";
 
 // GET /api/tables - List all tables
@@ -10,19 +10,18 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const tables = await prisma.tableDocument.findMany({
-      where: { userId: user.id },
-      orderBy: { updatedAt: 'desc' },
-      select: {
-        id: true,
-        name: true,
-        updatedAt: true,
-        createdAt: true,
-        // Don't fetch content for list view to save bandwidth
-      }
-    });
+    const tables = await tableRepository.findByUserId(user.id);
+    
+    // Select specific fields if needed, but repository returns full objects
+    // We can map to reduce payload if content is large
+    const mappedTables = tables.map(t => ({
+        id: t.id,
+        name: t.name,
+        updatedAt: t.updatedAt,
+        createdAt: t.createdAt
+    }));
 
-    return NextResponse.json(tables);
+    return NextResponse.json(mappedTables);
   } catch (error: any) {
     console.error("Error fetching tables:", error);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
@@ -44,12 +43,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Name is required" }, { status: 400 });
     }
 
-    const table = await prisma.tableDocument.create({
-      data: {
+    const table = await tableRepository.create({
         name,
-        content: content || {}, // Default to empty object if not provided
+        content: content || {},
         userId: user.id
-      }
     });
 
     return NextResponse.json(table);

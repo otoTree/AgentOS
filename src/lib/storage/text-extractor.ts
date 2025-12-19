@@ -6,7 +6,7 @@ export async function extractText(buffer: Buffer, mimeType: string): Promise<str
   try {
     if (mimeType === "application/pdf") {
       // Dynamic require to avoid build-time bundling issues with pdf-parse in Next.js
-      // @ts-ignore
+      // @ts-expect-error
       const pdf = (await import("pdf-parse")).default;
       const data = await pdf(buffer);
       return data.text;

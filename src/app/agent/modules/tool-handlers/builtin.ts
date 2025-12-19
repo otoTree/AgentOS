@@ -1,6 +1,6 @@
 import { toolSearch } from "@/lib/ai/tool-search";
 import { addToolToConversation } from "../tools";
-import { prisma } from "@/lib/infra/prisma";
+import { fileRepository } from "@/lib/repositories/file-repository";
 
 export async function handleBuiltinTool(call: any, conversationId: string) {
     if (call.id === 'builtin_search' || call.name === 'search_tools') {
@@ -32,11 +32,11 @@ export async function handleBuiltinTool(call: any, conversationId: string) {
         let resultOutput = `Window '${window_type}' command sent to client.`;
         if (file_id) {
             try {
-                const file = await prisma.file.findUnique({ where: { id: file_id } });
+                const file = await fileRepository.findById(file_id);
                 if (file) {
                     resultOutput += ` File: ${file.name}`;
                 }
-            } catch (e) {}
+            } catch (e) { /* ignore */ }
         }
         return resultOutput;
     }

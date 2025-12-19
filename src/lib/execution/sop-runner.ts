@@ -1,4 +1,6 @@
-import { prisma } from "@/lib/infra/prisma";
+import { sopWorkflowRepository } from "@/lib/repositories/sop-workflow-repository";
+import { sopExecutionRepository } from "@/lib/repositories/sop-execution-repository";
+import { sopTaskRepository } from "@/lib/repositories/sop-task-repository";
 import { SOPSequence } from "@/lib/ai/sop-types";
 import { systemConfig } from "@/lib/infra/config";
 import OpenAI from "openai";
@@ -6,23 +8,19 @@ import OpenAI from "openai";
 export class SopRunner {
   static async executeWorkflow(workflowId: string, userId: string, inputs: any = {}) {
     // 1. Fetch Workflow
-    const workflow = await prisma.sopWorkflow.findUnique({
-      where: { id: workflowId, userId },
-    });
+    const workflow = await sopWorkflowRepository.findById(workflowId);
 
-    if (!workflow) throw new Error("Workflow not found");
+    if (!workflow || workflow.userId !== userId) throw new Error("Workflow not found or access denied");
 
     const graph = workflow.graph as unknown as SOPSequence;
     if (!graph || !graph.steps) throw new Error("Invalid workflow graph");
 
     // 2. Create Execution Record
-    const execution = await prisma.sopExecution.create({
-      data: {
+    const execution = await sopExecutionRepository.create({
         workflowId,
         userId,
         status: "RUNNING",
         context: inputs,
-      },
     });
 
     try {
@@ -39,9 +37,8 @@ export class SopRunner {
 
       for (const step of graph.steps) {
         // Update Execution Status (Current Node)
-        await prisma.sopExecution.update({
-          where: { id: execution.id },
-          data: { currentNodeId: step.id },
+        await sopExecutionRepository.update(execution.id, {
+            currentNodeId: step.id
         });
 
         // Filter context based on dependencies
@@ -64,16 +61,14 @@ export class SopRunner {
         }
 
         // Create Task Record
-        const task = await prisma.sopTask.create({
-          data: {
+        const task = await sopTaskRepository.create({
             executionId: execution.id,
             nodeId: step.id,
             type: "AI_GENERATED",
             name: step.name,
             status: "IN_PROGRESS",
             ownerId: userId,
-            input: contextToPrompt, // Store current context as input
-          },
+            input: contextToPrompt,
         });
 
         // Prepare Prompt
@@ -92,35 +87,30 @@ export class SopRunner {
         const content = response.choices[0].message.content || "";
 
         // Update Task Record
-        await prisma.sopTask.update({
-          where: { id: task.id },
-          data: {
+        await sopTaskRepository.update(task.id, {
             status: "COMPLETED",
             output: { content: content },
-          },
         });
 
         // Update Context (Blackboard)
         inputs[`step_${step.id}_output`] = content;
-        await prisma.sopExecution.update({
-            where: { id: execution.id },
-            data: { context: inputs }
+        await sopExecutionRepository.update(execution.id, {
+            context: inputs
         });
       }
 
       // Mark Execution as Completed
-      await prisma.sopExecution.update({
-        where: { id: execution.id },
-        data: { status: "COMPLETED", currentNodeId: null },
+      await sopExecutionRepository.update(execution.id, {
+          status: "COMPLETED",
+          currentNodeId: undefined // or empty string/null logic
       });
 
       return { executionId: execution.id, status: "COMPLETED", results: inputs };
 
     } catch (error: any) {
       console.error("SOP Execution Failed:", error);
-      await prisma.sopExecution.update({
-        where: { id: execution.id },
-        data: { status: "FAILED" },
+      await sopExecutionRepository.update(execution.id, {
+          status: "FAILED"
       });
       throw error;
     }

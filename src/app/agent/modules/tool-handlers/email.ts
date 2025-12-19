@@ -1,5 +1,4 @@
-
-import { prisma } from "@/lib/infra/prisma";
+import { emailRepository } from "@/lib/repositories/email-repository";
 
 export async function handleEmailTool(call: any, userId: string) {
     if (call.name === 'email_list') {
@@ -9,38 +8,30 @@ export async function handleEmailTool(call: any, userId: string) {
             const page = call.arguments?.page || 1;
             const skip = (page - 1) * limit;
 
-            const whereClause: any = {
-                userId: userId
-            };
-
+            // TODO: Implement search filtering in Redis if needed.
+            // For now, we fetch latest and filter in memory (inefficient for large datasets but ok for MVP)
+            // Or we just return latest emails.
+            
+            const emails = await emailRepository.findByUserId(userId, 100, 0); // Fetch last 100
+            
+            let filtered = emails;
             if (query) {
-                whereClause.OR = [
-                    { subject: { contains: query, mode: 'insensitive' } },
-                    { from: { contains: query, mode: 'insensitive' } },
-                    { body: { contains: query, mode: 'insensitive' } }
-                ];
+                filtered = emails.filter(e => 
+                    (e.subject && e.subject.toLowerCase().includes(query)) ||
+                    (e.from && e.from.toLowerCase().includes(query)) ||
+                    (e.body && e.body.toLowerCase().includes(query))
+                );
             }
+            
+            // Pagination
+            const paged = filtered.slice(skip, skip + limit);
 
-            const emails = await prisma.email.findMany({
-                where: whereClause,
-                orderBy: { receivedAt: 'desc' },
-                take: limit,
-                skip: skip,
-                select: {
-                    id: true,
-                    subject: true,
-                    from: true,
-                    receivedAt: true,
-                    isRead: true
-                }
-            });
-
-            if (emails.length === 0) {
+            if (paged.length === 0) {
                 return "No emails found.";
             }
 
-            return "Emails:\n" + emails.map(e => 
-                `- [${e.isRead ? 'READ' : 'UNREAD'}] ${e.subject || '(No Subject)'}\n  From: ${e.from}\n  Date: ${e.receivedAt.toLocaleString()}\n  ID: ${e.id}`
+            return "Emails:\n" + paged.map(e => 
+                `- [${e.isRead ? 'READ' : 'UNREAD'}] ${e.subject || '(No Subject)'}\n  From: ${e.from}\n  Date: ${new Date(e.receivedAt).toLocaleString()}\n  ID: ${e.id}`
             ).join('\n\n');
 
         } catch (e: any) {
@@ -54,35 +45,24 @@ export async function handleEmailTool(call: any, userId: string) {
             const emailId = call.arguments?.emailId;
             if (!emailId) return "Error: emailId is required.";
 
-            const email = await prisma.email.findUnique({
-                where: { 
-                    id: emailId,
-                    userId: userId // Security check
-                }
-            });
+            const email = await emailRepository.findById(emailId);
 
-            if (!email) {
+            if (!email || email.userId !== userId) {
                 return "Email not found or unauthorized.";
             }
 
             // Mark as read if not already
             if (!email.isRead) {
-                await prisma.email.update({
-                    where: { id: email.id },
-                    data: { isRead: true }
-                });
+                await emailRepository.update(email.id, { isRead: true });
             }
 
             let content = `Subject: ${email.subject || '(No Subject)'}\n`;
             content += `From: ${email.from}\n`;
             content += `To: ${email.to}\n`;
-            content += `Date: ${email.receivedAt.toLocaleString()}\n`;
+            content += `Date: ${new Date(email.receivedAt).toLocaleString()}\n`;
             content += `\n--- Body ---\n`;
             content += email.body || "(No plain text body)";
             
-            // If there is HTML content, we might want to mention it or strip tags, 
-            // but for an LLM, plain text 'body' is usually preferred if available.
-            // If body is empty but html exists, we could try to use that (maybe strip tags).
             if (!email.body && email.html) {
                  content += "\n(Content is HTML-only)\n" + email.html;
             }

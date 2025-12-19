@@ -1,4 +1,5 @@
-import { prisma } from "@/lib/infra/prisma";
+import { userRepository } from "@/lib/repositories/auth-repository";
+import { fileRepository } from "@/lib/repositories/file-repository";
 
 export class StorageHelper {
   /**
@@ -6,12 +7,8 @@ export class StorageHelper {
    * Currently counts the size of all files owned by the user.
    */
   static async getUserStorageUsage(userId: string): Promise<number> {
-    const result = await prisma.file.aggregate({
-      where: { userId },
-      _sum: { size: true },
-    });
-    
-    return result._sum.size || 0;
+    const files = await fileRepository.findByUserId(userId);
+    return files.reduce((acc, file) => acc + (file.size || 0), 0);
   }
 
   /**
@@ -19,15 +16,12 @@ export class StorageHelper {
    * Returns true if user has space, false otherwise.
    */
   static async hasStorageSpace(userId: string, sizeInBytes: number): Promise<boolean> {
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { storageLimit: true },
-    });
+    const user = await userRepository.findById(userId);
 
     if (!user) return false;
 
     const currentUsage = await this.getUserStorageUsage(userId);
-    const limit = Number(user.storageLimit); // Convert BigInt to Number for comparison (safe up to 9PB)
+    const limit = Number(user.storageLimit || 0);
 
     return (currentUsage + sizeInBytes) <= limit;
   }
@@ -36,17 +30,14 @@ export class StorageHelper {
    * Get storage stats for a user (used, limit, percentage).
    */
   static async getStorageStats(userId: string) {
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { storageLimit: true },
-    });
+    const user = await userRepository.findById(userId);
 
     if (!user) {
         return { used: 0, limit: 0, percentage: 0 };
     }
 
     const used = await this.getUserStorageUsage(userId);
-    const limit = Number(user.storageLimit);
+    const limit = Number(user.storageLimit || 0);
     
     return {
       used,

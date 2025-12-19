@@ -1,12 +1,12 @@
 import NextAuth from "next-auth"
-import { PrismaAdapter } from "@auth/prisma-adapter"
-import { prisma } from "@/lib/infra/prisma"
+import { RedisAdapter } from "@/lib/auth/redis-adapter"
+import { userRepository } from "@/lib/repositories/auth-repository"
 import Credentials from "next-auth/providers/credentials"
 import bcrypt from "bcryptjs"
 import { loadUserConfig } from "@/lib/infra/config"
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  adapter: PrismaAdapter(prisma),
+  adapter: RedisAdapter(),
   session: { strategy: "jwt" },
   pages: {
     signIn: "/auth/signin",
@@ -30,11 +30,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const email = credentials.email as string
         const hash = credentials.password as string
 
-        let user: any = await prisma.user.findUnique({
-          where: {
-            email,
-          },
-        })
+        const user: any = await userRepository.findByEmail(email)
 
         if (!user) {
           throw new Error("User not found.")

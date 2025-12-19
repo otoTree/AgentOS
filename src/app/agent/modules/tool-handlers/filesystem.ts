@@ -5,7 +5,7 @@ import {
   updateFileContent,
   deleteFile
 } from "@/app/file-actions";
-import { prisma } from "@/lib/infra/prisma";
+import { fileRepository } from "@/lib/repositories/file-repository";
 
 export async function handleFileSystemTool(call: any, userId: string) {
     if (call.name === 'fs_list_files') {
@@ -26,11 +26,9 @@ export async function handleFileSystemTool(call: any, userId: string) {
     if (call.name === 'fs_read_file') {
         try {
             const fileId = call.arguments?.fileId;
-            const file = await prisma.file.findUnique({
-                where: { id: fileId, userId: userId }
-            });
+            const file = await fileRepository.findById(fileId);
 
-            if (file) {
+            if (file && file.userId === userId) {
                 return file.content || "(Empty file)";
             } else {
                 return "File not found or unauthorized.";

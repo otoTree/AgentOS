@@ -1,7 +1,8 @@
 'use server'
 
 import { auth } from "@/auth";
-import { prisma } from "@/lib/infra/prisma";
+import { userRepository } from "@/lib/repositories/auth-repository";
+import { apiTokenRepository } from "@/lib/repositories/api-token-repository";
 import { FileStorage } from "@/lib/storage/file-storage";
 import { revalidatePath } from "next/cache";
 import crypto from "crypto";
@@ -10,16 +11,7 @@ export async function getUserProfile() {
   const session = await auth();
   if (!session?.user?.id) return null;
 
-  const user = await prisma.user.findUnique({
-    where: { id: session.user.id },
-    select: {
-      id: true,
-      name: true,
-      username: true,
-      email: true,
-      image: true,
-    }
-  });
+  const user = await userRepository.findById(session.user.id);
 
   if (user?.image && !user.image.startsWith('http') && !user.image.startsWith('data:')) {
       try {
@@ -29,6 +21,12 @@ export async function getUserProfile() {
       }
   }
 
+  // Filter sensitive data
+  if (user) {
+      const { password, ...safeUser } = user;
+      return safeUser;
+  }
+
   return user;
 }
 
@@ -36,12 +34,7 @@ export async function updateUserProfile(data: { name?: string, username?: string
     const session = await auth();
     if (!session?.user?.id) throw new Error("Not authenticated");
 
-    await prisma.user.update({
-        where: { id: session.user.id },
-        data: {
-            ...data
-        }
-    });
+    await userRepository.update(session.user.id, data);
 
     revalidatePath("/agent");
 }
@@ -63,10 +56,7 @@ export async function uploadAvatar(formData: FormData) {
     await FileStorage.uploadFile(key, buffer, file.type);
     
     // Update user with the KEY
-    await prisma.user.update({
-        where: { id: session.user.id },
-        data: { image: key }
-    });
+    await userRepository.update(session.user.id, { image: key });
 
     revalidatePath("/agent");
     return key;
@@ -76,10 +66,8 @@ export async function getApiToken() {
     const session = await auth();
     if (!session?.user?.id) throw new Error("Not authenticated");
     
-    const token = await prisma.apiToken.findFirst({
-        where: { userId: session.user.id },
-        orderBy: { createdAt: 'desc' }
-    });
+    const tokens = await apiTokenRepository.findByUserId(session.user.id);
+    const token = tokens.length > 0 ? tokens[0] : null;
     
     return token?.token;
 }
@@ -90,12 +78,10 @@ export async function generateApiToken() {
     
     const tokenString = `sk-${crypto.randomBytes(24).toString('hex')}`;
     
-    await prisma.apiToken.create({
-        data: {
-            name: 'Default Token',
-            token: tokenString,
-            userId: session.user.id
-        }
+    await apiTokenRepository.create({
+        name: 'Default Token',
+        token: tokenString,
+        userId: session.user.id
     });
     
     revalidatePath("/agent");

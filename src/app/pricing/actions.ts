@@ -1,7 +1,7 @@
 'use server'
 
 import { auth } from "@/auth";
-import { prisma } from "@/lib/infra/prisma";
+import { userRepository } from "@/lib/repositories/auth-repository";
 import { revalidatePath } from "next/cache";
 
 export async function purchaseCredits(amount: number, cost: number) {
@@ -13,11 +13,11 @@ export async function purchaseCredits(amount: number, cost: number) {
     // Simulation of payment verification
     // In real app: await verifyPayment(paymentId);
 
-    await prisma.user.update({
-        where: { id: session.user.id },
-        data: {
-            credits: { increment: amount }
-        }
+    const user = await userRepository.findById(session.user.id);
+    if (!user) throw new Error("User not found");
+
+    await userRepository.update(session.user.id, {
+        credits: user.credits + amount
     });
 
     revalidatePath("/dashboard/profile");
@@ -33,15 +33,11 @@ export async function purchaseStorage(bytes: number, cost: number) {
 
     // Simulation of payment verification
 
-    // Prisma doesn't support direct increment for BigInt in update data yet in all versions nicely without raw query or specific syntax, 
-    // but let's try the standard increment if supported or read-update-write.
-    // Actually, BigInt increment is supported in modern Prisma.
-    
-    await prisma.user.update({
-        where: { id: session.user.id },
-        data: {
-            storageLimit: { increment: bytes }
-        }
+    const user = await userRepository.findById(session.user.id);
+    if (!user) throw new Error("User not found");
+
+    await userRepository.update(session.user.id, {
+        storageLimit: Number(user.storageLimit) + bytes
     });
 
     revalidatePath("/dashboard/profile");

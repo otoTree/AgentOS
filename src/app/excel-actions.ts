@@ -19,8 +19,8 @@ function getS3Client() {
 }
 
 const BUCKET_NAME = systemConfig.s3.bucketName;
-const PREFIX = 'excel-tables/';
-const MANIFEST_KEY = `${PREFIX}manifest.json`;
+const getPrefix = (userId: string) => `excel-tables/${userId}/`;
+const getManifestKey = (userId: string) => `${getPrefix(userId)}manifest.json`;
 
 interface WorkbookMeta {
   id: string;
@@ -29,9 +29,9 @@ interface WorkbookMeta {
 }
 
 // Internal helper to get manifest
-async function getManifest(client: S3Client): Promise<WorkbookMeta[]> {
+async function getManifest(client: S3Client, userId: string): Promise<WorkbookMeta[]> {
   try {
-    const cmd = new GetObjectCommand({ Bucket: BUCKET_NAME, Key: MANIFEST_KEY });
+    const cmd = new GetObjectCommand({ Bucket: BUCKET_NAME, Key: getManifestKey(userId) });
     const res = await client.send(cmd);
     const str = await res.Body?.transformToString();
     return str ? JSON.parse(str) : [];
@@ -43,11 +43,11 @@ async function getManifest(client: S3Client): Promise<WorkbookMeta[]> {
 }
 
 // Internal helper to save manifest
-async function saveManifest(client: S3Client, manifest: WorkbookMeta[]) {
+async function saveManifest(client: S3Client, userId: string, manifest: WorkbookMeta[]) {
   try {
     await client.send(new PutObjectCommand({
       Bucket: BUCKET_NAME,
-      Key: MANIFEST_KEY,
+      Key: getManifestKey(userId),
       Body: JSON.stringify(manifest),
       ContentType: 'application/json',
     }));
@@ -56,10 +56,10 @@ async function saveManifest(client: S3Client, manifest: WorkbookMeta[]) {
   }
 }
 
-export async function listWorkbooks(): Promise<{ workbooks: WorkbookMeta[]; error?: string }> {
+export async function listWorkbooks(userId: string): Promise<{ workbooks: WorkbookMeta[]; error?: string }> {
   try {
     const client = getS3Client();
-    const manifest = await getManifest(client);
+    const manifest = await getManifest(client, userId);
     return { workbooks: manifest };
   } catch (error: any) {
     console.error("Failed to list workbooks:", error);
@@ -67,12 +67,12 @@ export async function listWorkbooks(): Promise<{ workbooks: WorkbookMeta[]; erro
   }
 }
 
-export async function loadWorkbook(id: string): Promise<{ workbook?: Workbook; error?: string }> {
+export async function loadWorkbook(id: string, userId: string): Promise<{ workbook?: Workbook; error?: string }> {
   try {
     const client = getS3Client();
     const cmd = new GetObjectCommand({
       Bucket: BUCKET_NAME,
-      Key: `${PREFIX}${id}.json`,
+      Key: `${getPrefix(userId)}${id}.json`,
     });
     const res = await client.send(cmd);
     const str = await res.Body?.transformToString();
@@ -84,7 +84,7 @@ export async function loadWorkbook(id: string): Promise<{ workbook?: Workbook; e
   }
 }
 
-export async function saveWorkbookToOss(workbook: Workbook): Promise<{ success: boolean; error?: string }> {
+export async function saveWorkbookToOss(workbook: Workbook, userId: string): Promise<{ success: boolean; error?: string }> {
   try {
     const client = getS3Client();
     const json = JSON.stringify(workbook);
@@ -92,13 +92,13 @@ export async function saveWorkbookToOss(workbook: Workbook): Promise<{ success: 
     // 1. Save Workbook Content
     await client.send(new PutObjectCommand({
       Bucket: BUCKET_NAME,
-      Key: `${PREFIX}${workbook.id}.json`,
+      Key: `${getPrefix(userId)}${workbook.id}.json`,
       Body: json,
       ContentType: 'application/json',
     }));
 
     // 2. Update Manifest
-    const manifest = await getManifest(client);
+    const manifest = await getManifest(client, userId);
     const idx = manifest.findIndex(w => w.id === workbook.id);
     const meta: WorkbookMeta = {
       id: workbook.id,
@@ -111,7 +111,7 @@ export async function saveWorkbookToOss(workbook: Workbook): Promise<{ success: 
     } else {
       manifest.push(meta);
     }
-    await saveManifest(client, manifest);
+    await saveManifest(client, userId, manifest);
 
     return { success: true };
   } catch (error: any) {
@@ -120,20 +120,20 @@ export async function saveWorkbookToOss(workbook: Workbook): Promise<{ success: 
   }
 }
 
-export async function deleteWorkbookFromOss(workbookId: string): Promise<{ success: boolean; error?: string }> {
+export async function deleteWorkbookFromOss(workbookId: string, userId: string): Promise<{ success: boolean; error?: string }> {
   try {
     const client = getS3Client();
     
     // 1. Delete Content
     await client.send(new DeleteObjectCommand({
       Bucket: BUCKET_NAME,
-      Key: `${PREFIX}${workbookId}.json`,
+      Key: `${getPrefix(userId)}${workbookId}.json`,
     }));
 
     // 2. Update Manifest
-    const manifest = await getManifest(client);
+    const manifest = await getManifest(client, userId);
     const newManifest = manifest.filter(w => w.id !== workbookId);
-    await saveManifest(client, newManifest);
+    await saveManifest(client, userId, newManifest);
 
     return { success: true };
   } catch (error: any) {

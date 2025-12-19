@@ -133,7 +133,7 @@ export default function ChatInterface({ conversation }: ChatInterfaceProps) {
                       }
                   }
               }
-          } catch (e) {}
+          } catch (e) { /* ignore */ }
       }
 
   }, [messages]);
@@ -273,7 +273,7 @@ export default function ChatInterface({ conversation }: ChatInterfaceProps) {
                           }
                       });
                   }
-              } catch (e) {}
+              } catch (e) { /* ignore */ }
           }
       });
   }, [messages]);
@@ -377,7 +377,7 @@ export default function ChatInterface({ conversation }: ChatInterfaceProps) {
         try {
             const content = JSON.parse(lastMsg.content);
             if (content.tool_calls || content.type === 'tool_call') isTool = true;
-        } catch(e) {}
+        } catch(e) { /* ignore */ }
         
         if (isTool) {
              // It's a tool call, so we expect a system result next. Still loading.
@@ -516,6 +516,7 @@ export default function ChatInterface({ conversation }: ChatInterfaceProps) {
                     onUpdateMode={updateWindowMode}
                     onClose={closeWindow}
                     onOpenWindow={openWindow}
+                    userId={conversation.userId}
                  />
              </div>
         </div>

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthenticatedUser } from "@/lib/infra/auth-helper";
-import { prisma } from "@/lib/infra/prisma";
+import { fileRepository } from "@/lib/repositories/file-repository";
+import { fileShareRepository } from "@/lib/repositories/file-share-repository";
 import { FileStorage } from "@/lib/storage/file-storage";
 
 export async function GET(
@@ -12,10 +13,7 @@ export async function GET(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const file = await prisma.file.findUnique({
-    where: { id: params.id },
-    include: { shares: true },
-  });
+  const file = await fileRepository.findById(params.id);
 
   if (!file) {
     return NextResponse.json({ error: "File not found" }, { status: 404 });
@@ -24,7 +22,8 @@ export async function GET(
   // Check access (Owner or Shared)
   let hasAccess = file.userId === user.id;
   if (!hasAccess) {
-    const share = file.shares.find(s => s.sharedWithUserId === user.id);
+    const shares = await fileShareRepository.findByFileId(file.id);
+    const share = shares.find(s => s.sharedWithUserId === user.id);
     if (share) hasAccess = true;
   }
 

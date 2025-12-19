@@ -1,4 +1,5 @@
-import { prisma } from "@/lib/infra/prisma";
+import { deploymentRepository, projectRepository } from "@/lib/repositories/project-repository";
+import { userRepository } from "@/lib/repositories/auth-repository";
 import { executeCode } from "@/lib/execution/sandbox";
 import { wrapCode } from "@/lib/execution/code-wrapper";
 import { processExecutionResult } from "@/lib/execution/execution-helper";
@@ -21,13 +22,15 @@ export async function POST(
 
 async function handleRequest(deploymentId: string, request: NextRequest) {
   try {
-    const deployment = await prisma.deployment.findUnique({
-      where: { id: deploymentId },
-      include: { project: true } // Need project to check owner
-    });
+    const deployment = await deploymentRepository.findById(deploymentId);
 
     if (!deployment) {
       return NextResponse.json({ error: "Deployment not found" }, { status: 404 });
+    }
+
+    const project = await projectRepository.findById(deployment.projectId);
+    if (!project) {
+        return NextResponse.json({ error: "Project not found" }, { status: 404 });
     }
 
     if (!deployment.isActive) {
@@ -43,21 +46,24 @@ async function handleRequest(deploymentId: string, request: NextRequest) {
     }
 
     // Find user by token
-    const apiToken = await prisma.apiToken.findUnique({
-        where: { token },
-        include: { user: true }
-    });
+    // TODO: Implement ApiTokenRepository
+    // const apiToken = await apiTokenRepository.findByToken(token);
+    const apiToken: any = null; // Pending implementation
 
     if (!apiToken) {
-        return NextResponse.json({ error: "Unauthorized: Invalid Token" }, { status: 401 });
+        return NextResponse.json({ error: "Unauthorized: Invalid Token (Migration Pending)" }, { status: 401 });
     }
 
-    const user = apiToken.user;
+    // @ts-ignore
+    const user = await userRepository.findById(apiToken.userId);
+    if (!user) {
+        return NextResponse.json({ error: "User not found" }, { status: 401 });
+    }
 
     // 2. Authorization Check
     if (deployment.accessType === 'PRIVATE') {
         // For PRIVATE deployments, only the owner can access
-        if (deployment.project.userId !== user.id) {
+        if (project.userId !== user.id) {
             return NextResponse.json({ error: "Forbidden: You do not have access to this private deployment" }, { status: 403 });
         }
     }
@@ -71,22 +77,15 @@ async function handleRequest(deploymentId: string, request: NextRequest) {
     // We do this transactionally or carefully. For now, parallel promises.
     await Promise.all([
         // Deduct credit
-        prisma.user.update({
-            where: { id: user.id },
-            data: { credits: { decrement: 1 } }
-        }),
+        userRepository.update(user.id, { credits: user.credits - 1 }),
+        
         // Update Token usage
-        prisma.apiToken.update({
-            where: { id: apiToken.id },
-            data: { lastUsed: new Date() }
-        }),
+        // apiTokenRepository.update(apiToken.id, { lastUsed: new Date() }),
+        
         // Update Deployment stats
-        prisma.deployment.update({
-            where: { id: deploymentId },
-            data: {
-                callCount: { increment: 1 },
-                lastCalled: new Date()
-            }
+        deploymentRepository.update(deploymentId, {
+            callCount: deployment.callCount + 1,
+            lastCalled: new Date()
         })
     ]);
 

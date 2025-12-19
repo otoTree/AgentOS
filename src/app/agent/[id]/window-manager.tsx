@@ -22,11 +22,12 @@ export interface ActiveWindow {
     data?: any;
 }
 
-interface WindowManagerProps {
+export interface WindowManagerProps {
     windows: ActiveWindow[];
     onUpdateMode: (id: string, mode: WindowMode) => void;
     onClose: (id: string) => void;
     onOpenWindow: (type: ActiveWindow['type'], data?: any) => void;
+    userId?: string;
 }
 
 function ProjectLoader({ projectId }: { projectId: string }) {
@@ -83,7 +84,7 @@ function WindowedFileEditor({ file }: { file: any }) {
     );
 }
 
-export function WindowManager({ windows, onUpdateMode, onClose, onOpenWindow }: WindowManagerProps) {
+export function WindowManager({ windows, onUpdateMode, onClose, onOpenWindow, userId }: WindowManagerProps) {
     // We separate embedded and floating/fullscreen windows
     // Embedded windows should be rendered in the layout flow (passed to parent? or rendered here?)
     // If rendered here, we need to know WHERE to render them.
@@ -140,7 +141,7 @@ export function WindowManager({ windows, onUpdateMode, onClose, onOpenWindow }: 
                     )}
                     {win.type === 'konva-table' && (
                         <div className="h-full w-full overflow-hidden bg-white">
-                             <TableManager />
+                             <TableManager userId={userId} />
                         </div>
                     )}
                 </WindowContainer>

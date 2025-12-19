@@ -1,34 +1,29 @@
-import { prisma } from "@/lib/infra/prisma";
-import { FileStorage } from "@/lib/storage/file-storage";
+import { fileShareRepository } from "@/lib/repositories/file-share-repository";
+import { fileRepository } from "@/lib/repositories/file-repository";
 import { notFound } from "next/navigation";
 import { Metadata } from "next";
 
 export async function generateMetadata({ params }: { params: { token: string } }): Promise<Metadata> {
-  const share = await prisma.fileShare.findUnique({
-    where: { token: params.token },
-    include: { file: true },
-  });
+  const share = await fileShareRepository.findByToken(params.token);
+  const file = share ? await fileRepository.findById(share.fileId) : null;
 
-  if (!share || !share.file) {
+  if (!share || !file) {
     return { title: "File Not Found" };
   }
 
   return {
-    title: `${share.file.name} - Shared File`,
+    title: `${file.name} - Shared File`,
   };
 }
 
 export default async function SharedFilePage({ params }: { params: { token: string } }) {
-  const share = await prisma.fileShare.findUnique({
-    where: { token: params.token },
-    include: { file: true },
-  });
+  const share = await fileShareRepository.findByToken(params.token);
+  const file = share ? await fileRepository.findById(share.fileId) : null;
 
-  if (!share || !share.file) {
+  if (!share || !file) {
     notFound();
   }
 
-  const file = share.file;
   // Use Public Proxy URL
   const url = `/api/share/${params.token}/download`;
 

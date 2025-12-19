@@ -3,17 +3,7 @@
 import { useState, useEffect } from 'react';
 import { getEmails, getEmail } from '@/app/actions';
 import { RefreshCw, ArrowLeft, Mail } from 'lucide-react';
-
-interface Email {
-    id: string;
-    subject: string | null;
-    from: string;
-    to: string;
-    receivedAt: Date;
-    isRead: boolean;
-    body: string | null;
-    html: string | null;
-}
+import { Email } from '@/lib/core/entities/email';
 
 export function EmailClient() {
     const [emails, setEmails] = useState<Email[]>([]);

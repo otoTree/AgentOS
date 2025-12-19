@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthenticatedUser } from "@/lib/infra/auth-helper";
-import { prisma } from "@/lib/infra/prisma";
+import { fileRepository } from "@/lib/repositories/file-repository";
 
 export async function PATCH(
   request: NextRequest,
@@ -15,9 +15,7 @@ export async function PATCH(
     const body = await request.json();
     const { name, folderId } = body;
 
-    const file = await prisma.file.findUnique({
-      where: { id: params.id },
-    });
+    const file = await fileRepository.findById(params.id);
 
     if (!file || file.userId !== user.id) {
       return NextResponse.json({ error: "File not found" }, { status: 404 });
@@ -32,29 +30,16 @@ export async function PATCH(
         const targetFolderId = folderId !== undefined ? folderId : file.folderId;
         const targetName = name || file.name;
         
-        // Check against other files
-        const existingFile = await prisma.file.findFirst({
-            where: {
-                userId: user.id,
-                folderId: targetFolderId,
-                name: targetName,
-                NOT: {
-                    id: params.id
-                }
-            }
-        });
-        
-        // Ideally we should also check if a folder has the same name, but file systems usually allow file and folder with same name
+        // Check against other files in the destination folder
+        const filesInFolder = await fileRepository.findByFolder(user.id, targetFolderId);
+        const existingFile = filesInFolder.find(f => f.name === targetName && f.id !== params.id);
         
         if (existingFile) {
              return NextResponse.json({ error: "A file with this name already exists in the destination" }, { status: 409 });
         }
     }
 
-    const updatedFile = await prisma.file.update({
-      where: { id: params.id },
-      data: updateData,
-    });
+    const updatedFile = await fileRepository.update(params.id, updateData);
 
     return NextResponse.json(updatedFile);
   } catch (error: any) {

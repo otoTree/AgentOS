@@ -1,5 +1,5 @@
 import { auth } from "@/auth";
-import { prisma } from "@/lib/infra/prisma";
+import { chatRepository } from "@/lib/repositories/chat-repository";
 import { NextResponse } from "next/server";
 
 export async function GET(
@@ -11,26 +11,9 @@ export async function GET(
     return new NextResponse("Unauthorized", { status: 401 });
   }
 
-  const conversation = await prisma.agentConversation.findFirst({
-    where: { id: params.id, userId: session.user.id },
-    include: {
-      messages: {
-        orderBy: { createdAt: 'asc' }
-      },
-      tools: {
-        include: {
-          tool: true
-        }
-      },
-      files: {
-        include: {
-          file: true
-        }
-      }
-    }
-  });
+  const conversation = await chatRepository.findWithDetails(params.id);
 
-  if (!conversation) {
+  if (!conversation || conversation.userId !== session.user.id) {
     return new NextResponse("Not Found", { status: 404 });
   }
 

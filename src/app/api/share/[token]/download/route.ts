@@ -1,21 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/infra/prisma";
+import { fileShareRepository } from "@/lib/repositories/file-share-repository";
+import { fileRepository } from "@/lib/repositories/file-repository";
 import { FileStorage } from "@/lib/storage/file-storage";
 
 export async function GET(
   request: NextRequest,
   { params }: { params: { token: string } }
 ) {
-  const share = await prisma.fileShare.findUnique({
-    where: { token: params.token },
-    include: { file: true },
-  });
+  const share = await fileShareRepository.findByToken(params.token);
 
-  if (!share || !share.file || !share.isPublic) {
+  if (!share || !share.isPublic) {
     return NextResponse.json({ error: "File not found or invalid link" }, { status: 404 });
   }
 
-  const file = share.file;
+  const file = await fileRepository.findById(share.fileId);
+  if (!file) {
+      return NextResponse.json({ error: "File record missing" }, { status: 404 });
+  }
 
   try {
     const s3Response = await FileStorage.getFileStream(file.s3Key);

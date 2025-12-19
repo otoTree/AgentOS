@@ -1,6 +1,8 @@
 import { auth } from "@/auth";
-import { prisma } from "@/lib/infra/prisma";
 import { headers } from "next/headers";
+// TODO: Implement ApiTokenRepository if needed for external API access
+// For now, we only support session auth or assume apiTokenRepository exists
+// import { apiTokenRepository } from "@/lib/repositories/api-token-repository";
 
 export async function getAuthenticatedUser() {
   // 1. Check Session (Web UI)
@@ -14,22 +16,17 @@ export async function getAuthenticatedUser() {
   const authHeader = headersList.get("authorization");
   
   if (authHeader?.startsWith("Bearer ")) {
-    const token = authHeader.substring(7);
+    // const token = authHeader.substring(7);
     
-    const apiToken = await prisma.apiToken.findUnique({
-      where: { token },
-      include: { user: true },
-    });
+    // const apiToken = await apiTokenRepository.findByToken(token);
 
-    if (apiToken) {
-      // Update last used
-      await prisma.apiToken.update({
-        where: { id: apiToken.id },
-        data: { lastUsed: new Date() },
-      });
+    // if (apiToken) {
+    //   // Update last used
+    //   await apiTokenRepository.update(apiToken.id, { lastUsed: new Date() });
 
-      return { id: apiToken.userId, type: "api_token" };
-    }
+    //   return { id: apiToken.userId, type: "api_token" };
+    // }
+    console.warn("API Token auth not yet fully migrated to Redis");
   }
 
   return null;

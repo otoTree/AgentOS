@@ -61,7 +61,7 @@ export function MessageList({ messages, isLoading }: MessageListProps) {
                                         result = nextParsed.output;
                                         i++; // Skip next message
                                     }
-                                } catch (e) {}
+                                } catch (e) { /* ignore */ }
                             }
 
                             renderedItems.push(

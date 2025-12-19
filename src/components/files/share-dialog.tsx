@@ -1,6 +1,6 @@
 "use client";
 
-import { File } from "@prisma/client";
+import { File } from "@/lib/core/entities/resources";
 import { useState } from "react";
 import { shareFile } from "@/app/file-actions";
 import { X } from "lucide-react";

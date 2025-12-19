@@ -1,5 +1,3 @@
-import { prisma } from "@/lib/infra/prisma";
-
 interface ExecuteResult {
   exitCode: number | null;
   stdout: string;
@@ -9,7 +7,7 @@ interface ExecuteResult {
 
 export async function processExecutionResult(
   result: ExecuteResult, 
-  userId: string
+  _userId: string
 ): Promise<ExecuteResult> {
   // No special processing needed anymore as Python handles file uploads directly via API
   return result;

@@ -31,7 +31,7 @@ export async function toolSearch(
       model: model,
     });
 
-    let content = completion.choices[0]?.message.content || "";
+    const content = completion.choices[0]?.message.content || "";
 
     return content;
   } catch (error) {

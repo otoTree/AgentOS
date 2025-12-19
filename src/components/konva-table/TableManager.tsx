@@ -10,7 +10,7 @@ import { listWorkbooks, loadWorkbook, saveWorkbookToOss, deleteWorkbookFromOss }
 // Helper for ID
 const generateId = () => typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substr(2, 9);
 
-export function TableManager() {
+export function TableManager({ userId }: { userId?: string }) {
     // List of available workbooks (metadata only)
     const [workbookList, setWorkbookList] = useState<{id: string, name: string, lastModified: number}[]>([]);
     
@@ -29,9 +29,10 @@ export function TableManager() {
 
     // Load workbook list on mount
     const fetchWorkbookList = useCallback(async () => {
+        if (!userId) return;
         setIsLoadingList(true);
         try {
-            const { workbooks, error } = await listWorkbooks();
+            const { workbooks, error } = await listWorkbooks(userId);
             if (error) throw new Error(error);
             setWorkbookList(workbooks || []);
         } catch (e: any) {
@@ -39,7 +40,7 @@ export function TableManager() {
         } finally {
             setIsLoadingList(false);
         }
-    }, []);
+    }, [userId]);
 
     useEffect(() => {
         fetchWorkbookList();
@@ -47,6 +48,7 @@ export function TableManager() {
 
     // Load a specific workbook
     const handleLoadWorkbook = async (id: string) => {
+        if (!userId) return;
         if (activeWorkbook?.id === id) return;
         
         // If current is dirty, maybe ask to save? 
@@ -54,7 +56,7 @@ export function TableManager() {
         
         setIsLoadingWorkbook(true);
         try {
-            const { workbook, error } = await loadWorkbook(id);
+            const { workbook, error } = await loadWorkbook(id, userId);
             if (error) throw new Error(error);
             if (workbook) {
                 setActiveWorkbook(workbook);
@@ -68,6 +70,10 @@ export function TableManager() {
 
     // Create new workbook
     const handleCreateWorkbook = async () => {
+        if (!userId) {
+            toast.error("User ID is required");
+            return;
+        }
         const newWb: Workbook = {
             id: generateId(),
             name: `Workbook ${workbookList.length + 1}`,
@@ -84,7 +90,7 @@ export function TableManager() {
         // Save immediately to OSS so it appears in list
         setIsSaving(true);
         try {
-            const { success, error } = await saveWorkbookToOss(newWb);
+            const { success, error } = await saveWorkbookToOss(newWb, userId);
             if (!success) throw new Error(error);
             
             await fetchWorkbookList(); // Refresh list
@@ -100,10 +106,11 @@ export function TableManager() {
     // Delete workbook
     const handleDeleteWorkbook = async (id: string, e: React.MouseEvent) => {
         e.stopPropagation();
+        if (!userId) return;
         if (!confirm('Are you sure you want to delete this workbook?')) return;
         
         try {
-            const { success, error } = await deleteWorkbookFromOss(id);
+            const { success, error } = await deleteWorkbookFromOss(id, userId);
             if (!success) throw new Error(error);
             
             toast.success("Workbook deleted");
@@ -118,10 +125,10 @@ export function TableManager() {
 
     // Save current workbook
     const handleSave = async () => {
-        if (!activeWorkbook) return;
+        if (!activeWorkbook || !userId) return;
         setIsSaving(true);
         try {
-            const { success, error } = await saveWorkbookToOss(activeWorkbook);
+            const { success, error } = await saveWorkbookToOss(activeWorkbook, userId);
             if (!success) throw new Error(error);
             
             setActiveWorkbook(prev => prev ? ({ ...prev, isDirty: false }) : null);

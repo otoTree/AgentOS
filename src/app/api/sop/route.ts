@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/infra/prisma";
+import { sopWorkflowRepository } from "@/lib/repositories/sop-workflow-repository";
 import { getAuthenticatedUser } from "@/lib/infra/auth-helper";
 
 export async function GET(req: NextRequest) {
@@ -9,15 +9,7 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const sops = await prisma.sopWorkflow.findMany({
-      where: {
-        userId: user.id,
-      },
-      orderBy: {
-        updatedAt: 'desc',
-      },
-    });
-
+    const sops = await sopWorkflowRepository.findByUserId(user.id);
     return NextResponse.json(sops);
   } catch (error) {
     console.error("Failed to fetch SOPs:", error);
@@ -39,13 +31,12 @@ export async function POST(req: NextRequest) {
       return new NextResponse("Name and graph are required", { status: 400 });
     }
 
-    const sop = await prisma.sopWorkflow.create({
-      data: {
-        name,
-        description,
-        graph,
-        userId: user.id,
-      },
+    const sop = await sopWorkflowRepository.create({
+      name,
+      description,
+      graph,
+      userId: user.id,
+      deployed: false // Default
     });
 
     return NextResponse.json(sop);

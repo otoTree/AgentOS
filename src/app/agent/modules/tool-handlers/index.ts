@@ -40,7 +40,7 @@ export async function executeTool(call: any, context: {
 
     // 4. Excel Tools
     if (call.name.startsWith('excel_')) {
-        const result = await handleExcelTool(call);
+        const result = await handleExcelTool(call, context.userId);
         if (result) return { output: result };
     }
 

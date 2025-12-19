@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/infra/prisma";
+import { userRepository } from "@/lib/repositories/auth-repository";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 
@@ -13,9 +13,7 @@ export async function POST(req: Request) {
     const body = await req.json();
     const { email, password } = registerSchema.parse(body);
 
-    const existingUser = await prisma.user.findUnique({
-      where: { email },
-    });
+    const existingUser = await userRepository.findByEmail(email);
 
     if (existingUser) {
       return NextResponse.json(
@@ -26,11 +24,11 @@ export async function POST(req: Request) {
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    const user = await prisma.user.create({
-      data: {
-        email,
-        password: hashedPassword,
-      },
+    const user = await userRepository.create({
+      email,
+      password: hashedPassword,
+      credits: 100,
+      storageLimit: 1073741824,
     });
 
     return NextResponse.json({

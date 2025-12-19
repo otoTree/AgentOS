@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/infra/prisma";
+import { tableRepository } from "@/lib/repositories/table-repository";
 import { getAuthenticatedUser } from "@/lib/infra/auth-helper";
 
 // GET /api/tables/[id] - Get a specific table
@@ -10,14 +10,9 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const table = await prisma.tableDocument.findUnique({
-      where: {
-        id: params.id,
-        userId: user.id // Ensure user owns the table
-      }
-    });
+    const table = await tableRepository.findById(params.id);
 
-    if (!table) {
+    if (!table || table.userId !== user.id) {
       return NextResponse.json({ error: "Table not found" }, { status: 404 });
     }
 
@@ -39,23 +34,15 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     const body = await req.json();
     const { name, content } = body;
 
-    const table = await prisma.tableDocument.findUnique({
-      where: {
-        id: params.id,
-        userId: user.id
-      }
-    });
+    const table = await tableRepository.findById(params.id);
 
-    if (!table) {
+    if (!table || table.userId !== user.id) {
       return NextResponse.json({ error: "Table not found" }, { status: 404 });
     }
 
-    const updatedTable = await prisma.tableDocument.update({
-      where: { id: params.id },
-      data: {
+    const updatedTable = await tableRepository.update(params.id, {
         name: name || undefined,
         content: content || undefined,
-      }
     });
 
     return NextResponse.json(updatedTable);
@@ -73,20 +60,13 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const table = await prisma.tableDocument.findUnique({
-      where: {
-        id: params.id,
-        userId: user.id
-      }
-    });
+    const table = await tableRepository.findById(params.id);
 
-    if (!table) {
+    if (!table || table.userId !== user.id) {
       return NextResponse.json({ error: "Table not found" }, { status: 404 });
     }
 
-    await prisma.tableDocument.delete({
-      where: { id: params.id }
-    });
+    await tableRepository.delete(params.id);
 
     return NextResponse.json({ success: true });
   } catch (error: any) {

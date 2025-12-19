@@ -6,13 +6,13 @@ import {
 } from "@/app/excel-actions";
 import { Workbook, Sheet } from "@/components/konva-table/types";
 
-export async function handleExcelTool(call: any) {
+export async function handleExcelTool(call: any, userId: string) {
   const args = call.arguments;
 
   // --- Workbook Operations ---
 
   if (call.name === 'excel_list_workbooks') {
-    const res = await listWorkbooks();
+    const res = await listWorkbooks(userId);
     if (res.error) return `Error listing workbooks: ${res.error}`;
     return JSON.stringify(res.workbooks, null, 2);
   }
@@ -35,34 +35,34 @@ export async function handleExcelTool(call: any) {
       isDirty: false
     };
     
-    const res = await saveWorkbookToOss(newWorkbook);
+    const res = await saveWorkbookToOss(newWorkbook, userId);
     if (res.error) return `Error creating workbook: ${res.error}`;
     return `Workbook created. ID: ${id}`;
   }
 
   if (call.name === 'excel_delete_workbook') {
     const { workbookId } = args;
-    const res = await deleteWorkbookFromOss(workbookId);
+    const res = await deleteWorkbookFromOss(workbookId, userId);
     if (res.error) return `Error deleting workbook: ${res.error}`;
     return `Workbook ${workbookId} deleted.`;
   }
 
   if (call.name === 'excel_rename_workbook') {
     const { workbookId, newName } = args;
-    const loadRes = await loadWorkbook(workbookId);
+    const loadRes = await loadWorkbook(workbookId, userId);
     if (loadRes.error) return `Error loading workbook: ${loadRes.error}`;
     
     const wb = loadRes.workbook!;
     wb.name = newName;
     
-    const saveRes = await saveWorkbookToOss(wb);
+    const saveRes = await saveWorkbookToOss(wb, userId);
     if (saveRes.error) return `Error saving workbook: ${saveRes.error}`;
     return `Workbook renamed to ${newName}.`;
   }
 
   if (call.name === 'excel_get_workbook') {
     const { workbookId } = args;
-    const res = await loadWorkbook(workbookId);
+    const res = await loadWorkbook(workbookId, userId);
     if (res.error) return `Error loading workbook: ${res.error}`;
     // Return summary to avoid huge output
     const wb = res.workbook!;
@@ -78,7 +78,7 @@ export async function handleExcelTool(call: any) {
 
   if (call.name === 'excel_add_sheet') {
     const { workbookId, name } = args;
-    const loadRes = await loadWorkbook(workbookId);
+    const loadRes = await loadWorkbook(workbookId, userId);
     if (loadRes.error) return `Error loading workbook: ${loadRes.error}`;
     
     const wb = loadRes.workbook!;
@@ -92,14 +92,14 @@ export async function handleExcelTool(call: any) {
     wb.sheets.push(newSheet);
     wb.activeSheetId = newSheetId;
     
-    const saveRes = await saveWorkbookToOss(wb);
+    const saveRes = await saveWorkbookToOss(wb, userId);
     if (saveRes.error) return `Error saving workbook: ${saveRes.error}`;
     return `Sheet added. ID: ${newSheetId}`;
   }
 
   if (call.name === 'excel_delete_sheet') {
     const { workbookId, sheetId } = args;
-    const loadRes = await loadWorkbook(workbookId);
+    const loadRes = await loadWorkbook(workbookId, userId);
     if (loadRes.error) return `Error loading workbook: ${loadRes.error}`;
     
     const wb = loadRes.workbook!;
@@ -113,14 +113,14 @@ export async function handleExcelTool(call: any) {
       wb.activeSheetId = wb.sheets.length > 0 ? wb.sheets[0].id : null;
     }
     
-    const saveRes = await saveWorkbookToOss(wb);
+    const saveRes = await saveWorkbookToOss(wb, userId);
     if (saveRes.error) return `Error saving workbook: ${saveRes.error}`;
     return `Sheet ${sheetId} deleted.`;
   }
 
   if (call.name === 'excel_rename_sheet') {
      const { workbookId, sheetId, newName } = args;
-     const loadRes = await loadWorkbook(workbookId);
+     const loadRes = await loadWorkbook(workbookId, userId);
      if (loadRes.error) return `Error loading workbook: ${loadRes.error}`;
 
      const wb = loadRes.workbook!;
@@ -129,7 +129,7 @@ export async function handleExcelTool(call: any) {
      
      sheet.name = newName;
      
-     const saveRes = await saveWorkbookToOss(wb);
+     const saveRes = await saveWorkbookToOss(wb, userId);
      if (saveRes.error) return `Error saving workbook: ${saveRes.error}`;
      return `Sheet renamed to ${newName}.`;
   }
@@ -138,7 +138,7 @@ export async function handleExcelTool(call: any) {
 
   if (call.name === 'excel_set_cell_value') {
     const { workbookId, sheetId, row, col, value } = args;
-    const loadRes = await loadWorkbook(workbookId);
+    const loadRes = await loadWorkbook(workbookId, userId);
     if (loadRes.error) return `Error loading workbook: ${loadRes.error}`;
     
     const wb = loadRes.workbook!;
@@ -159,14 +159,14 @@ export async function handleExcelTool(call: any) {
     if (!sheet.data[row]) sheet.data[row] = [];
     sheet.data[row][col] = value;
     
-    const saveRes = await saveWorkbookToOss(wb);
+    const saveRes = await saveWorkbookToOss(wb, userId);
     if (saveRes.error) return `Error saving workbook: ${saveRes.error}`;
     return `Cell (${row}, ${col}) set to ${value}.`;
   }
 
   if (call.name === 'excel_batch_set_cell_values') {
     const { workbookId, sheetId, updates } = args;
-    const loadRes = await loadWorkbook(workbookId);
+    const loadRes = await loadWorkbook(workbookId, userId);
     if (loadRes.error) return `Error loading workbook: ${loadRes.error}`;
     
     const wb = loadRes.workbook!;
@@ -194,14 +194,14 @@ export async function handleExcelTool(call: any) {
         sheet.data[row][col] = value;
     }
     
-    const saveRes = await saveWorkbookToOss(wb);
+    const saveRes = await saveWorkbookToOss(wb, userId);
     if (saveRes.error) return `Error saving workbook: ${saveRes.error}`;
     return `Batch updated ${updates.length} cells.`;
   }
 
   if (call.name === 'excel_get_cell_value') {
     const { workbookId, sheetId, row, col } = args;
-    const loadRes = await loadWorkbook(workbookId);
+    const loadRes = await loadWorkbook(workbookId, userId);
     if (loadRes.error) return `Error loading workbook: ${loadRes.error}`;
     
     const wb = loadRes.workbook!;

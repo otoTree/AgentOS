@@ -1,5 +1,4 @@
-import { z } from "zod";
-import { prisma } from "@/lib/infra/prisma";
+import { userRepository } from "@/lib/repositories/auth-repository";
 import { CacheService } from "@/lib/infra/cache";
 
 // ==========================================
@@ -90,15 +89,7 @@ const DEFAULT_CONFIG: UserConfig = {
  */
 async function fetchUserConfigFromDB(userId: string): Promise<UserConfig> {
   // 1. 尝试从数据库获取用户偏好
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: {
-      name: true,
-      username: true,
-      email: true,
-      image: true,
-    }
-  });
+  const user = await userRepository.findById(userId);
 
   if (!user) {
     return { ...DEFAULT_CONFIG };
@@ -165,10 +156,7 @@ export const updateUserConfig = async (userId: string, patch: DeepPartial<UserCo
   }
 
   if (Object.keys(dataToUpdate).length > 0) {
-    await prisma.user.update({
-      where: { id: userId },
-      data: dataToUpdate,
-    });
+    await userRepository.update(userId, dataToUpdate);
   }
 
   // 4. 更新缓存
@@ -208,7 +196,7 @@ function deepMerge<T>(target: T, source: DeepPartial<T>): T {
       !Array.isArray(targetValue)
     ) {
       // 如果双方都是对象，递归合并
-      // @ts-ignore: 复杂的泛型推断在这里通常需要断言
+      // @ts-ignore
       result[key] = deepMerge(targetValue, sourceValue);
     } else if (sourceValue !== undefined) {
       // 否则直接覆盖 (包括数组和基本类型)

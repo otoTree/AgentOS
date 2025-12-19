@@ -1,4 +1,5 @@
-import { File, Folder, FileShare } from "@prisma/client";
+import { File } from "@/lib/core/entities/resources";
+import { Folder, FileShare } from "@/lib/core/entities/filesystem";
 
 export type FileWithShares = File & { shares: FileShare[] };
 

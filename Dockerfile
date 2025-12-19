@@ -11,17 +11,11 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm config set registry https://registry.npmmirror.com/ && npm ci
 
-
 # Rebuild the source code only when needed
 FROM base AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY package.json package-lock.json ./
-
-# Generate Prisma Client
-# Copy prisma directory first to leverage cache if schema hasn't changed
-COPY prisma ./prisma
-RUN npx prisma generate
 
 COPY . .
 

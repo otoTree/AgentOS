@@ -1,7 +1,8 @@
 'use server';
 
 import { auth } from "@/auth";
-import { prisma } from "@/lib/infra/prisma";
+import { sopExecutionRepository } from "@/lib/repositories/sop-execution-repository";
+import { sopTaskRepository } from "@/lib/repositories/sop-task-repository";
 import { SOPStep } from "@/lib/ai/sop-types";
 import { systemConfig } from "@/lib/infra/config";
 import OpenAI from "openai";
@@ -12,13 +13,11 @@ export async function startSopExecution(workflowId?: string, title?: string) {
     const session = await auth();
     if (!session?.user?.id) throw new Error("Not authenticated");
 
-    const execution = await prisma.sopExecution.create({
-        data: {
-            userId: session.user.id,
-            workflowId: workflowId || undefined,
-            status: "RUNNING",
-            context: {},
-        }
+    const execution = await sopExecutionRepository.create({
+        userId: session.user.id,
+        workflowId: workflowId,
+        status: "RUNNING",
+        context: {},
     });
 
     return execution;
@@ -36,12 +35,16 @@ export async function executeSopStep(
     // Fetch existing execution context
     let currentContext = { ...previousContext };
     try {
-        const execution = await prisma.sopExecution.findUnique({
-            where: { id: executionId },
-            select: { context: true }
-        });
+        const execution = await sopExecutionRepository.findById(executionId);
         if (execution?.context) {
-            currentContext = { ...(execution.context as object), ...currentContext };
+            // Need to parse if context is string (RedisRepository handles basic JSON parsing if structure is consistent, 
+            // but if it's stored as string in serialized form, we double check. 
+            // Our BaseRepository tries to parse object values.
+            let ctx = execution.context;
+            if (typeof ctx === 'string') {
+                try { ctx = JSON.parse(ctx); } catch (e) { /* ignore */ }
+            }
+            currentContext = { ...ctx, ...currentContext };
         }
     } catch (e) {
         console.warn("Could not fetch execution context", e);
@@ -69,16 +72,14 @@ export async function executeSopStep(
     }
 
     // Create Task record
-    const task = await prisma.sopTask.create({
-        data: {
-            executionId,
-            nodeId: step.id,
-            type: "INTERACT", // Defaulting to INTERACT for now
-            name: step.name,
-            status: "IN_PROGRESS",
-            ownerId: session.user.id,
-            input: { prompt: step.prompt, ...contextToPrompt }
-        }
+    const task = await sopTaskRepository.create({
+        executionId,
+        nodeId: step.id,
+        type: "INTERACT", // Defaulting to INTERACT for now
+        name: step.name,
+        status: "IN_PROGRESS",
+        ownerId: session.user.id,
+        input: { prompt: step.prompt, ...contextToPrompt }
     });
 
     try {
@@ -173,7 +174,7 @@ Please execute the instructions in the prompt below.`;
                         const result = await executeTool(call, { 
                             conversationId: "sop_execution_" + executionId, 
                             userId: userId, 
-                            conversation: { tools: [] } 
+                            conversation: { tools: [] } as any
                         });
                         
                         toolOutputs += `Tool '${call.name}' Output:\n${result.output || "(No output)"}\n\n`;
@@ -193,23 +194,17 @@ Please execute the instructions in the prompt below.`;
         }
 
         // Update Task
-        await prisma.sopTask.update({
-            where: { id: task.id },
-            data: {
-                status: "COMPLETED",
-                output: { content: finalOutput }
-            }
+        await sopTaskRepository.update(task.id, {
+            status: "COMPLETED",
+            output: { content: finalOutput }
         });
 
         // Update Execution Context
         try {
-            await prisma.sopExecution.update({
-                where: { id: executionId },
-                data: {
-                    context: {
-                        ...currentContext,
-                        [`step_${step.id}_output`]: finalOutput
-                    }
+            await sopExecutionRepository.update(executionId, {
+                context: {
+                    ...currentContext,
+                    [`step_${step.id}_output`]: finalOutput
                 }
             });
         } catch (e) {
@@ -225,12 +220,9 @@ Please execute the instructions in the prompt below.`;
     } catch (error: any) {
         console.error("SOP Step Execution Failed:", error);
         
-        await prisma.sopTask.update({
-            where: { id: task.id },
-            data: {
-                status: "FAILED",
-                output: { error: error.message }
-            }
+        await sopTaskRepository.update(task.id, {
+            status: "FAILED",
+            output: { error: error.message }
         });
 
         throw new Error("Failed to execute step: " + error.message);
@@ -241,12 +233,9 @@ export async function finishSopExecution(executionId: string, deliverables: any)
     const session = await auth();
     if (!session?.user?.id) throw new Error("Not authenticated");
 
-    await prisma.sopExecution.update({
-        where: { id: executionId },
-        data: {
-            status: "COMPLETED",
-            deliverables: deliverables
-        }
+    await sopExecutionRepository.update(executionId, {
+        status: "COMPLETED",
+        deliverables: deliverables
     });
 }
 
@@ -254,26 +243,26 @@ export async function getSopExecutions(workflowId: string) {
     const session = await auth();
     if (!session?.user?.id) throw new Error("Not authenticated");
 
-    return await prisma.sopExecution.findMany({
-        where: { 
-            workflowId,
-            userId: session.user.id
-        },
-        orderBy: { createdAt: 'desc' },
-        take: 20 // Limit to recent 20
-    });
+    const userId = session.user.id;
+    const executions = await sopExecutionRepository.findByWorkflowId(workflowId);
+    return executions.filter(e => e.userId === userId);
 }
 
 export async function getSopExecution(executionId: string) {
     const session = await auth();
     if (!session?.user?.id) throw new Error("Not authenticated");
 
-    return await prisma.sopExecution.findUnique({
-        where: { id: executionId },
-        include: {
-            tasks: {
-                orderBy: { createdAt: 'asc' }
-            }
-        }
-    });
+    const execution = await sopExecutionRepository.findById(executionId);
+    if (!execution) return null;
+
+    const tasks = await sopTaskRepository.findByExecutionId(executionId);
+    
+    // Sort tasks manually since findByExecutionId returns list order but it's good to be safe
+    // Redis List preserves insertion order, which matches creation order usually.
+    // If needed: tasks.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+
+    return {
+        ...execution,
+        tasks
+    };
 }

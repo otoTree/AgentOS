@@ -1,4 +1,5 @@
-import { prisma } from "@/lib/infra/prisma";
+import { userRepository } from "@/lib/repositories/auth-repository";
+import { emailRepository } from "@/lib/repositories/email-repository";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(req: NextRequest) {
@@ -39,14 +40,10 @@ export async function POST(req: NextRequest) {
     // Note: We store username in lowercase in DB (enforced by our update action), so we should search lowercase
     const targetUsername = localPart.toLowerCase();
 
-    const user = await prisma.user.findFirst({
-      where: {
-        OR: [
-          { username: targetUsername },
-          { email: fullEmail }
-        ]
-      }
-    });
+    let user = await userRepository.findByUsername(targetUsername);
+    if (!user) {
+        user = await userRepository.findByEmail(fullEmail);
+    }
 
     if (!user) {
       console.log(`[Email Webhook] User not found for username: ${targetUsername}`);
@@ -56,15 +53,15 @@ export async function POST(req: NextRequest) {
     }
 
     // Store email
-    await prisma.email.create({
-      data: {
+    await emailRepository.create({
         userId: user.id,
         from,
         to,
         subject,
         body,
         html: html || undefined,
-      }
+        receivedAt: new Date(),
+        isRead: false
     });
 
     console.log(`[Email Webhook] Email stored for user ${user.username}`);

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/infra/prisma";
+import { sopWorkflowRepository } from "@/lib/repositories/sop-workflow-repository";
 import { getAuthenticatedUser } from "@/lib/infra/auth-helper";
 
 export async function GET(
@@ -12,14 +12,9 @@ export async function GET(
   }
 
   try {
-    const sop = await prisma.sopWorkflow.findUnique({
-      where: {
-        id: params.id,
-        userId: user.id,
-      },
-    });
+    const sop = await sopWorkflowRepository.findById(params.id);
 
-    if (!sop) {
+    if (!sop || sop.userId !== user.id) {
       return new NextResponse("Not Found", { status: 404 });
     }
 
@@ -43,17 +38,17 @@ export async function PUT(
     const body = await req.json();
     const { name, description, graph, deployed } = body;
 
-    const sop = await prisma.sopWorkflow.update({
-      where: {
-        id: params.id,
-        userId: user.id,
-      },
-      data: {
+    // Verify ownership
+    const existing = await sopWorkflowRepository.findById(params.id);
+    if (!existing || existing.userId !== user.id) {
+        return new NextResponse("Not Found or Unauthorized", { status: 404 });
+    }
+
+    const sop = await sopWorkflowRepository.update(params.id, {
         name,
         description,
         graph,
-        deployed,
-      },
+        deployed
     });
 
     return NextResponse.json(sop);
@@ -73,12 +68,13 @@ export async function DELETE(
   }
 
   try {
-    await prisma.sopWorkflow.delete({
-      where: {
-        id: params.id,
-        userId: user.id,
-      },
-    });
+    // Verify ownership
+    const existing = await sopWorkflowRepository.findById(params.id);
+    if (!existing || existing.userId !== user.id) {
+        return new NextResponse("Not Found or Unauthorized", { status: 404 });
+    }
+
+    await sopWorkflowRepository.delete(params.id);
 
     return new NextResponse("Deleted", { status: 200 });
   } catch (error) {

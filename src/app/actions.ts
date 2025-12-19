@@ -1,7 +1,14 @@
 'use server'
 
 import { auth } from "@/auth";
-import { prisma } from "@/lib/infra/prisma";
+import { projectRepository, deploymentRepository } from "@/lib/repositories/project-repository";
+import { toolRepository } from "@/lib/repositories/tool-repository";
+import { projectMessageRepository } from "@/lib/repositories/project-message-repository";
+import { userRepository } from "@/lib/repositories/auth-repository";
+import { fileRepository } from "@/lib/repositories/file-repository";
+import { emailRepository } from "@/lib/repositories/email-repository";
+import { apiTokenRepository } from "@/lib/repositories/api-token-repository";
+import { commentRepository } from "@/lib/repositories/comment-repository";
 import { generateCode } from "@/lib/ai/ai";
 import { executeCode } from "@/lib/execution/sandbox";
 import { wrapCode } from "@/lib/execution/code-wrapper";
@@ -25,17 +32,16 @@ export async function createProject(name: string, description?: string) {
   }
 
   // Verify user exists in database (handle stale sessions)
-  const user = await prisma.user.findUnique({ where: { id: session.user.id } });
+  const user = await userRepository.findById(session.user.id);
   if (!user) {
     redirect("/api/auth/signin");
   }
 
-  const project = await prisma.project.create({
-    data: {
-      name,
-      description,
-      userId: session.user.id,
-    },
+  const project = await projectRepository.create({
+    name,
+    description,
+    userId: session.user.id,
+    category: 'Tools'
   });
 
   // Create default tool
@@ -49,12 +55,11 @@ export async function createProjectEmbedded(name: string, description?: string) 
   const session = await auth();
   if (!session?.user?.id) throw new Error("Not authenticated");
 
-  const project = await prisma.project.create({
-    data: {
-      name,
-      description,
-      userId: session.user.id,
-    },
+  const project = await projectRepository.create({
+    name,
+    description,
+    userId: session.user.id,
+    category: 'Tools'
   });
 
   await createTool(project.id, "Main Tool");
@@ -69,22 +74,18 @@ export async function getProjects() {
       return [];
   }
 
-  return prisma.project.findMany({
-    where: {
-      userId: session.user.id,
-    },
-    orderBy: {
-      updatedAt: 'desc',
-    },
-    include: {
-      deployments: {
-        orderBy: {
-          createdAt: 'desc',
-        },
-        take: 1,
-      },
-    },
-  });
+  const projects = await projectRepository.findByUserId(session.user.id);
+  
+  // Sort projects by updatedAt desc (Redis zrevrange returns sorted but let's ensure)
+  // And fetch latest deployment for each
+  const result = await Promise.all(projects.map(async (p) => {
+      const deployments = await deploymentRepository.findByProjectId(p.id);
+      // deployments from findByProjectId are already sorted by createdAt desc
+      const latest = deployments.length > 0 ? [deployments[0]] : [];
+      return { ...p, deployments: latest };
+  }));
+
+  return result;
 }
 
 export async function getProject(id: string) {
@@ -93,47 +94,46 @@ export async function getProject(id: string) {
         return null;
     }
   
-    const project = await prisma.project.findFirst({
-      where: {
-        id,
-        userId: session.user.id,
-      },
-      include: {
-          tools: {
-            orderBy: { createdAt: 'asc' },
-            include: {
-                deployments: {
-                    orderBy: { createdAt: 'desc' },
-                    take: 5
-                },
-                // Include messages specific to this tool
-                messages: {
-                    orderBy: { createdAt: 'asc' }
-                }
-            }
-          },
-          user: {
-              select: {
-                  name: true,
-                  image: true,
-              }
-          }
-      }
-    });
+    const project = await projectRepository.findById(id);
+    if (!project || project.userId !== session.user.id) return null;
 
-    if (!project) return null;
+    const tools = await toolRepository.findByProjectId(project.id);
+    const allDeployments = await deploymentRepository.findByProjectId(project.id);
 
     // Fetch code for each tool from S3 if needed
-    for (const tool of project.tools) {
+    // And attach deployments/messages
+    const toolsWithData = await Promise.all(tools.map(async (tool) => {
         if (tool.storageKey) {
             const s3Code = await ProjectStorage.getCode(tool.storageKey);
             if (s3Code !== null) {
                 tool.code = s3Code;
             }
         }
-    }
 
-    return project;
+        // Filter deployments for this tool
+        const toolDeployments = allDeployments.filter(d => d.toolId === tool.id)
+            .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+            .slice(0, 5);
+
+        const messages = await projectMessageRepository.findByToolId(tool.id);
+
+        return {
+            ...tool,
+            deployments: toolDeployments,
+            messages: messages.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
+        };
+    }));
+
+    // Sort tools
+    toolsWithData.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+
+    const user = await userRepository.findById(project.userId);
+
+    return {
+        ...project,
+        tools: toolsWithData,
+        user: user ? { name: user.name, image: user.image } : null
+    };
 }
 
 // --- Tool Actions ---
@@ -144,23 +144,18 @@ export async function createTool(projectId: string, name: string, description?: 
 
     const initialCode = `def main():\n    print("Hello from ${name}")`;
     
-    const tool = await prisma.tool.create({
-        data: {
-            name,
-            description,
-            projectId,
-            code: initialCode,
-            inputs: []
-        }
+    const tool = await toolRepository.create({
+        name,
+        description,
+        projectId,
+        code: initialCode,
+        inputs: []
     });
 
     const storageKey = ProjectStorage.getToolKey(session.user.id, projectId, tool.id);
     await ProjectStorage.saveCode(storageKey, initialCode);
 
-    await prisma.tool.update({
-        where: { id: tool.id },
-        data: { storageKey }
-    });
+    await toolRepository.update(tool.id, { storageKey });
 
     revalidatePath(`/project/${projectId}`);
     return tool;
@@ -170,17 +165,13 @@ export async function updateTool(toolId: string, name: string, description?: str
     const session = await auth();
     if (!session?.user?.id) throw new Error("Not authenticated");
 
-    const tool = await prisma.tool.findUnique({
-        where: { id: toolId },
-        include: { project: true }
-    });
+    const tool = await toolRepository.findById(toolId);
+    if (!tool) throw new Error("Tool not found");
 
-    if (!tool || tool.project.userId !== session.user.id) throw new Error("Tool not found or unauthorized");
+    const project = await projectRepository.findById(tool.projectId);
+    if (!project || project.userId !== session.user.id) throw new Error("Unauthorized");
 
-    const updatedTool = await prisma.tool.update({
-        where: { id: toolId },
-        data: { name, description }
-    });
+    const updatedTool = await toolRepository.update(toolId, { name, description });
 
     revalidatePath(`/project/${tool.projectId}`);
     return updatedTool;
@@ -190,12 +181,11 @@ export async function updateToolCode(toolId: string, code: string, inputs?: any[
   const session = await auth();
   if (!session?.user?.id) throw new Error("Not authenticated");
 
-  const tool = await prisma.tool.findUnique({
-      where: { id: toolId },
-      include: { project: true }
-  });
+  const tool = await toolRepository.findById(toolId);
+  if (!tool) throw new Error("Tool not found");
 
-  if (!tool || tool.project.userId !== session.user.id) throw new Error("Tool not found or unauthorized");
+  const project = await projectRepository.findById(tool.projectId);
+  if (!project || project.userId !== session.user.id) throw new Error("Unauthorized");
 
   let storageKey = tool.storageKey;
   if (!storageKey) {
@@ -212,10 +202,7 @@ export async function updateToolCode(toolId: string, code: string, inputs?: any[
       data.inputs = inputs;
   }
 
-  const updatedTool = await prisma.tool.update({
-    where: { id: toolId },
-    data,
-  });
+  const updatedTool = await toolRepository.update(toolId, data);
 
   revalidatePath(`/project/${tool.projectId}`);
   return updatedTool;
@@ -225,27 +212,23 @@ export async function deleteTool(toolId: string) {
     const session = await auth();
     if (!session?.user?.id) throw new Error("Not authenticated");
 
-    const tool = await prisma.tool.findUnique({
-        where: { id: toolId },
-        include: {
-            project: true,
-            deployments: true
-        }
-    });
+    const tool = await toolRepository.findById(toolId);
+    if (!tool) throw new Error("Tool not found");
 
-    if (!tool || tool.project.userId !== session.user.id) throw new Error("Tool not found or unauthorized");
+    const project = await projectRepository.findById(tool.projectId);
+    if (!project || project.userId !== session.user.id) throw new Error("Unauthorized");
+
+    const deployments = await deploymentRepository.findByProjectId(project.id);
+    const toolDeployments = deployments.filter(d => d.toolId === toolId);
 
     // Delete any KB collections associated with deployments
-    for (const deployment of tool.deployments) {
+    for (const deployment of toolDeployments) {
         if (deployment.knowledgeBaseCollectionId) {
             await deleteKnowledgeBaseCollection(deployment.knowledgeBaseCollectionId);
         }
     }
 
-    // Check if it's the last tool? Maybe not enforce strictly but good UX.
-    // For now just delete.
-
-    await prisma.tool.delete({ where: { id: toolId } });
+    await toolRepository.delete(toolId);
     revalidatePath(`/project/${tool.projectId}`);
 }
 
@@ -255,16 +238,10 @@ export async function updateProjectMetadata(id: string, name: string, descriptio
     throw new Error("Not authenticated");
   }
 
-  const project = await prisma.project.update({
-    where: {
-      id,
-      userId: session.user.id,
-    },
-    data: {
+  const project = await projectRepository.update(id, {
       name,
       description,
-      avatar,
-    },
+      avatar
   });
 
   revalidatePath("/dashboard");
@@ -279,26 +256,27 @@ export async function deleteProject(id: string) {
     }
   
     // Clean up Knowledge Base Collections
-    const project = await prisma.project.findUnique({
-        where: { id, userId: session.user.id },
-        include: {
-            deployments: true
-        }
-    });
+    const project = await projectRepository.findById(id);
 
-    if (project) {
-        for (const deployment of project.deployments) {
+    if (project && project.userId === session.user.id) {
+        const deployments = await deploymentRepository.findByProjectId(project.id);
+        for (const deployment of deployments) {
             if (deployment.knowledgeBaseCollectionId) {
                 await deleteKnowledgeBaseCollection(deployment.knowledgeBaseCollectionId);
             }
+            await deploymentRepository.delete(deployment.id);
         }
 
-        await prisma.project.delete({
-            where: {
-                id,
-                userId: session.user.id,
-            },
-        });
+        const tools = await toolRepository.findByProjectId(project.id);
+        for (const tool of tools) {
+            const messages = await projectMessageRepository.findByToolId(tool.id);
+            for (const msg of messages) {
+                await projectMessageRepository.delete(msg.id);
+            }
+            await toolRepository.delete(tool.id);
+        }
+
+        await projectRepository.delete(id);
     }
   
     revalidatePath("/dashboard");
@@ -314,27 +292,22 @@ export async function generateToolCode(
     const session = await auth();
     if (!session?.user?.id) throw new Error("Not authenticated");
 
-    const tool = await prisma.tool.findUnique({ where: { id: toolId } });
+    const tool = await toolRepository.findById(toolId);
     if (!tool) throw new Error("Tool not found");
 
     // 1. Save user message linked to Tool
-    await prisma.projectMessage.create({
-        data: {
-            projectId: tool.projectId,
-            toolId: tool.id,
-            role: 'user',
-            content: prompt,
-        }
+    await projectMessageRepository.create({
+        projectId: tool.projectId,
+        toolId: tool.id,
+        role: 'user',
+        content: prompt,
     });
 
     // 2. Fetch recent history for THIS TOOL
-    const dbMessages = await prisma.projectMessage.findMany({
-        where: { toolId: tool.id },
-        orderBy: { createdAt: 'asc' },
-        take: 20
-    });
+    const dbMessages = await projectMessageRepository.findByToolId(tool.id);
+    const sortedMessages = dbMessages.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime()).slice(-20);
 
-    const history = dbMessages.map(msg => ({
+    const history = sortedMessages.map(msg => ({
         role: msg.role as 'user' | 'assistant',
         content: msg.content
     }));
@@ -344,13 +317,11 @@ export async function generateToolCode(
 
     // 4. Save assistant response linked to Tool
     if (result.message) {
-        await prisma.projectMessage.create({
-            data: {
-                projectId: tool.projectId,
-                toolId: tool.id,
-                role: 'assistant',
-                content: result.message,
-            }
+        await projectMessageRepository.create({
+            projectId: tool.projectId,
+            toolId: tool.id,
+            role: 'assistant',
+            content: result.message,
         });
     }
 
@@ -371,20 +342,16 @@ export async function runProjectCode(code: string, inputs: Record<string, any> =
     }
     
     // Get or create API Token for the user to inject into the tool
-    let apiToken = await prisma.apiToken.findFirst({
-        where: { userId: session.user.id },
-        orderBy: { createdAt: 'desc' }
-    });
+    const tokens = await apiTokenRepository.findByUserId(session.user.id);
+    let apiToken = tokens.length > 0 ? tokens[0] : null;
 
     if (!apiToken) {
         // Auto-generate a token for usage
         const tokenString = 'atk_' + crypto.randomUUID().replace(/-/g, '');
-        apiToken = await prisma.apiToken.create({
-            data: {
-                name: "Default Editor Token",
-                token: tokenString,
-                userId: session.user.id
-            }
+        apiToken = await apiTokenRepository.create({
+            name: "Default Editor Token",
+            token: tokenString,
+            userId: session.user.id
         });
     }
 
@@ -412,29 +379,18 @@ export async function deployTool(toolId: string, accessType: 'PUBLIC' | 'PRIVATE
     const session = await auth();
     if (!session?.user?.id) throw new Error("Not authenticated");
 
-    const tool = await prisma.tool.findUnique({
-        where: { id: toolId },
-        include: { project: true }
-    });
+    const tool = await toolRepository.findById(toolId);
+    if (!tool) throw new Error("Tool not found");
+    
+    const project = await projectRepository.findById(tool.projectId);
+    if (!project || project.userId !== session.user.id) throw new Error("Unauthorized");
 
-    if (!tool || tool.project.userId !== session.user.id) throw new Error("Tool not found or unauthorized");
-
-    // Update Project Category (Projects hold the category for marketplace organization, or should tools?)
-    // The requirement says "one project multiple tools". Marketplace shows Projects?
-    // User decided: "Project as release unit... click detail to list all tools".
-    // So category belongs to Project.
-    await prisma.project.update({
-        where: { id: tool.projectId },
-        data: { category }
-    });
+    // Update Project Category
+    await projectRepository.update(tool.projectId, { category });
 
     // Check for existing deployment of the same type
-    const existingDeployment = await prisma.deployment.findFirst({
-        where: {
-            toolId: tool.id,
-            accessType: accessType
-        }
-    });
+    const deployments = await deploymentRepository.findByProjectId(tool.projectId);
+    const existingDeployment = deployments.find(d => d.toolId === tool.id && d.accessType === accessType);
 
     let knowledgeBaseCollectionId: string | null = null;
     if (accessType === 'PUBLIC') {
@@ -449,9 +405,9 @@ export async function deployTool(toolId: string, accessType: 'PUBLIC' | 'PRIVATE
         }
 
         knowledgeBaseCollectionId = await createKnowledgeBaseCollection(
-            tool.project.name,
+            project.name,
             tool.name,
-            tool.description,
+            tool.description || "",
             tool.id
         );
     }
@@ -459,26 +415,23 @@ export async function deployTool(toolId: string, accessType: 'PUBLIC' | 'PRIVATE
     let deployment;
     if (existingDeployment) {
         // Update existing deployment
-        deployment = await prisma.deployment.update({
-            where: { id: existingDeployment.id },
-            data: {
-                snapshotCode: tool.code,
-                inputs: tool.inputs as any,
-                isActive: true, // Reactivate if it was disabled
-                knowledgeBaseCollectionId,
-            }
+        deployment = await deploymentRepository.update(existingDeployment.id, {
+            snapshotCode: tool.code,
+            inputs: tool.inputs as any,
+            isActive: true, // Reactivate if it was disabled
+            knowledgeBaseCollectionId: knowledgeBaseCollectionId || undefined,
         });
     } else {
         // Create new deployment
-        deployment = await prisma.deployment.create({
-            data: {
-                projectId: tool.projectId,
-                toolId: tool.id,
-                snapshotCode: tool.code,
-                inputs: tool.inputs as any,
-                accessType,
-                knowledgeBaseCollectionId,
-            }
+        deployment = await deploymentRepository.create({
+            projectId: tool.projectId,
+            toolId: tool.id,
+            snapshotCode: tool.code,
+            inputs: tool.inputs as any,
+            accessType,
+            isActive: true,
+            callCount: 0,
+            knowledgeBaseCollectionId: knowledgeBaseCollectionId || undefined,
         });
     }
 
@@ -490,10 +443,7 @@ export async function deployTool(toolId: string, accessType: 'PUBLIC' | 'PRIVATE
         await ProjectStorage.saveCode(deploymentKey, tool.code);
     }
 
-    await prisma.deployment.update({
-        where: { id: deployment.id },
-        data: { storageKey: deploymentKey }
-    });
+    await deploymentRepository.update(deployment.id, { storageKey: deploymentKey });
 
     revalidatePath(`/project/${tool.projectId}`);
     return deployment;
@@ -503,73 +453,51 @@ export async function getMarketplaceProjects(
     category?: string,
     sort: 'latest' | 'popular' = 'latest'
 ) {
-    const where: any = {
-        deployments: {
-            some: {
-                isActive: true,
-                accessType: 'PUBLIC'
+    // 1. Get all public deployments
+    const publicDeployments = await deploymentRepository.findPublic();
+    
+    // 2. Aggregate by project
+    // We need to fetch projects associated with these deployments
+    const projectIds = Array.from(new Set(publicDeployments.map(d => d.projectId)));
+    
+    // 3. Fetch projects
+    const projects: any[] = [];
+    for (const pid of projectIds) {
+        const project = await projectRepository.findById(pid);
+        if (project) {
+            // Filter by category if needed
+            if (category && category !== 'All' && project.category !== category) {
+                continue;
+            }
+            
+            // Get user
+            const user = await userRepository.findById(project.userId);
+            
+            // Get latest deployment stats for this project
+            const projectDeployments = publicDeployments.filter(d => d.projectId === pid);
+            const latestDeployment = projectDeployments.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0];
+            
+            if (latestDeployment) {
+                projects.push({
+                    ...project,
+                    user: user ? { name: user.name, image: user.image } : null,
+                    activeDeploymentId: latestDeployment.id,
+                    callCount: latestDeployment.callCount,
+                    lastDeployedAt: latestDeployment.createdAt
+                });
             }
         }
-    };
-
-    if (category && category !== 'All') {
-        where.category = category;
     }
 
-    // We need a complex query to sort by popularity (sum of call counts or max of call counts?)
-    // For simplicity in this V1, let's fetch and sort in memory or use a raw query if performance matters.
-    // Given Prisma limitations on relation aggregates sorting in simple findMany without experimental features...
-    // Let's fetch the top-level projects and their *active public deployment stats*.
-    
-    const projects = await prisma.project.findMany({
-        where,
-        include: {
-            deployments: {
-                where: {
-                    isActive: true,
-                    accessType: 'PUBLIC'
-                },
-                select: {
-                    callCount: true,
-                    createdAt: true,
-                    id: true
-                },
-                orderBy: {
-                    createdAt: 'desc' // Get the latest deployment for stats
-                },
-                take: 1
-            },
-            user: {
-                select: {
-                    name: true,
-                    image: true
-                }
-            }
-        },
-        orderBy: {
-            updatedAt: 'desc' // Default for now
-        }
-    });
-
-    // Process for sorting
-    const processed = projects.map(p => {
-        const deployment = p.deployments[0];
-        return {
-            ...p,
-            activeDeploymentId: deployment?.id,
-            callCount: deployment?.callCount || 0,
-            lastDeployedAt: deployment?.createdAt || p.updatedAt
-        };
-    });
-
+    // 4. Sort
     if (sort === 'popular') {
-        processed.sort((a, b) => b.callCount - a.callCount);
+        projects.sort((a, b) => b.callCount - a.callCount);
     } else {
         // Latest deployed
-        processed.sort((a, b) => new Date(b.lastDeployedAt).getTime() - new Date(a.lastDeployedAt).getTime());
+        projects.sort((a, b) => new Date(b.lastDeployedAt).getTime() - new Date(a.lastDeployedAt).getTime());
     }
 
-    return processed;
+    return projects;
 }
 
 export async function getPublicProject(id: string) {
@@ -578,34 +506,12 @@ export async function getPublicProject(id: string) {
     const userId = session?.user?.id;
 
     // Fetch ALL active public deployments (so we can list all tools)
-    const project = await prisma.project.findUnique({
-        where: { id },
-        include: {
-            deployments: {
-                where: {
-                    isActive: true,
-                    accessType: 'PUBLIC'
-                },
-                include: {
-                    tool: {
-                        select: {
-                            name: true,
-                            description: true
-                        }
-                    }
-                },
-                orderBy: { createdAt: 'desc' },
-            },
-            user: {
-                select: {
-                    name: true,
-                    image: true
-                }
-            }
-        }
-    });
-
+    const project = await projectRepository.findById(id);
     if (!project) return null;
+
+    const allDeployments = await deploymentRepository.findByProjectId(project.id);
+    const activePublicDeployments = allDeployments.filter(d => d.isActive && d.accessType === 'PUBLIC')
+        .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 
     // If owner, return full access but keep the deployment list structure for the marketplace view
     if (userId && project.userId === userId) {
@@ -613,16 +519,40 @@ export async function getPublicProject(id: string) {
         // But we might want private ones too?
         // The marketplace view expects "deployments".
         // Let's return what we found here, but maybe flag isOwner.
+        
+        // We need to construct the structure expected by the UI
+        const tools = await toolRepository.findByProjectId(project.id);
+        const deploymentsWithTools = await Promise.all(activePublicDeployments.map(async d => {
+             const tool = tools.find(t => t.id === d.toolId);
+             return {
+                 ...d,
+                 tool: tool ? { name: tool.name, description: tool.description } : null
+             };
+        }));
+
         return {
              ...project,
+             deployments: deploymentsWithTools,
+             user: await userRepository.findById(project.userId),
              isOwner: true
         };
     }
 
     // If not owner, check for public deployment
-    if (project.deployments.length > 0) {
+    if (activePublicDeployments.length > 0) {
+        const tools = await toolRepository.findByProjectId(project.id);
+        const deploymentsWithTools = await Promise.all(activePublicDeployments.map(async d => {
+             const tool = tools.find(t => t.id === d.toolId);
+             return {
+                 ...d,
+                 tool: tool ? { name: tool.name, description: tool.description } : null
+             };
+        }));
+
         return {
             ...project,
+            deployments: deploymentsWithTools,
+            user: await userRepository.findById(project.userId),
             messages: [], // Public view doesn't show chat history
             isOwner: false,
         };
@@ -638,19 +568,15 @@ export async function toggleDeploymentStatus(deploymentId: string, isActive: boo
   }
 
   // Verify ownership through project
-  const deployment = await prisma.deployment.findUnique({
-    where: { id: deploymentId },
-    include: { project: true },
-  });
+  const deployment = await deploymentRepository.findById(deploymentId);
+  if (!deployment) throw new Error("Deployment not found");
 
-  if (!deployment || deployment.project.userId !== session.user.id) {
-    throw new Error("Deployment not found or unauthorized");
+  const project = await projectRepository.findById(deployment.projectId);
+  if (!project || project.userId !== session.user.id) {
+    throw new Error("Unauthorized");
   }
 
-  const updatedDeployment = await prisma.deployment.update({
-    where: { id: deploymentId },
-    data: { isActive },
-  });
+  const updatedDeployment = await deploymentRepository.update(deploymentId, { isActive });
 
   revalidatePath(`/project/${deployment.projectId}`);
   return updatedDeployment;
@@ -663,13 +589,12 @@ export async function deleteDeployment(deploymentId: string) {
   }
 
   // Verify ownership through project
-  const deployment = await prisma.deployment.findUnique({
-    where: { id: deploymentId },
-    include: { project: true },
-  });
+  const deployment = await deploymentRepository.findById(deploymentId);
+  if (!deployment) throw new Error("Deployment not found");
 
-  if (!deployment || deployment.project.userId !== session.user.id) {
-    throw new Error("Deployment not found or unauthorized");
+  const project = await projectRepository.findById(deployment.projectId);
+  if (!project || project.userId !== session.user.id) {
+    throw new Error("Unauthorized");
   }
 
   // Delete from Knowledge Base if exists
@@ -677,9 +602,7 @@ export async function deleteDeployment(deploymentId: string) {
       await deleteKnowledgeBaseCollection(deployment.knowledgeBaseCollectionId);
   }
 
-  await prisma.deployment.delete({
-    where: { id: deploymentId },
-  });
+  await deploymentRepository.delete(deploymentId);
 
   revalidatePath(`/project/${deployment.projectId}`);
 }
@@ -692,10 +615,7 @@ export async function getApiTokens() {
         throw new Error("Not authenticated");
     }
 
-    return prisma.apiToken.findMany({
-        where: { userId: session.user.id },
-        orderBy: { createdAt: 'desc' }
-    });
+    return apiTokenRepository.findByUserId(session.user.id);
 }
 
 export async function generateApiToken(name: string) {
@@ -706,12 +626,10 @@ export async function generateApiToken(name: string) {
 
     const token = `sk-${crypto.randomUUID()}`;
 
-    const apiToken = await prisma.apiToken.create({
-        data: {
-            name,
-            token,
-            userId: session.user.id
-        }
+    const apiToken = await apiTokenRepository.create({
+        name,
+        token,
+        userId: session.user.id
     });
 
     revalidatePath("/dashboard/profile");
@@ -724,12 +642,11 @@ export async function deleteApiToken(id: string) {
         throw new Error("Not authenticated");
     }
 
-    await prisma.apiToken.delete({
-        where: {
-            id,
-            userId: session.user.id
-        }
-    });
+    // Verify ownership
+    const token = await apiTokenRepository.findById(id);
+    if (token && token.userId === session.user.id) {
+        await apiTokenRepository.delete(id);
+    }
 
     revalidatePath("/dashboard/profile");
 }
@@ -740,10 +657,7 @@ export async function getUserCredits() {
         throw new Error("Not authenticated");
     }
 
-    const user = await prisma.user.findUnique({
-        where: { id: session.user.id },
-        select: { credits: true }
-    });
+    const user = await userRepository.findById(session.user.id);
 
     return user?.credits || 0;
 }
@@ -754,22 +668,16 @@ export async function getUserProfile() {
         throw new Error("Not authenticated");
     }
 
-    const user = await prisma.user.findUnique({
-        where: { id: session.user.id },
-        include: {
-            apiTokens: {
-                orderBy: { createdAt: 'desc' }
-            }
-        }
-    });
-
+    const user = await userRepository.findById(session.user.id);
     if (!user) throw new Error("User not found");
+    
+    const tokens = await apiTokenRepository.findByUserId(user.id);
 
     const storageStats = await StorageHelper.getStorageStats(user.id);
 
     return {
         credits: user.credits,
-        tokens: user.apiTokens,
+        tokens: tokens,
         name: user.name,
         image: user.image,
         openaiApiKey: user.openaiApiKey,
@@ -789,12 +697,10 @@ export async function addCredits(amount: number) {
 
     // In a real app, this would be connected to a payment gateway.
     // Here we just simulate adding credits.
-    await prisma.user.update({
-        where: { id: session.user.id },
-        data: {
-            credits: { increment: amount }
-        }
-    });
+    const user = await userRepository.findById(session.user.id);
+    if (user) {
+        await userRepository.update(user.id, { credits: user.credits + amount });
+    }
 
     revalidatePath("/dashboard/profile");
 }
@@ -811,72 +717,70 @@ export async function addComment(projectId: string, content: string) {
         throw new Error("Comment cannot be empty");
     }
 
-    const comment = await prisma.comment.create({
-        data: {
-            projectId,
-            userId: session.user.id,
-            content: content.trim()
-        },
-        include: {
-            user: {
-                select: {
-                    name: true,
-                    image: true
-                }
-            }
-        }
+    const comment = await commentRepository.create({
+        projectId,
+        userId: session.user.id,
+        content: content.trim()
     });
+    
+    // Fetch user for return
+    const user = await userRepository.findById(session.user.id);
 
     revalidatePath(`/marketplace/project/${projectId}`);
-    return comment;
+    return {
+        ...comment,
+        user: user ? { name: user.name, image: user.image } : null
+    };
 }
 
 export async function getProjectComments(projectId: string) {
     // Public access allowed
-    return prisma.comment.findMany({
-        where: { projectId },
-        include: {
-            user: {
-                select: {
-                    name: true,
-                    image: true
-                }
-            }
-        },
-        orderBy: {
-            createdAt: 'desc'
-        }
-    });
+    const comments = await commentRepository.findByProjectId(projectId);
+    
+    // Fetch users
+    const commentsWithUser = await Promise.all(comments.map(async c => {
+        const user = await userRepository.findById(c.userId);
+        return {
+            ...c,
+            user: user ? { name: user.name, image: user.image } : null
+        };
+    }));
+    
+    return commentsWithUser.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 }
+
 export async function getDashboardStats() {
   const session = await auth();
   if (!session?.user?.id) return null;
   
   const userId = session.user.id;
 
-  const [user, projectCount, activeDeployments, totalCalls] = await Promise.all([
-      prisma.user.findUnique({ 
-          where: { id: userId },
-          select: { credits: true }
-      }),
-      prisma.project.count({ where: { userId } }),
-      prisma.deployment.count({ 
-          where: { 
-              project: { userId },
-              isActive: true 
-          } 
-      }),
-      prisma.deployment.aggregate({
-          where: { project: { userId } },
-          _sum: { callCount: true }
-      })
+  const [user, projects, deployments] = await Promise.all([
+      userRepository.findById(userId),
+      projectRepository.findByUserId(userId),
+      // We don't have a direct "count deployments by user" or "sum call count by user"
+      // We need to iterate projects to find deployments
+      // This is inefficient but Redis is fast.
+      // Ideally we would maintain stats counters.
+      Promise.resolve([]) // Placeholder for now, see below
   ]);
+
+  let activeDeployments = 0;
+  let totalCalls = 0;
+
+  for (const project of projects) {
+      const projectDeployments = await deploymentRepository.findByProjectId(project.id);
+      for (const d of projectDeployments) {
+          if (d.isActive) activeDeployments++;
+          totalCalls += d.callCount;
+      }
+  }
 
   return {
       credits: user?.credits || 0,
-      projectCount,
+      projectCount: projects.length,
       activeDeployments,
-      totalCalls: totalCalls._sum.callCount || 0
+      totalCalls
   };
 }
 
@@ -884,28 +788,27 @@ export async function getRecentActivity() {
     const session = await auth();
     if (!session?.user?.id) return [];
 
-    const projects = await prisma.project.findMany({
-        where: { userId: session.user.id },
-        orderBy: { updatedAt: 'desc' },
-        take: 5,
-        select: {
-            id: true,
-            name: true,
-            updatedAt: true,
-            avatar: true,
-            deployments: {
-                orderBy: { createdAt: 'desc' },
-                take: 1,
-                select: {
-                    id: true,
-                    isActive: true,
-                    createdAt: true
-                }
-            }
-        }
-    });
+    const projects = await projectRepository.findByUserId(session.user.id);
+    const sortedProjects = projects.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime()).slice(0, 5);
     
-    return projects;
+    const result = await Promise.all(sortedProjects.map(async p => {
+        const deployments = await deploymentRepository.findByProjectId(p.id);
+        const latest = deployments.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0];
+        
+        return {
+            id: p.id,
+            name: p.name,
+            updatedAt: p.updatedAt,
+            avatar: p.avatar,
+            deployments: latest ? [{
+                id: latest.id,
+                isActive: latest.isActive,
+                createdAt: latest.createdAt
+            }] : []
+        };
+    }));
+    
+    return result;
 }
 
 // --- Email Actions ---
@@ -914,32 +817,22 @@ export async function getEmails() {
     const session = await auth();
     if (!session?.user?.id) return [];
 
-    const emails = await prisma.email.findMany({
-        where: { userId: session.user.id },
-        orderBy: { receivedAt: 'desc' }
-    });
-
-    return emails;
+    return emailRepository.findByUserId(session.user.id);
 }
 
 export async function getEmail(id: string) {
     const session = await auth();
     if (!session?.user?.id) return null;
 
-    const email = await prisma.email.findFirst({
-        where: {
-            id,
-            userId: session.user.id
-        }
-    });
+    const email = await emailRepository.findById(id);
 
-    if (email && !email.isRead) {
-        // Mark as read
-        await prisma.email.update({
-            where: { id: email.id },
-            data: { isRead: true }
-        });
+    if (email && email.userId === session.user.id) {
+        if (!email.isRead) {
+            // Mark as read
+            await emailRepository.update(id, { isRead: true });
+        }
+        return email;
     }
 
-    return email;
+    return null;
 }

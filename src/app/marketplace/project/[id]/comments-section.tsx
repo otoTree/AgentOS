@@ -10,9 +10,9 @@ interface Comment {
     content: string;
     createdAt: Date;
     user: {
-        name: string | null;
-        image: string | null;
-    };
+        name?: string | null;
+        image?: string | null;
+    } | null;
 }
 
 interface CommentsSectionProps {
@@ -86,11 +86,11 @@ export default function CommentsSection({ projectId, initialComments, isAuthenti
                     initialComments.map((comment) => (
                         <div key={comment.id} className="flex gap-4">
                              <div className="h-10 w-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-xs shrink-0">
-                                {comment.user.name?.[0] || 'U'}
+                                {comment.user?.name?.[0] || 'U'}
                             </div>
                             <div className="flex-1 space-y-1">
                                 <div className="flex items-center justify-between">
-                                    <span className="font-semibold text-sm">{comment.user.name || 'Anonymous'}</span>
+                                    <span className="font-semibold text-sm">{comment.user?.name || 'Anonymous'}</span>
                                     <span className="text-xs text-muted-foreground">{new Date(comment.createdAt).toLocaleDateString()}</span>
                                 </div>
                                 <p className="text-sm text-muted-foreground leading-relaxed">{comment.content}</p>
