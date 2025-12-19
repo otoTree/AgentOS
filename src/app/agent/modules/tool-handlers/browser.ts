@@ -51,7 +51,12 @@ export async function handleBrowserTool(call: any): Promise<BrowserToolResult | 
                     currentScreenshot = navData.screenshot;
                 }
             }
-            resultOutput = `Browser opened. Session ID: ${sessionId}`;
+            resultOutput = JSON.stringify({
+                message: "Browser opened.",
+                sessionId,
+                url: currentUrl,
+                screenshot: currentScreenshot
+            });
         }
         else if (call.name === 'browser_navigate') {
             const { sessionId, url } = call.arguments;
@@ -65,7 +70,11 @@ export async function handleBrowserTool(call: any): Promise<BrowserToolResult | 
             const data = await res.json();
             currentUrl = data.url;
             currentScreenshot = data.screenshot;
-            resultOutput = `Navigated to ${url}`;
+            resultOutput = JSON.stringify({
+                message: `Navigated to ${url}`,
+                url: currentUrl,
+                screenshot: currentScreenshot
+            });
         }
         else if (call.name === 'browser_click') {
             const { sessionId, selector } = call.arguments;
@@ -80,7 +89,11 @@ export async function handleBrowserTool(call: any): Promise<BrowserToolResult | 
             if (data.screenshot) currentScreenshot = data.screenshot;
             if (data.url) currentUrl = data.url;
             
-            resultOutput = `Clicked on selector: ${selector}`;
+            resultOutput = JSON.stringify({
+                message: `Clicked on selector: ${selector}`,
+                url: currentUrl,
+                screenshot: currentScreenshot
+            });
         }
         else if (call.name === 'browser_type') {
             const { sessionId, text } = call.arguments;

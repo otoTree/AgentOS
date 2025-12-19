@@ -64,14 +64,18 @@ export async function handleExcelTool(call: any, userId: string) {
     const { workbookId } = args;
     const res = await loadWorkbook(workbookId, userId);
     if (res.error) return `Error loading workbook: ${res.error}`;
-    // Return summary to avoid huge output
+    
+    // Return full workbook data for preview, but maybe limit size if too huge?
+    // For now, let's return it all as the preview component handles truncation.
     const wb = res.workbook!;
-    const summary = {
-      id: wb.id,
-      name: wb.name,
-      sheets: wb.sheets.map(s => ({ id: s.id, name: s.name, rowCount: s.data?.length || 0 }))
-    };
-    return JSON.stringify(summary, null, 2);
+    
+    // To avoid context explosion, we might want to be careful. 
+    // But user asked for "content preview".
+    // Let's return the full object structure but maybe truncate data arrays if massive?
+    // Actually, let's trust the prompt truncation logic we added earlier in chat.ts 
+    // AND the preview component to render it nicely.
+    
+    return JSON.stringify(wb, null, 2);
   }
 
   // --- Sheet Operations ---
@@ -196,7 +200,14 @@ export async function handleExcelTool(call: any, userId: string) {
     
     const saveRes = await saveWorkbookToOss(wb, userId);
     if (saveRes.error) return `Error saving workbook: ${saveRes.error}`;
-    return `Batch updated ${updates.length} cells.`;
+    return JSON.stringify({
+        message: `Batch updated ${updates.length} cells.`,
+        updates: updates,
+        workbookId,
+        sheetId,
+        workbookName: wb.name,
+        sheetName: sheet.name
+    });
   }
 
   if (call.name === 'excel_get_cell_value') {

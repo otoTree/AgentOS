@@ -136,7 +136,7 @@ export function Browser({ initialUrl = 'https://www.baidu.com', onSessionChange,
                    sessionId, 
                    action: 'evaluate',
                    script: 'window.location.href',
-                   tabId: activeTabId
+                   tabId: activeTabId || undefined
                })
            }).then(res => res.json()).then(data => {
                if (data.result) {
@@ -165,7 +165,7 @@ export function Browser({ initialUrl = 'https://www.baidu.com', onSessionChange,
                    sessionId, 
                    action: 'evaluate',
                    script: 'window.location.href',
-                   tabId: activeTabId
+                   tabId: activeTabId || undefined
                })
            }).then(res => res.json()).then(data => {
                if (data.result) {

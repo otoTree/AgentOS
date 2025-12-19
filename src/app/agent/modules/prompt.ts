@@ -227,9 +227,16 @@ If you don't need to call a tool, just reply with your text response.
 }
 
 export function prepareMessages(dbMessages: any[], systemPrompt: string) {
+    const MAX_TOOL_OUTPUT_LENGTH = 5000; // Truncate old tool outputs to 5k chars ~ 1.2k tokens
+    
     return [
         { role: 'system', content: systemPrompt },
-        ...dbMessages.map(m => {
+        ...dbMessages.map((m, index) => {
+            // Logic to keep recent messages longer?
+            // For now, simple truncation for all is safer, or maybe keep last 2 full.
+            const isRecent = index >= dbMessages.length - 2;
+            const limit = isRecent ? 50000 : MAX_TOOL_OUTPUT_LENGTH;
+
             try {
                 // Fix for legacy/inconsistent message formats to prevent model confusion
                 if (m.content.trim().startsWith('{')) {
@@ -251,16 +258,28 @@ export function prepareMessages(dbMessages: any[], systemPrompt: string) {
                     
                     // Convert legacy "type: tool_result" to User message format
                     if (obj.type === 'tool_result') {
+                        let output = obj.output || "";
+                        if (typeof output === 'string' && output.length > limit) {
+                            output = output.substring(0, limit) + `... (truncated ${output.length - limit} chars)`;
+                        }
+
                         return {
                             role: 'user',
-                            content: `Tool Execution Results:\nTool '${obj.tool}' Output:\n${obj.output}\n\n`
+                            content: `Tool Execution Results:\nTool '${obj.tool}' Output:\n${output}\n\n`
                         };
                     }
                 }
             } catch (e) {
                 // Ignore parse errors, treat as text
             }
-            return { role: m.role, content: m.content };
+            
+            // Also truncate very long text messages from user/assistant if they are not the latest
+            let content = m.content;
+            if (!isRecent && content.length > limit) {
+                content = content.substring(0, limit) + `... (truncated ${content.length - limit} chars)`;
+            }
+
+            return { role: m.role, content: content };
         })
     ];
 }

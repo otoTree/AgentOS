@@ -27,28 +27,38 @@ export async function handleEmailTool(call: any, userId: string) {
             const paged = filtered.slice(skip, skip + limit);
 
             if (paged.length === 0) {
-                return "No emails found.";
+                return JSON.stringify({ emails: [], total: 0, message: "No emails found." });
             }
 
-            return "Emails:\n" + paged.map(e => 
-                `- [${e.isRead ? 'READ' : 'UNREAD'}] ${e.subject || '(No Subject)'}\n  From: ${e.from}\n  Date: ${new Date(e.receivedAt).toLocaleString()}\n  ID: ${e.id}`
-            ).join('\n\n');
+            return JSON.stringify({
+                emails: paged.map(e => ({
+                    id: e.id,
+                    subject: e.subject || '(No Subject)',
+                    from: e.from,
+                    date: new Date(e.receivedAt).toLocaleString(),
+                    isRead: e.isRead,
+                    snippet: e.body ? e.body.substring(0, 100) : ''
+                })),
+                total: filtered.length,
+                page,
+                limit
+            });
 
         } catch (e: any) {
             console.error("Error listing emails:", e);
-            return "Error listing emails: " + e.message;
+            return JSON.stringify({ error: e.message });
         }
     }
 
     if (call.name === 'email_get') {
         try {
             const emailId = call.arguments?.emailId;
-            if (!emailId) return "Error: emailId is required.";
+            if (!emailId) return JSON.stringify({ error: "emailId is required." });
 
             const email = await emailRepository.findById(emailId);
 
             if (!email || email.userId !== userId) {
-                return "Email not found or unauthorized.";
+                return JSON.stringify({ error: "Email not found or unauthorized." });
             }
 
             // Mark as read if not already
@@ -56,22 +66,19 @@ export async function handleEmailTool(call: any, userId: string) {
                 await emailRepository.update(email.id, { isRead: true });
             }
 
-            let content = `Subject: ${email.subject || '(No Subject)'}\n`;
-            content += `From: ${email.from}\n`;
-            content += `To: ${email.to}\n`;
-            content += `Date: ${new Date(email.receivedAt).toLocaleString()}\n`;
-            content += `\n--- Body ---\n`;
-            content += email.body || "(No plain text body)";
-            
-            if (!email.body && email.html) {
-                 content += "\n(Content is HTML-only)\n" + email.html;
-            }
-
-            return content;
+            return JSON.stringify({
+                id: email.id,
+                subject: email.subject || '(No Subject)',
+                from: email.from,
+                to: email.to,
+                date: new Date(email.receivedAt).toLocaleString(),
+                body: email.body || "(No plain text body)",
+                html: email.html
+            });
 
         } catch (e: any) {
             console.error("Error reading email:", e);
-            return "Error reading email: " + e.message;
+            return JSON.stringify({ error: e.message });
         }
     }
 

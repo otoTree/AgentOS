@@ -14,12 +14,12 @@ export async function handleFileSystemTool(call: any, userId: string) {
             const files = await getFiles("", folderId); // Assuming user has access
             const folders = await getFolders(folderId);
             
-            return "Files:\n" + 
-                files.map((f: any) => `- ${f.name} (ID: ${f.id})`).join('\n') +
-                "\n\nFolders:\n" +
-                folders.map((f: any) => `- ${f.name} (ID: ${f.id})`).join('\n');
+            return JSON.stringify({
+                files: files.map((f: any) => ({ id: f.id, name: f.name, size: f.size })),
+                folders: folders.map((f: any) => ({ id: f.id, name: f.name }))
+            });
         } catch (e: any) {
-            return "Error listing files: " + e.message;
+            return JSON.stringify({ error: e.message });
         }
     }
 
@@ -29,12 +29,21 @@ export async function handleFileSystemTool(call: any, userId: string) {
             const file = await fileRepository.findById(fileId);
 
             if (file && file.userId === userId) {
-                return file.content || "(Empty file)";
+                // Return content directly if text, or JSON if metadata needed. 
+                // For preview consistency, let's wrap in JSON but keep content accessible.
+                return JSON.stringify({
+                    id: file.id,
+                    name: file.name,
+                    content: file.content || "(Empty file)",
+                    size: file.size,
+                    mimeType: file.mimeType,
+                    url: `/api/files/${file.id}/download`
+                });
             } else {
-                return "File not found or unauthorized.";
+                return JSON.stringify({ error: "File not found or unauthorized." });
             }
         } catch (e: any) {
-            return "Error reading file: " + e.message;
+            return JSON.stringify({ error: e.message });
         }
     }
 
@@ -45,9 +54,19 @@ export async function handleFileSystemTool(call: any, userId: string) {
             if (content) {
                 await updateFileContent(newFile.id, content);
             }
-            return `File created: ${newFile.name} (ID: ${newFile.id})`;
+            return JSON.stringify({
+                message: "File created successfully",
+                file: { 
+                    id: newFile.id, 
+                    name: newFile.name,
+                    size: newFile.size,
+                    mimeType: newFile.mimeType,
+                    url: `/api/files/${newFile.id}/download`,
+                    content: content || ""
+                }
+            });
         } catch (e: any) {
-            return "Error creating file: " + e.message;
+            return JSON.stringify({ error: e.message });
         }
     }
 
