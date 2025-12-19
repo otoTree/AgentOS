@@ -66,14 +66,12 @@ export async function handleUserTool(call: any, conversation: any, userId: strin
     const inputs = call.arguments || {};
     
     // Inject system parameters
-    const appUrl = systemConfig.app.url || 'http://localhost:3000';
-    const fileUploadUrl = `${appUrl.replace(/\/$/, '')}/api/upload`;
+    //const appUrl = systemConfig.app.url || 'http://localhost:3000';
+    //const fileUploadUrl = `${appUrl.replace(/\/$/, '')}/api/upload`;
 
     // Merge system params with user inputs
     // We do NOT overwrite user inputs if they happen to provide these (though unlikely)
     const finalInputs = {
-        api_token: apiToken.token,
-        file_upload_url: fileUploadUrl,
         ...inputs
     };
     
