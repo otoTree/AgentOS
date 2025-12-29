@@ -106,7 +106,7 @@ AgentOS 是一个 AI Agent 构建平台,通过 Flow 提供开箱即用的数据�
 ## 关键文件模式
 
 - `.ts` 和 `.tsx` 文件全部使用 TypeScript
-- 数据库模型使用 Mongoose 配合 TypeScript
+- 数据库模型使用 drizzle、pg 配合 TypeScript
 - API 路由遵循 NextJS 约定
 - 组件文件使用 React 函数式组件和 hooks
 - 共享类型定义在 `packages/global/` 的 `.d.ts` 文件中
