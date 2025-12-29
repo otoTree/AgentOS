@@ -1,0 +1,9 @@
+export type AppConfig = {
+  name: string;
+  version: string;
+};
+
+export const DEFAULT_CONFIG: AppConfig = {
+  name: "AgentOS",
+  version: "0.1.0",
+};

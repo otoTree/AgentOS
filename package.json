@@ -1,0 +1,31 @@
+{
+  "name": "agent-os",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "projects/*",
+    "document",
+    "plugins/*"
+  ],
+  "scripts": {
+    "dev": "bun --cwd projects/app dev",
+    "build": "bun run build --filter '*'",
+    "test": "vitest",
+    "test:workflow": "vitest run test/workflow",
+    "lint": "eslint . --fix",
+    "format-code": "prettier --write .",
+    "create:i18n": "bun run packages/web/i18n/generate.ts",
+    "api:gen": "bun run packages/global/openapi/gen.ts",
+    "initIcon": "bun run packages/web/icons/init.ts",
+    "gen:theme-typings": "chakra-cli tokens packages/web/styles/theme.ts"
+  },
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^8.50.1",
+    "@typescript-eslint/parser": "^8.50.1",
+    "eslint": "^8.0.0",
+    "prettier": "^3.0.0",
+    "typescript": "^5.0.0",
+    "vitest": "^1.0.0"
+  }
+}

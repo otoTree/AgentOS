@@ -1,0 +1,13 @@
+{
+  "name": "@agentos/web",
+  "version": "0.1.0",
+  "main": "index.ts",
+  "dependencies": {
+    "@agentos/global": "workspace:*",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "lucide-react": "^0.300.0",
+    "clsx": "^2.0.0",
+    "tailwind-merge": "^2.0.0"
+  }
+}
