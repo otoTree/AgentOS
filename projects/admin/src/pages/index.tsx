@@ -7,11 +7,11 @@ export default function Home() {
     <div className="flex flex-col items-center justify-center min-h-screen py-2 bg-background text-foreground">
       <Card className="w-[400px]">
         <CardHeader>
-          <CardTitle>Welcome to {DEFAULT_CONFIG.name}</CardTitle>
+          <CardTitle>Admin Panel - Welcome to {DEFAULT_CONFIG.name}</CardTitle>
           <CardDescription>Version {DEFAULT_CONFIG.version}</CardDescription>
         </CardHeader>
         <CardContent>
-          <p>This is a basic UI component demonstration using shadcn/ui.</p>
+          <p>This is the Admin dashboard using shared UI components.</p>
         </CardContent>
         <CardFooter className="flex justify-between">
           <Button variant="outline">Cancel</Button>

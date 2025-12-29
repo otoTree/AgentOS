@@ -91,7 +91,7 @@ AgentOS 是一个 AI Agent 构建平台,通过 Flow 提供开箱即用的数据�
 
 ### 前端架构
 - React 组件在 `projects/app/src/components/` 和 `packages/web/components/`
-- 使用 Chakra UI 进行样式设计,自定义主题在 `packages/web/styles/theme.ts`
+- 使用 shadcn UI 进行样式设计,自定义主题在 `packages/web/styles/theme.ts`
 - 国际化支持文件在 `packages/web/i18n/`
 - 使用 React Context 和 Zustand 进行状态管理
 
