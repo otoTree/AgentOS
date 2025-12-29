@@ -1,0 +1,3 @@
+[submodule "projects/sandbox"]
+	path = projects/sandbox
+	url = https://github.com/otoTree/sandbox-service.git

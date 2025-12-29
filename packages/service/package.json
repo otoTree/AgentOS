@@ -2,19 +2,26 @@
   "name": "@agentos/service",
   "version": "0.1.0",
   "main": "index.ts",
+  "types": "index.ts",
   "scripts": {
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "seed": "bun run scripts/seed.ts"
   },
   "dependencies": {
     "@agentos/global": "workspace:*",
+    "@aws-sdk/client-s3": "^3.958.0",
+    "@aws-sdk/lib-storage": "^3.958.0",
+    "@aws-sdk/s3-request-presigner": "^3.958.0",
+    "bcryptjs": "^3.0.3",
+    "drizzle-orm": "^0.33.0",
     "mongoose": "^8.0.0",
     "pg": "^8.11.0",
-    "drizzle-orm": "^0.33.0",
     "postgres": "^3.4.4"
   },
   "devDependencies": {
+    "@types/bcryptjs": "^3.0.0",
     "drizzle-kit": "^0.24.2"
   }
 }

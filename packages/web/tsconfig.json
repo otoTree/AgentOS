@@ -1,9 +1,12 @@
 {
+  "extends": "../../tsconfig.json",
   "compilerOptions": {
     "baseUrl": ".",
     "paths": {
       "@/*": ["./*"]
-    }
+    },
+    "jsx": "react-jsx",
+    "moduleResolution": "bundler"
   },
   "include": ["**/*.ts", "**/*.tsx"]
 }
