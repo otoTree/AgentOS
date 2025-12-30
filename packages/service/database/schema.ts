@@ -46,6 +46,7 @@ export const teamsRelations = relations(teams, ({ one, many }) => ({
   members: many(teamMembers),
   roles: many(roles),
   files: many(files),
+  skills: many(skills),
 }));
 
 export const roles = pgTable('roles', {
@@ -219,4 +220,46 @@ export const systemSettings = pgTable('system_settings', {
   value: text('value').notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
+
+// --- Skills (Workbench) ---
+
+export const skills = pgTable('skills', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  teamId: uuid('team_id').references(() => teams.id).notNull(),
+  
+  // Basic Info
+  name: text('name').notNull(),
+  description: text('description'),
+  emoji: text('emoji'),
+  
+  // Storage
+  ossPath: text('oss_path').notNull(), // e.g., skills/{id}/v1/
+  version: text('version').default('1.0.0').notNull(),
+  
+  // Metadata Cache (for quick access without reading OSS)
+  inputSchema: jsonb('input_schema'), 
+  outputSchema: jsonb('output_schema'),
+  
+  // Permissions & Status
+  isPublished: boolean('is_published').default(false),
+  isPublic: boolean('is_public').default(false),
+  
+  // Ownership
+  ownerId: uuid('owner_id').references(() => users.id).notNull(),
+  
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+export const skillsRelations = relations(skills, ({ one }) => ({
+  team: one(teams, {
+    fields: [skills.teamId],
+    references: [teams.id],
+  }),
+  owner: one(users, {
+    fields: [skills.ownerId],
+    references: [users.id],
+  }),
+}));
+
 

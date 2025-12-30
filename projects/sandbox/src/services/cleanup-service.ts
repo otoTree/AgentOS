@@ -1,6 +1,6 @@
 import { promises as fsp } from 'fs'
 import path from 'path'
-import { STORAGE_CONFIG } from '../config'
+import { STORAGE_CONFIG } from '../config.js'
 
 export class CleanupService {
   private interval: NodeJS.Timeout | null = null

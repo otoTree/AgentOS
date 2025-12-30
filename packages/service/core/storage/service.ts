@@ -9,6 +9,7 @@ import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 export type IStorageProvider = {
     upload(key: string, data: any, type: string): Promise<string>; // Returns URL or Path
     getDownloadUrl(key: string): Promise<string>;
+    getObject(key: string): Promise<Buffer>; // New method
     delete(key: string): Promise<void>;
 }
 
@@ -72,6 +73,19 @@ class S3Provider implements IStorageProvider {
         
         // Expire in 1 hour
         return await getSignedUrl(this.client, command, { expiresIn: 3600 });
+    }
+
+    async getObject(key: string): Promise<Buffer> {
+        const command = new GetObjectCommand({
+            Bucket: this.bucket,
+            Key: key,
+        });
+        const response = await this.client.send(command);
+        if (!response.Body) {
+            throw new Error('Empty response body');
+        }
+        // Convert stream to Buffer
+        return Buffer.from(await response.Body.transformToByteArray());
     }
 
     async delete(key: string) {
@@ -203,6 +217,32 @@ export class StorageService {
 
         // 2. Delete Metadata
         await db.delete(files).where(eq(files.id, fileId));
+    }
+
+    // --- Raw Operations (for Skills etc.) ---
+
+    async uploadRaw(key: string, data: any, type: string) {
+        return this.provider.upload(key, data, type);
+    }
+
+    async downloadRaw(key: string) {
+        // Since getDownloadUrl returns a signed URL, we might need a way to actually GET the content if we want to process it server-side (e.g. read meta.json)
+        // However, IStorageProvider only has getDownloadUrl. 
+        // We might need to extend IStorageProvider to support getting object body (stream/buffer).
+        // For now, let's assume we fetch from the signed URL or we need to expose S3Client.
+        // Actually, for meta.json, we need to read it.
+        return this.provider.getDownloadUrl(key);
+    }
+
+    async getObjectRaw(key: string) {
+        return this.provider.getObject(key);
+    }
+
+    async deleteRaw(key: string) {
+        return this.provider.delete(key);
+    }
+    async deleteObject(key: string) {
+        return this.provider.delete(key);
     }
 }
 

@@ -13,8 +13,8 @@ export const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children 
   }
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <header className="border-b px-6 py-3 flex items-center justify-between">
+    <div className="h-screen flex flex-col overflow-hidden">
+      <header className="border-b px-6 py-3 flex items-center justify-between flex-shrink-0">
         <div className="flex items-center gap-6">
           <Link href="/" className="font-bold text-xl">AgentOS Admin</Link>
           <nav className="flex gap-4">
@@ -29,7 +29,7 @@ export const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children 
           <Button variant="outline" size="sm" onClick={() => signOut()}>Sign Out</Button>
         </div>
       </header>
-      <main className="flex-1 p-6 bg-muted/10">
+      <main className="flex-1 p-6 bg-muted/10 flex flex-col">
         {children}
       </main>
     </div>

@@ -143,18 +143,18 @@ export default function Home() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <LayoutDashboard className="w-5 h-5" />
-                Workbench (Coming Soon)
+                Workbench
               </CardTitle>
               <CardDescription>Agent Builder & Workflow</CardDescription>
             </CardHeader>
             <CardContent>
               <p className="text-sm text-muted-foreground">
-                Visual workflow builder and agent orchestration will be available in the next phase.
+                Build, test, and deploy AI skills with natural language.
               </p>
             </CardContent>
             <CardFooter>
-               <Button variant="ghost" disabled className="w-full justify-start">
-                Planned
+               <Button className="w-full justify-start" onClick={() => router.push('/workbench')}>
+                Open Workbench <ArrowRight className="w-4 h-4 ml-2" />
               </Button>
             </CardFooter>
           </Card>

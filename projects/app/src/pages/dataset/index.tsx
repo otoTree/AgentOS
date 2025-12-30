@@ -333,7 +333,7 @@ export default function DatasetPage() {
                                 </TableHeader>
                                 <TableBody>
                                     {/* Folders */}
-                                    {dataset.folders.map(folder => (
+                                    {dataset.folders?.map(folder => (
                                         <TableRow key={folder.id} className="cursor-pointer hover:bg-muted/50" onClick={() => enterFolder(folder)}>
                                             <TableCell><Folder className="w-4 h-4 text-yellow-500 fill-yellow-500" /></TableCell>
                                             <TableCell className="font-medium">{folder.name}</TableCell>
@@ -349,7 +349,7 @@ export default function DatasetPage() {
                                     ))}
 
                                     {/* Files */}
-                                    {dataset.files.map(file => (
+                                    {dataset.files?.map(file => (
                                         <TableRow key={file.id}>
                                             <TableCell><FileIcon className="w-4 h-4 text-blue-500" /></TableCell>
                                             <TableCell className="font-medium">
@@ -382,7 +382,7 @@ export default function DatasetPage() {
                                         </TableRow>
                                     ))}
 
-                                    {dataset.files.length === 0 && dataset.folders.length === 0 && (
+                                    {(dataset.files?.length || 0) === 0 && (dataset.folders?.length || 0) === 0 && (
                                         <TableRow>
                                             <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
                                                 Empty folder

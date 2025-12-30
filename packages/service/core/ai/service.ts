@@ -211,6 +211,87 @@ export class ModelService {
           config: decrypt(provider.config)
       };
   }
+
+  /**
+   * Chat Completion (Simple Interface)
+   */
+  async chat(modelId: string, messages: { role: string, content: string }[], options: { temperature?: number, maxTokens?: number } = {}) {
+      // 1. Get Model & Provider
+      const model = await db.query.aiModels.findFirst({
+          where: eq(aiModels.id, modelId),
+          with: {
+              provider: true
+          }
+      });
+      
+      if (!model) throw new Error('Model not found');
+      if (!model.provider) throw new Error('Provider not found');
+
+      const config = decrypt(model.provider.config) as any;
+      const { apiKey, baseUrl } = config;
+      const type = model.provider.type;
+
+      // 2. Call API based on type
+      if (type === 'openai' || type === 'local') {
+          const url = (baseUrl || 'https://api.openai.com/v1').replace(/\/$/, '') + '/chat/completions';
+          const res = await fetch(url, {
+              method: 'POST',
+              headers: {
+                  'Authorization': `Bearer ${apiKey}`,
+                  'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                  model: model.name,
+                  messages,
+                  temperature: options.temperature ?? 0.7,
+                  max_tokens: options.maxTokens,
+                  stream: false
+              })
+          });
+
+          if (!res.ok) {
+              const error = await res.text();
+              throw new Error(`OpenAI API Error: ${res.status} ${error}`);
+          }
+
+          const data = await res.json();
+          return data.choices[0].message.content;
+      }
+
+      if (type === 'anthropic') {
+          const url = (baseUrl || 'https://api.anthropic.com/v1').replace(/\/$/, '') + '/messages';
+          // Convert system message if exists
+          const systemMsg = messages.find(m => m.role === 'system');
+          const userMessages = messages.filter(m => m.role !== 'system');
+          
+          const res = await fetch(url, {
+              method: 'POST',
+              headers: {
+                  'x-api-key': apiKey,
+                  'anthropic-version': '2023-06-01',
+                  'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                  model: model.name,
+                  system: systemMsg?.content,
+                  messages: userMessages,
+                  temperature: options.temperature ?? 0.7,
+                  max_tokens: options.maxTokens ?? 1024,
+                  stream: false
+              })
+          });
+
+          if (!res.ok) {
+              const error = await res.text();
+              throw new Error(`Anthropic API Error: ${res.status} ${error}`);
+          }
+
+          const data = await res.json();
+          return data.content[0].text;
+      }
+
+      throw new Error(`Unsupported provider type: ${type}`);
+  }
 }
 
 export const modelService = new ModelService();
