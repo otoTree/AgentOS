@@ -1,0 +1,28 @@
+# Core Utilities
+requests
+python-dotenv
+pydantic
+tenacity
+numpy
+pandas
+matplotlib
+scipy
+
+# Web & Parsing
+beautifulsoup4
+html2text
+
+# LangChain Ecosystem
+langchain
+langchain-community
+langchain-core
+langchain-openai
+langchain-text-splitters
+
+# Browser Automation
+playwright
+
+# LLM Utils
+tiktoken
+openai
+anthropic

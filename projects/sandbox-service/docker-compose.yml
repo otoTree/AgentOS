@@ -1,0 +1,21 @@
+services:
+  sandbox-service:
+    image: sandbox-service:latest
+    ports:
+      - "8080:8080"
+    environment:
+      - PORT=8080
+      - AUTH_TOKEN=dev
+      # Browser Configuration
+      - MAX_BROWSER_SESSIONS=10
+      - BROWSER_SESSION_TIMEOUT=600000
+      - BROWSER_HEADLESS=true
+      - BROWSER_VIEWPORT_WIDTH=1280
+      - BROWSER_VIEWPORT_HEIGHT=720
+    volumes:
+      # Persist the Python virtual environment
+      - python_venv:/app/python-venv
+    restart: unless-stopped
+
+volumes:
+  python_venv:
