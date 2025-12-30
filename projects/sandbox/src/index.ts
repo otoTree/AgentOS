@@ -19,6 +19,7 @@ app.use(bearerAuth)
 // --- Routes ---
 app.post('/execute', executeHandler)
 app.get('/executions/:executionId/files/:filename', downloadExecuteFileHandler)
+app.post('/deploy', deployHandler)
 app.post('/update', patchHandler)
 app.all('/services/:sandboxId', handleServiceRequest)
 app.get('/invokes/:executionId/files/:filename', downloadFileHandler)

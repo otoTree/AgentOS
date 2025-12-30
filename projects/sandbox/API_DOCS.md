@@ -16,7 +16,14 @@
 - Header：`Authorization: Bearer <TOKEN>`
 - Token 来源：环境变量 `AUTH_TOKEN`，未设置时默认 `dev`
 
-### 1.3 请求头要求
+### 1.3 存储与缓存
+服务提供执行产出物的临时存储功能，可以通过 `executionId` 下载执行过程中产生的文件。
+- 存储路径：环境变量 `STORAGE_BUCKET_DIR`，默认 `/tmp/agentos-sandbox-bucket`
+- 清理机制：
+  - 清理间隔：`STORAGE_CLEANUP_INTERVAL_MS`，默认 10 分钟
+  - 保留时长：`STORAGE_RETENTION_MS`，默认 1 小时
+
+### 1.4 请求头要求
 | Header | 是否必填 | 示例 | 说明 |
 |---|---:|---|---|
 | Authorization | 是 | `Bearer dev` | 所有接口都需要（包括 `/health`） |
@@ -51,11 +58,14 @@
 | 模块 | 方法 | 路径 | 说明 |
 |---|---|---|---|
 | System | GET | `/health` | 健康检查 |
-| Execution | POST | `/execute` | 执行 Python 代码（可选上传生成文件） |
+| Execution | POST | `/execute` | 执行 Python 代码（返回 executionId） |
+| Execution | GET | `/executions/:executionId/files/:filename` | 下载代码执行产生的文件 |
 | Config | GET | `/config` | 获取当前沙箱配置（network/filesystem） |
 | Config | POST | `/config/allowed-domains` | 更新沙箱网络允许域名（会重置沙箱） |
 | Python | GET | `/python/packages` | 列出 venv 中已安装包 |
 | Python | POST | `/python/packages` | 安装/卸载 Python 包 |
+| Deployment | ANY | `/services/:sandboxId` | 调用已部署的服务（返回 executionId） |
+| Deployment | GET | `/invokes/:executionId/files/:filename` | 下载服务调用产生的文件 |
 | Browser | POST | `/browser/sessions` | 创建浏览器会话 |
 | Browser | DELETE | `/browser/sessions/:id` | 销毁浏览器会话 |
 | Browser | GET | `/browser/sessions/:id/state` | 获取会话状态（fingerprint/storageState） |
@@ -172,6 +182,7 @@ curl -sS \
 #### 响应字段说明（成功 200）
 | 字段 | 类型 | 必填 | 说明 |
 |---|---|---:|---|
+| executionId | string | 是 | 此次执行的唯一 ID，用于后续下载生成的文件 |
 | exitCode | number/null | 是 | 子进程退出码（可能为 null） |
 | signal | string/null | 是 | 终止信号（例如 `"SIGKILL"`），可能为 null |
 | stdout | string | 是 | 标准输出 |
@@ -190,6 +201,7 @@ curl -sS \
 成功（200）：
 ```json
 {
+  "executionId": "550e8400-e29b-41d4-a716-446655440000",
   "exitCode": 0,
   "signal": null,
   "stdout": "Hello Sandbox\n",
@@ -501,7 +513,61 @@ curl -sS \
 
 ---
 
-### 3.7 创建浏览器会话
+### 3.7 调用部署服务 (Deployment Invoke)
+
+#### 接口名称与功能描述
+- 名称：Invoke Deployment
+- 描述：调用已部署的代码服务。执行产生的所有文件都会被自动采集到临时存储桶中。
+
+#### 请求方法
+- `ANY` (GET/POST/PUT/DELETE/etc.)
+
+#### 请求路径
+- `/services/:sandboxId`
+
+#### 请求参数
+- 路径参数 `sandboxId`: 部署服务的唯一 ID。
+- 其他参数随原始请求透传。
+
+#### 响应字段说明（成功 200）
+| 字段 | 类型 | 必填 | 说明 |
+|---|---|---:|---|
+| executionId | string | 是 | 此次调用的唯一 ID，用于下载产出文件 |
+| response | any | 是 | 部署代码返回的原始响应数据 |
+
+---
+
+### 3.8 下载执行产出文件 (Download Files)
+
+#### 接口名称与功能描述
+- 名称：Download Execution Files
+- 描述：根据 `executionId` 下载执行或调用过程中产生的文件。
+
+#### 请求方法
+- `GET`
+
+#### 请求路径
+- 直接执行产出：`/executions/:executionId/files/:filename`
+- 服务调用产出：`/invokes/:executionId/files/:filename`
+
+#### 请求参数
+- 路径参数 `executionId`: 此次执行的 UUID。
+- 路径参数 `filename`: 要下载的文件名（支持子路径）。
+
+#### 请求示例（cURL）
+```bash
+curl -H 'Authorization: Bearer dev' \
+  'http://localhost:8080/executions/550e8400-e29b-41d4-a716-446655440000/files/output.pdf' \
+  --output output.pdf
+```
+
+#### 响应格式
+- 成功：文件流
+- 失败（404）：`{ "error": "File not found" }`
+
+---
+
+### 3.9 创建浏览器会话
 
 #### 接口名称与功能描述
 - 名称：Create Browser Session
