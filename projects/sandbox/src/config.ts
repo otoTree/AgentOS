@@ -61,6 +61,13 @@ export const sandboxConfig: SandboxRuntimeConfig = {
   enableWeakerNestedSandbox: false,
 }
 
+// Storage Configuration
+export const STORAGE_CONFIG = {
+  bucketDir: process.env.STORAGE_BUCKET_DIR || '/tmp/agentos-sandbox-bucket',
+  cleanupIntervalMs: process.env.STORAGE_CLEANUP_INTERVAL_MS ? Number(process.env.STORAGE_CLEANUP_INTERVAL_MS) : 10 * 60 * 1000, // 10 mins
+  retentionMs: process.env.STORAGE_RETENTION_MS ? Number(process.env.STORAGE_RETENTION_MS) : 60 * 60 * 1000 // 1 hour
+}
+
 /**
  * Updates the allowed domains in the sandbox configuration.
  * This function modifies the configuration in place.

@@ -49,3 +49,31 @@ export const packageSchema = z.object({
   action: z.enum(['install', 'uninstall']),
   packages: z.array(z.string().min(1)).min(1)
 })
+
+export const deploySchema = z.object({
+  metaUrl: z.string().url(),
+  namespace: z.string().optional(),
+  strategy: z.enum(['clean', 'reuse']).default('clean')
+})
+
+export const patchSchema = z.object({
+  sandboxId: z.string().min(1),
+  changes: z.array(z.object({
+    type: z.enum(['add', 'modify', 'delete']),
+    path: z.string().min(1),
+    url: z.string().url().optional()
+  })),
+  reload: z.boolean().default(false)
+})
+
+export type DeployRequest = z.infer<typeof deploySchema>
+export type PatchRequest = z.infer<typeof patchSchema>
+
+export const invokeSchema = z.object({
+  fileUploadUrl: z.string().url().optional(),
+  uploadToken: z.string().min(1).optional(),
+  public: z.boolean().optional(),
+  data: z.any().optional(),
+})
+
+export type InvokeRequest = z.infer<typeof invokeSchema>

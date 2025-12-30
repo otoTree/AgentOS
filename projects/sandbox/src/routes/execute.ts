@@ -4,10 +4,10 @@ import { promises as fsp } from 'fs'
 import * as path from 'path'
 import * as os from 'os'
 import { SandboxManager } from '@anthropic-ai/sandbox-runtime'
-import { sandboxConfig } from '../config.js'
+import { sandboxConfig, STORAGE_CONFIG } from '../config.js'
 import { executeSchema } from '../types.js'
-import mime from 'mime-types'
-import { fetch, FormData, File } from 'undici'
+import { uploadFiles, cacheToLocalBucket } from '../utils/file-utils.js'
+import { v4 as uuidv4 } from 'uuid'
 
 let sandboxAvailable: boolean | null = null
 let sandboxUnavailableReason: string | null = null
@@ -49,6 +49,7 @@ export async function executeHandler(req: Request, res: Response) {
   try {
     await SandboxManager.initialize(sandboxConfig)
 
+    const executionId = uuidv4()
     // Create per-execution working directory under system tmp
     const tmpPrefix = path.join(os.tmpdir(), 'py-exec-')
     const workDir = await fsp.mkdtemp(tmpPrefix)
@@ -77,57 +78,15 @@ export async function executeHandler(req: Request, res: Response) {
         const note = `\n[Note] Sandbox disabled due to environment limitations${sandboxUnavailableReason ? `: ${sandboxUnavailableReason.trim()}` : ''}`
         annotatedStderr = annotatedStderr ? annotatedStderr + note : note
       }
-      // Optionally collect and upload generated files
-      const uploads: Array<{ filename: string, url?: string, status: number, error?: string }> = []
+
+      // 1. Cache files to local bucket for this execution
+      const executionBucketDir = path.join(STORAGE_CONFIG.bucketDir, 'executions', executionId)
+      await cacheToLocalBucket(workDir, executionBucketDir)
+
+      // 2. Optionally collect and upload generated files
+      let uploads: any[] = []
       if (fileUploadUrl && uploadToken) {
-        try {
-          async function walk(dir: string): Promise<string[]> {
-            const out: string[] = []
-            const entries = await fsp.readdir(dir, { withFileTypes: true })
-            for (const entry of entries) {
-              const full = path.join(dir, entry.name)
-              if (entry.isDirectory()) {
-                out.push(...(await walk(full)))
-              } else if (entry.isFile()) {
-                out.push(full)
-              }
-            }
-            return out
-          }
-          const filepaths = await walk(workDir)
-          for (const filepath of filepaths) {
-            const filename = path.relative(workDir, filepath)
-            const form = new FormData()
-            // Read into buffer and attach as File with MIME type
-            const buf = await fsp.readFile(filepath)
-            const mimeType = mime.lookup(filename) || 'application/octet-stream'
-            const file = new File([buf], filename, { type: String(mimeType) })
-            form.append('file', file)
-            // Optional query param for public flag
-            const url = new URL(fileUploadUrl)
-            if (isPublic !== undefined) {
-              url.searchParams.set('public', isPublic ? 'true' : 'false')
-            }
-            console.log('uploading', filename, url.toString())
-            const resp = await fetch(url, {
-              method: 'POST',
-              body: form,
-              headers: {
-                Authorization: `Bearer ${uploadToken}`,
-              },
-            })
-            let uploadedUrl: string | undefined
-            try {
-              const json = await resp.json()
-              uploadedUrl = (json as any)?.url || (json as any)?.data?.url || (json as any)?.file?.url
-            } catch {
-              // ignore JSON parse errors; service may return non-JSON
-            }
-            uploads.push({ filename, url: uploadedUrl, status: resp.status })
-          }
-        } catch (e) {
-          uploads.push({ filename: '', status: 0, error: (e as Error).message })
-        }
+        uploads = await uploadFiles(workDir, { fileUploadUrl, uploadToken, isPublic })
       }
 
       // Cleanup working directory recursively
@@ -135,9 +94,20 @@ export async function executeHandler(req: Request, res: Response) {
         await fsp.rm(workDir, { recursive: true, force: true })
       } catch { /* ignore cleanup errors */ }
 
-      res.status(200).json({ exitCode: code, signal, stdout, stderr: annotatedStderr, uploads })
+      res.status(200).json({ executionId, exitCode: code, signal, stdout, stderr: annotatedStderr, uploads })
     })
   } catch (err) {
     res.status(500).json({ error: 'Execution failed', message: (err as Error).message })
+  }
+}
+
+export async function downloadExecuteFileHandler(req: Request, res: Response) {
+  const { executionId, filename } = req.params
+  const filePath = path.join(STORAGE_CONFIG.bucketDir, 'executions', executionId, filename)
+  try {
+    await fsp.access(filePath)
+    res.download(filePath)
+  } catch {
+    res.status(404).json({ error: 'File not found' })
   }
 }
