@@ -20,7 +20,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   try {
       const shares = await shareService.getFileShares(fileId);
       
-      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+      const protoHeader = req.headers['x-forwarded-proto'];
+      const protocol = Array.isArray(protoHeader) ? protoHeader[0] : protoHeader || 'http';
+      const host = req.headers.host;
+      const baseUrl = `${protocol}://${host}`;
+
       const sharesWithLinks = shares.map(s => ({
           ...s,
           link: `${baseUrl}/share/${s.token}`

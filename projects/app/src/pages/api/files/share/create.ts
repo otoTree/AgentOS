@@ -30,7 +30,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
     
     // Construct public link
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+    const protoHeader = req.headers['x-forwarded-proto'];
+    const protocol = Array.isArray(protoHeader) ? protoHeader[0] : protoHeader || 'http';
+    const host = req.headers.host;
+    const baseUrl = `${protocol}://${host}`;
     const link = `${baseUrl}/share/${share.token}`;
 
     return res.status(200).json({ ...share, link });

@@ -138,6 +138,16 @@ export class SkillService {
         if (metaUpdates) {
             meta = { ...meta, ...metaUpdates };
         }
+
+        // Ensure all updated files are in meta.files
+        const newFiles = Object.keys(files);
+        let filesChanged = false;
+        newFiles.forEach(file => {
+            if (!meta.files.includes(file)) {
+                meta.files.push(file);
+                filesChanged = true;
+            }
+        });
         
         await this.saveMeta(ossPath, meta);
 
