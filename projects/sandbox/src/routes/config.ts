@@ -9,6 +9,7 @@ const updateAllowedDomainsSchema = z.object({
 })
 
 export async function updateAllowedDomainsHandler(req: Request, res: Response) {
+  console.log('[Config] Received request to update allowed domains')
   const parseResult = updateAllowedDomainsSchema.safeParse(req.body)
   if (!parseResult.success) {
     return res.status(400).json({ error: 'Invalid request', details: parseResult.error.format() })
@@ -36,6 +37,7 @@ export async function updateAllowedDomainsHandler(req: Request, res: Response) {
 }
 
 export async function getConfigHandler(req: Request, res: Response) {
+    console.log('[Config] Received request to get config')
     res.json({
         network: sandboxConfig.network,
         filesystem: sandboxConfig.filesystem

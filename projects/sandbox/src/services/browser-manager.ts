@@ -55,6 +55,9 @@ export class BrowserManager {
                 if (!isAllowed) return false;
             }
             
+            // If allowedDomains is empty, we default to ALLOW ALL (blacklist mode)
+            // unless it was blocked by deniedDomains above.
+            
             return true;
         }
     })

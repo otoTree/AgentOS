@@ -7,4 +7,5 @@ export * from './rbac/service';
 export * from './skill/service';
 export * from './prompt/factory';
 export * from './skill/generator';
+export * from './sandbox/client';
 

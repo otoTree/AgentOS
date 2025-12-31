@@ -102,6 +102,19 @@ export class SkillService {
     }
 
     /**
+     * List All Skills (Admin)
+     */
+    async listAllSkills() {
+        return await db.query.skills.findMany({
+            with: {
+                owner: true,
+                team: true
+            },
+            orderBy: [desc(skills.updatedAt)]
+        });
+    }
+
+    /**
      * Update Skill Files (Code + Meta)
      */
     async updateSkillFiles(id: string, files: Record<string, string>, metaUpdates?: Partial<MetaJson>) {
@@ -252,6 +265,8 @@ with open("${file}", "wb") as f:
         const entryContent = entryBuffer.toString('utf-8');
 
         // Append Entrypoint logic
+        const inputBase64 = Buffer.from(JSON.stringify(input)).toString('base64');
+
         bootstrapCode += `
 # --- Entrypoint: ${meta.entrypoint} ---
 ${entryContent}
@@ -259,17 +274,23 @@ ${entryContent}
 # --- Runner ---
 import json
 import sys
+import base64
+import asyncio
+import inspect
 
 if __name__ == "__main__":
     try:
-        # Load args from stdin or variable? 
-        # Here we injected it via template literal, which is risky for large inputs but simple.
-        # Better: pass via stdin if Sandbox supports it, or writing to a file.
-        # For now, literal injection.
-        args = ${JSON.stringify(input)} 
+        # Load args from base64 injected string
+        input_b64 = "${inputBase64}"
+        args = json.loads(base64.b64decode(input_b64).decode('utf-8'))
         
         if 'main' in locals():
-            result = main(args)
+            # Check if main is async
+            if inspect.iscoroutinefunction(main):
+                result = asyncio.run(main(**args))
+            else:
+                result = main(**args)
+                
             print(json.dumps(result))
         else:
             print("No main function found")

@@ -33,7 +33,7 @@ async function ensureSandboxAvailability(): Promise<boolean> {
 }
 
 export async function executeHandler(req: Request, res: Response) {
-  //console.log(req.hostname)
+  console.log(`[Execute] Received request from ${req.ip}`)
   
   const parseResult = executeSchema.safeParse(req.body)
   if (!parseResult.success) {
@@ -103,6 +103,7 @@ export async function executeHandler(req: Request, res: Response) {
 
 export async function downloadExecuteFileHandler(req: Request, res: Response) {
   const { executionId, filename } = req.params
+  console.log(`[Execute] Download file request: executionId=${executionId}, filename=${filename}`)
   const filePath = path.join(STORAGE_CONFIG.bucketDir, 'executions', executionId, filename)
   try {
     await fsp.access(filePath)

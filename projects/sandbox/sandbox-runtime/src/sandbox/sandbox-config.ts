@@ -89,6 +89,7 @@ export const SandboxRuntimeConfigSchema = z.object({
   filesystem: FilesystemConfigSchema.describe('Filesystem restrictions configuration'),
   ignoreViolations: IgnoreViolationsConfigSchema.optional().describe('Optional configuration for ignoring specific violations'),
   enableWeakerNestedSandbox: z.boolean().optional().describe('Enable weaker nested sandbox mode (for Docker environments)'),
+  fallbackWorkDir: z.string().optional().describe('Fallback working directory when bubblewrap is not available'),
 })
 
 // Export inferred types

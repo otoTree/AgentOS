@@ -19,8 +19,13 @@ export const BROWSER_CONFIG = {
 // System-level highest security sandbox config
 export const sandboxConfig: SandboxRuntimeConfig = {
   network: {
-    allowedDomains: [], // Allow Tsinghua PyPI Mirror
-    deniedDomains: [],
+    allowedDomains: [], // Empty means allow all (blacklist mode)
+    deniedDomains: [
+      'localhost',
+      '127.0.0.1',
+      '0.0.0.0',
+      'internal.agentos.local' // Example internal domain
+    ],
     allowLocalBinding: false, // Block binding to local ports
     allowUnixSockets: [], // Block access to Unix sockets
   },
@@ -59,6 +64,8 @@ export const sandboxConfig: SandboxRuntimeConfig = {
   },
   // Disable fallback to weaker isolation - enforce strong sandbox or fail
   enableWeakerNestedSandbox: false,
+  // Fallback to path isolation when bwrp is not available (e.g. in restricted K8s environments)
+  fallbackWorkDir: '/app/src',
 }
 
 // Storage Configuration

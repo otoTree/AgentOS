@@ -14,6 +14,13 @@ import { cleanupService } from './services/cleanup-service.js'
 // --- Initialize app ---
 const app = express()
 app.use(express.json({ limit: '256kb' }))
+
+// Global Logger Middleware
+app.use((req, res, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`)
+  next()
+})
+
 app.use(bearerAuth)
 
 // --- Routes ---

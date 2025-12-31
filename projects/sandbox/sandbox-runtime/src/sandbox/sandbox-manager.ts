@@ -385,6 +385,10 @@ function getEnableWeakerNestedSandbox(): boolean | undefined {
   return config?.enableWeakerNestedSandbox
 }
 
+function getFallbackWorkDir(): string | undefined {
+  return config?.fallbackWorkDir
+}
+
 function getProxyPort(): number | undefined {
   return managerContext?.httpProxyPort
 }
@@ -464,6 +468,7 @@ async function wrapWithSandbox(
         enableWeakerNestedSandbox: getEnableWeakerNestedSandbox(),
         allowAllUnixSockets: getAllowAllUnixSockets(),
         binShell,
+        fallbackWorkDir: getFallbackWorkDir(),
       })
 
     default:

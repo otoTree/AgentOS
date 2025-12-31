@@ -1,9 +1,29 @@
 import { modelService } from '../ai/service';
-import { promptFactory } from '../prompt/factory';
+import { promptFactory, updateSandboxDependencies } from '../prompt/factory';
 import { skillService } from './service';
+import { sandboxClient } from '../sandbox/client';
 
 export class SkillGenerator {
     
+    /**
+     * Helper to sync dependencies before generating prompts
+     */
+    private async syncDependencies() {
+        try {
+            const deps = await sandboxClient.getPackageSpecifiers();
+            // We use simple names for prompts to save tokens, or full specifiers if version matters.
+            // Based on previous code, let's use names but maybe we want versions?
+            // The prompt says "pre-installed packages ({{dependencies}})".
+            // Let's use the names for brevity as originally designed.
+            const depNames = await sandboxClient.getPackageNamesString();
+            if (depNames) {
+                updateSandboxDependencies(depNames.split(', '));
+            }
+        } catch (e) {
+            console.warn('Failed to sync sandbox dependencies, using defaults:', e);
+        }
+    }
+
     /**
      * Generate a new Skill from scratch
      */
@@ -13,6 +33,9 @@ export class SkillGenerator {
         modelId: string,
         request: string
     }) {
+        // 0. Sync Dependencies
+        await this.syncDependencies();
+
         // 1. Generate Structure
         const structurePrompt = promptFactory.getPrompt('SKILL_GEN_STRUCTURE', { request: params.request });
         
@@ -84,6 +107,9 @@ export class SkillGenerator {
         instruction?: string,
         errorLog?: string
     }) {
+        // 0. Sync Dependencies (might be needed for refinement too)
+        await this.syncDependencies();
+
         const skill = await skillService.getSkill(params.skillId);
         const meta = skill.meta;
         

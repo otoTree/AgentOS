@@ -1,20 +1,32 @@
 services:
   sandbox-service:
-    image: sandbox-service:latest
+    image: ccr.ccs.tencentyun.com/imags/sandbxox:v0.0.4 
     ports:
       - "8080:8080"
     environment:
       - PORT=8080
       - AUTH_TOKEN=dev
       # Browser Configuration
+      - PYTHON_VENV=python-venv/bin/python
       - MAX_BROWSER_SESSIONS=10
       - BROWSER_SESSION_TIMEOUT=600000
       - BROWSER_HEADLESS=true
       - BROWSER_VIEWPORT_WIDTH=1280
       - BROWSER_VIEWPORT_HEIGHT=720
+      - BROWSER_DEVICE=desktop
+      - STORAGE_BUCKET_DIR=/tmp/agentos-sandbox-bucket
+      - STORAGE_CLEANUP_INTERVAL_MS=600000
+      - STORAGE_RETENTION_MS=3600000
     volumes:
       # Persist the Python virtual environment
       - python_venv:/app/python-venv
+    # Enable privileged mode for bwrap (sandbox isolation)
+    privileged: true
+    cap_add:
+      - SYS_ADMIN
+    security_opt:
+      - apparmor:unconfined
+      - seccomp:unconfined
     restart: unless-stopped
 
 volumes:

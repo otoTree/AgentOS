@@ -3,6 +3,7 @@ import { deploySchema, patchSchema, invokeSchema } from '../types.js'
 import { deployManager } from '../services/deploy-manager.js'
 
 export async function deployHandler(req: Request, res: Response) {
+  console.log('[Deploy] Received request to deploy project')
   const parseResult = deploySchema.safeParse(req.body)
   if (!parseResult.success) {
     return res.status(400).json({ error: 'Invalid request', details: parseResult.error.format() })
@@ -24,6 +25,7 @@ export async function deployHandler(req: Request, res: Response) {
 }
 
 export async function patchHandler(req: Request, res: Response) {
+  console.log('[Deploy] Received request to patch sandbox')
   const parseResult = patchSchema.safeParse(req.body)
   if (!parseResult.success) {
     return res.status(400).json({ error: 'Invalid request', details: parseResult.error.format() })
@@ -49,6 +51,7 @@ export async function patchHandler(req: Request, res: Response) {
 
 export async function handleServiceRequest(req: Request, res: Response) {
     const { sandboxId } = req.params
+    console.log(`[Deploy] Service request for sandbox ${sandboxId}`)
     
     const parseResult = invokeSchema.safeParse(req.body)
     const data = parseResult.success ? parseResult.data.data : req.body
@@ -89,6 +92,7 @@ export async function handleServiceRequest(req: Request, res: Response) {
 
 export async function downloadFileHandler(req: Request, res: Response) {
   const { executionId, filename } = req.params
+  console.log(`[Deploy] Download file request: executionId=${executionId}, filename=${filename}`)
   try {
       const filePath = await deployManager.getFile(executionId, filename, 'invokes')
       res.download(filePath)

@@ -26,3 +26,5 @@ playwright
 tiktoken
 openai
 anthropic
+httpx[socks]
+socksio

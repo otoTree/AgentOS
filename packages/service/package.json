@@ -18,7 +18,8 @@
     "drizzle-orm": "^0.33.0",
     "mongoose": "^8.0.0",
     "pg": "^8.11.0",
-    "postgres": "^3.4.4"
+    "postgres": "^3.4.4",
+    "zod": "^4.3.2"
   },
   "devDependencies": {
     "@types/bcryptjs": "^3.0.0",

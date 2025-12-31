@@ -15,6 +15,7 @@ RUN sed -i 's/deb.debian.org/mirrors.ustc.edu.cn/g' /etc/apt/sources.list.d/debi
     libseccomp-dev \
     bubblewrap \
     socat \
+    ripgrep \
     xvfb \
     libnss3 \
     libatk1.0-0 \
@@ -44,6 +45,12 @@ RUN npm install && npx playwright install
 
 # Copy the rest of the application
 COPY . .
+
+# Rebuild local sandbox-runtime and update node_modules to ensure we have the latest changes
+RUN cd sandbox-runtime && \
+    npm install && \
+    npm run build && \
+    cp -r dist/* ../node_modules/@anthropic-ai/sandbox-runtime/dist/
 
 # Setup Python environment
 # Create venv

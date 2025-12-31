@@ -6,6 +6,17 @@ export interface PromptTemplate {
   variables: string[];
 }
 
+// Default dependencies (fallback)
+const DEFAULT_DEPENDENCIES = ["可能没连上sandbox，默认依赖为空"];
+
+export let SANDBOX_DEPENDENCIES = DEFAULT_DEPENDENCIES.join(', ');
+
+export function updateSandboxDependencies(deps: string[]) {
+    if (deps && deps.length > 0) {
+        SANDBOX_DEPENDENCIES = deps.join(', ');
+    }
+}
+
 export const PROMPTS = {
   // Skill Generation
   SKILL_GEN_STRUCTURE: {
@@ -13,7 +24,8 @@ export const PROMPTS = {
     description: 'Generate file structure for a new skill',
     template: `You are an expert Python developer building a "Skill" for AgentOS.
 A Skill is a Python module that performs a specific task.
-It runs in a sandboxed environment with specific pre-installed packages (requests, beautifulsoup4, pandas, numpy).
+It runs in a sandboxed environment with specific pre-installed packages ({{dependencies}}).
+All data files must be downloaded via network (e.g. from URLs in input). No local files exist initially.
 You CANNOT install new pip packages.
 
 Your task: Generate the file structure and meta.json for the user's request.
@@ -31,7 +43,7 @@ Output Format (JSON):
   "explanation": "Brief explanation of the plan"
 }
 `,
-    variables: ['request']
+    variables: ['request', 'dependencies']
   },
 
   SKILL_GEN_CODE: {
@@ -46,14 +58,16 @@ Context:
 Requirements:
 1. Use Python 3.10+
 2. Handle errors gracefully (print to stderr, but don't crash if possible)
-3. Entrypoint must have a 'def main(args):' function that returns a JSON-serializable dict.
-4. Do NOT use external APIs unless explicitly requested.
-5. Allowed libs: standard libs + requests, bs4, pandas, numpy.
+3. Entrypoint must be 'def main(...):' with explicitly named and typed arguments (e.g. def main(url: str, count: int) -> dict:). Return a JSON-serializable dict.
+4. The environment is a sandbox. All data files must be downloaded via network (e.g. from URLs in args). No local files exist initially.
+5. Do NOT use external APIs unless explicitly requested.
+6. Allowed libs: standard libs + {{dependencies}}.
+7. Do NOT include 'if __name__ == "__main__":' block.
 
 Output:
 Pure Python code for {{filename}}. No markdown blocks.
 `,
-    variables: ['name', 'filename', 'context']
+    variables: ['name', 'filename', 'context', 'dependencies']
   },
   
   SKILL_REFINE_ERROR: {
@@ -79,8 +93,14 @@ export class PromptFactory {
         const promptDef = PROMPTS[key];
         let content: string = promptDef.template;
         
+        // Auto-inject dependencies if needed
+        const variables = { ...vars };
+        if ((promptDef.variables as readonly string[]).includes('dependencies') && !variables.dependencies) {
+            variables.dependencies = SANDBOX_DEPENDENCIES;
+        }
+        
         for (const v of promptDef.variables) {
-            const val = vars[v] || '';
+            const val = variables[v] || '';
             // Simple replaceAll
             content = content.split(`{{${v}}}`).join(val);
         }

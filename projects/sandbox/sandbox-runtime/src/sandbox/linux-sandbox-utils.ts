@@ -44,6 +44,7 @@ export type LinuxSandboxParams = {
   enableWeakerNestedSandbox?: boolean
   allowAllUnixSockets?: boolean
   binShell?: string
+  fallbackWorkDir?: string
 }
 
 // Track generated seccomp filters for cleanup on process exit
@@ -283,9 +284,9 @@ export function canUseBwrap(): boolean {
  * - Relies on applications respecting proxy environment variables for network filtering
  */
 function wrapCommandWithSandboxLinuxNoBwrap(
-  params: Pick<LinuxSandboxParams, 'command' | 'httpProxyPort' | 'socksProxyPort' | 'allowAllUnixSockets' | 'binShell'>,
+  params: Pick<LinuxSandboxParams, 'command' | 'httpProxyPort' | 'socksProxyPort' | 'allowAllUnixSockets' | 'binShell' | 'fallbackWorkDir'>,
 ): string {
-  const { command, httpProxyPort, socksProxyPort, allowAllUnixSockets, binShell } = params
+  const { command, httpProxyPort, socksProxyPort, allowAllUnixSockets, binShell, fallbackWorkDir } = params
 
   const proxyEnv = generateProxyEnvVars(httpProxyPort, socksProxyPort)
 
@@ -296,6 +297,10 @@ function wrapCommandWithSandboxLinuxNoBwrap(
     throw new Error(`Shell '${shellName}' not found in PATH`)
   }
   const shell = shellPathResult.stdout.trim()
+
+  const effectiveCommand = fallbackWorkDir
+    ? `cd ${shellquote.quote([fallbackWorkDir])} && ${command}`
+    : command
 
   // Optionally apply seccomp filter to block AF_UNIX socket creation
   if (!allowAllUnixSockets) {
@@ -309,7 +314,7 @@ function wrapCommandWithSandboxLinuxNoBwrap(
         seccompFilterPath,
         shell,
         '-c',
-        command,
+        effectiveCommand,
       ])
       logForDebugging('[Sandbox Linux] Using no-bwrap isolation mode with seccomp(unix-block)')
       return wrapped
@@ -321,7 +326,7 @@ function wrapCommandWithSandboxLinuxNoBwrap(
     }
   }
 
-  const wrapped = shellquote.quote(['env', ...proxyEnv, shell, '-c', command])
+  const wrapped = shellquote.quote(['env', ...proxyEnv, shell, '-c', effectiveCommand])
   logForDebugging('[Sandbox Linux] Using no-bwrap isolation mode (env proxies only)')
   return wrapped
 }
@@ -566,6 +571,7 @@ export async function wrapCommandWithSandboxLinux(
     enableWeakerNestedSandbox,
     allowAllUnixSockets,
     binShell,
+    fallbackWorkDir,
   } = params
 
   // Check if we need any sandboxing
@@ -592,6 +598,7 @@ export async function wrapCommandWithSandboxLinux(
         socksProxyPort,
         allowAllUnixSockets,
         binShell,
+        fallbackWorkDir,
       })
     }
 

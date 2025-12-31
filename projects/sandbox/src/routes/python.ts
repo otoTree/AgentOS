@@ -8,6 +8,7 @@ import { packageSchema } from '../types.js'
 const venvPython = path.join(process.cwd(), process.env.PYTHON_VENV || 'python-venv/bin/python')
 
 export async function listPackagesHandler(req: Request, res: Response) {
+  console.log('[Python] Received request to list packages')
   try {
     // Ensure sandbox is initialized
     if (!SandboxManager.isSandboxingEnabled()) {
@@ -32,6 +33,7 @@ export async function listPackagesHandler(req: Request, res: Response) {
 }
 
 export async function managePackageHandler(req: Request, res: Response) {
+    console.log('[Python] Received request to manage packages')
     const parseResult = packageSchema.safeParse(req.body)
     if (!parseResult.success) {
         return res.status(400).json({ error: 'Invalid request', details: parseResult.error.format() })

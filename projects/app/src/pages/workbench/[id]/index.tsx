@@ -15,6 +15,9 @@ import { toast } from '@agentos/web/components/ui/sonner';
 import Editor from '@monaco-editor/react';
 import { FileTree } from '@/components/workbench/FileTree';
 import { Badge } from '@agentos/web/components/ui/badge';
+import { Switch } from '@agentos/web/components/ui/switch';
+import { parsePythonEntrypoint, ParamInfo } from '@/utils/python-parser';
+import { AutoForm } from '@/components/workbench/AutoForm';
 
 type Skill = {
   id: string;
@@ -69,6 +72,10 @@ export default function SkillWorkbenchPage() {
   // Metadata Edit State
   const [editOpen, setEditOpen] = useState(false);
   const [editForm, setEditForm] = useState({ name: '', description: '', emoji: '' });
+
+  // Auto Form State
+  const [formMode, setFormMode] = useState(true);
+  const [parsedParams, setParsedParams] = useState<ParamInfo[]>([]);
 
   // Initial Fetch
   useEffect(() => {
@@ -377,8 +384,49 @@ export default function SkillWorkbenchPage() {
     toast.success('Skill deployed successfully');
   };
 
-  const handleQuickRun = () => {
+  const handleQuickRun = async () => {
     setRunOpen(true);
+
+    // Parse entrypoint parameters
+    if (skill?.meta?.entrypoint) {
+        let code = '';
+        // If entrypoint is currently open, use current content
+        if (selectedFile === skill.meta.entrypoint) {
+            code = fileContent;
+        } else {
+            // Otherwise fetch it
+            try {
+                const res = await fetch(`/api/workbench/skills/${id}/files?filename=${encodeURIComponent(skill.meta.entrypoint)}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    code = data.content;
+                }
+            } catch (err) {
+                console.error('Failed to fetch entrypoint for parsing', err);
+            }
+        }
+
+        if (code) {
+            const params = parsePythonEntrypoint(code);
+            setParsedParams(params);
+            
+            // If we detected params, default to Form Mode. 
+            // If no params (e.g. no main function), fallback to JSON mode.
+            if (params.length > 0) {
+                setFormMode(true);
+                // Pre-fill defaults if input is empty/default
+                if (runInput === '{}' || !runInput) {
+                    const defaults: any = {};
+                    params.forEach(p => {
+                        if (p.default !== undefined) defaults[p.name] = p.default;
+                    });
+                    setRunInput(JSON.stringify(defaults, null, 2));
+                }
+            } else {
+                setFormMode(false);
+            }
+        }
+    }
   };
 
   if (loading || !skill) {
@@ -427,7 +475,7 @@ export default function SkillWorkbenchPage() {
         </div>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0 overflow-hidden">
         <div className="flex-shrink-0 mb-4">
           <TabsList className="w-fit">
             <TabsTrigger value="code" className="flex items-center gap-2">
@@ -454,25 +502,47 @@ export default function SkillWorkbenchPage() {
                 
                 <div className="flex-1 overflow-y-auto py-4 flex flex-col gap-6">
                     <div className="space-y-2">
-                        <Label className="text-sm font-medium flex items-center gap-2">
-                            <Terminal className="w-4 h-4" /> Input (JSON)
-                        </Label>
-                        <div className="border rounded-md overflow-hidden h-40">
-                            <Editor
-                                height="100%"
-                                defaultLanguage="json"
-                                value={runInput}
-                                onChange={(val) => setRunInput(val || '')}
-                                theme="vs-dark"
-                                options={{
-                                    minimap: { enabled: false },
-                                    fontSize: 13,
-                                    lineNumbers: 'off',
-                                    scrollBeyondLastLine: false,
-                                    folding: false,
-                                }}
-                            />
+                        <div className="flex items-center justify-between">
+                            <Label className="text-sm font-medium flex items-center gap-2">
+                                <Terminal className="w-4 h-4" /> Input
+                            </Label>
+                            {parsedParams.length > 0 && (
+                                <div className="flex items-center gap-2">
+                                    <Label className="text-xs text-muted-foreground font-normal">Form Mode</Label>
+                                    <Switch checked={formMode} onCheckedChange={setFormMode} />
+                                </div>
+                            )}
                         </div>
+
+                        {formMode && parsedParams.length > 0 ? (
+                            <div className="border rounded-md p-4 bg-muted/10 max-h-60 overflow-y-auto">
+                                <AutoForm 
+                                    params={parsedParams}
+                                    value={(() => {
+                                        try { return JSON.parse(runInput); }
+                                        catch { return {}; }
+                                    })()}
+                                    onChange={(val) => setRunInput(JSON.stringify(val, null, 2))}
+                                />
+                            </div>
+                        ) : (
+                            <div className="border rounded-md overflow-hidden h-40">
+                                <Editor
+                                    height="100%"
+                                    defaultLanguage="json"
+                                    value={runInput}
+                                    onChange={(val) => setRunInput(val || '')}
+                                    theme="vs-dark"
+                                    options={{
+                                        minimap: { enabled: false },
+                                        fontSize: 13,
+                                        lineNumbers: 'off',
+                                        scrollBeyondLastLine: false,
+                                        folding: false,
+                                    }}
+                                />
+                            </div>
+                        )}
                     </div>
 
                     {runResult && (
@@ -606,37 +676,43 @@ export default function SkillWorkbenchPage() {
         </TabsContent>
 
         {/* Dependencies Tab */}
-        <TabsContent value="deps" className="flex-1 flex flex-col gap-4 mt-0 data-[state=inactive]:hidden">
-            <Card>
-                <CardContent className="p-6">
-                    <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-lg font-semibold">Available Environment Dependencies</h3>
-                        <Badge variant="outline">{dependencies.length} Packages</Badge>
-                    </div>
-                    <p className="text-sm text-muted-foreground mb-6">
-                        These are the pre-installed Python packages available in the sandbox environment. 
-                        You can import these in your skill code. New dependencies must be requested from the administrator.
-                    </p>
-                    
-                    {loadingDeps ? (
-                        <div className="flex items-center justify-center py-10">
-                            <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+        <TabsContent value="deps" className="flex-1 flex flex-col gap-4 mt-0 data-[state=inactive]:hidden min-h-0 overflow-hidden">
+            <Card className="flex-1 flex flex-col overflow-hidden">
+                <CardContent className="flex-1 flex flex-col p-6 min-h-0">
+                    <div className="flex-none">
+                        <div className="flex items-center justify-between mb-4">
+                            <h3 className="text-lg font-semibold">Available Environment Dependencies</h3>
+                            <Badge variant="outline">{dependencies.length} Packages</Badge>
                         </div>
-                    ) : (
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                            {dependencies.map((dep, idx) => (
-                                <div key={idx} className="flex items-center gap-2 p-3 border rounded-md bg-muted/20 hover:bg-muted/40 transition-colors">
-                                    <Box className="w-4 h-4 text-primary" />
-                                    <span className="text-sm font-medium">{dep}</span>
+                        <p className="text-sm text-muted-foreground mb-6">
+                            These are the pre-installed Python packages available in the sandbox environment. 
+                            You can import these in your skill code. New dependencies must be requested from the administrator.
+                        </p>
+                    </div>
+                    
+                    <div className="flex-1 min-h-0 relative">
+                        <ScrollArea className="h-full">
+                            {loadingDeps ? (
+                                <div className="flex items-center justify-center py-10">
+                                    <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
                                 </div>
-                            ))}
-                            {dependencies.length === 0 && (
-                                <div className="col-span-full text-center py-10 text-muted-foreground">
-                                    No dependencies found.
+                            ) : (
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 pr-4">
+                                    {dependencies.map((dep, idx) => (
+                                        <div key={idx} className="flex items-center gap-2 p-3 border rounded-md bg-muted/20 hover:bg-muted/40 transition-colors">
+                                            <Box className="w-4 h-4 text-primary" />
+                                            <span className="text-sm font-medium">{dep}</span>
+                                        </div>
+                                    ))}
+                                    {dependencies.length === 0 && (
+                                        <div className="col-span-full text-center py-10 text-muted-foreground">
+                                            No dependencies found.
+                                        </div>
+                                    )}
                                 </div>
                             )}
-                        </div>
-                    )}
+                        </ScrollArea>
+                    </div>
                 </CardContent>
             </Card>
         </TabsContent>

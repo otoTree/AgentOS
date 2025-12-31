@@ -9,7 +9,7 @@ import {
   LayoutDashboard, 
   LogOut,
   Menu,
-  ChevronRight
+  Code2
 } from 'lucide-react';
 import { 
   Button, 
@@ -23,6 +23,7 @@ import { cn } from '@agentos/web/lib/utils';
 const navItems = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
   { name: 'Users', href: '/users', icon: Users },
+  { name: 'Skills', href: '/skills', icon: Code2 },
   { name: 'Sandbox', href: '/sandbox', icon: Box },
   { name: 'Settings', href: '/settings', icon: Settings },
 ];
