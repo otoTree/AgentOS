@@ -1,5 +1,10 @@
 FROM node:20-bookworm
 
+# 安装 pnpm
+ENV PNPM_HOME="/pnpm"
+ENV PATH="$PNPM_HOME:$PATH"
+RUN corepack enable
+
 # Install Python, system dependencies for headed environment (Xvfb, etc.), and build tools
 # Switch to Aliyun mirror for better connectivity in China and fix 502 errors
 # Debian Bookworm uses DEB822 format in /etc/apt/sources.list.d/debian.sources by default
@@ -41,15 +46,15 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install Node dependencies
-RUN npm install && npx playwright install
+RUN pnpm install && pnpm exec playwright install
 
 # Copy the rest of the application
 COPY . .
 
 # Rebuild local sandbox-runtime and update node_modules to ensure we have the latest changes
 RUN cd sandbox-runtime && \
-    npm install && \
-    npm run build && \
+    pnpm install && \
+    pnpm run build && \
     cp -r dist/* ../node_modules/@anthropic-ai/sandbox-runtime/dist/
 
 # Setup Python environment
@@ -69,7 +74,7 @@ RUN if [ -f agent_tool-0.1.0-py3-none-any.whl ]; then \
     fi
 
 # Build the Node app
-RUN npm run build
+RUN pnpm run build
 
 # Expose port
 EXPOSE 8080

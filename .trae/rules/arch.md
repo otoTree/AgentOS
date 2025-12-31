@@ -11,7 +11,7 @@ AgentOS 是一个 AI Agent 构建平台,通过 Flow 提供开箱即用的数据�
 
 ## 架构
 
-这是一个使用 bu n workspaces 的 monorepo,主要结构如下:
+这是一个使用 pnpm workspaces 的 monorepo,主要结构如下:
 
 ### Packages (库代码)
 - `packages/global/` - 所有项目共享的类型、常量、工具函数
@@ -33,46 +33,46 @@ AgentOS 是一个 AI Agent 构建平台,通过 Flow 提供开箱即用的数据�
 ## 开发命令
 
 ### 主要命令(从项目根目录运行)
-- `bun dev` - 启动所有项目的开发环境(使用 package.json 的 workspace 脚本)
-- `bun run build` - 构建所有项目
-- `bun test` - 使用 Vitest 运行测试
-- `bun test:workflow` - 运行工作流相关测试
-- `bun lint` - 对所有 TypeScript 文件运行 ESLint 并自动修复
-- `bun format-code` - 使用 Prettier 格式化代码
+- `pnpm dev` - 启动所有项目的开发环境(使用 package.json 的 workspace 脚本)
+- `pnpm run build` - 构建所有项目
+- `pnpm test` - 使用 Vitest 运行测试
+- `pnpm test:workflow` - 运行工作流相关测试
+- `pnpm lint` - 对所有 TypeScript 文件运行 ESLint 并自动修复
+- `pnpm format-code` - 使用 Prettier 格式化代码
 
 ### 项目专用命令
 **主应用 (projects/app/)**:
-- `cd projects/app && bun dev` - 启动 NextJS 开发服务器
-- `cd projects/app && bun run build` - 构建 NextJS 应用
-- `cd projects/app && bun start` - 启动生产服务器
+- `cd projects/app && pnpm dev` - 启动 NextJS 开发服务器
+- `cd projects/app && pnpm run build` - 构建 NextJS 应用
+- `cd projects/app && pnpm start` - 启动生产服务器
 
 
 
 **沙箱 (projects/sandbox/)**:
-- `cd projects/sandbox && bun dev` - 以监视模式启动 NestJS 开发服务器
-- `cd projects/sandbox && bun run build` - 构建 NestJS 应用
-- `cd projects/sandbox && bun test` - 运行 Jest 测试
+- `cd projects/sandbox && pnpm dev` - 以监视模式启动 NestJS 开发服务器
+- `cd projects/sandbox && pnpm run build` - 构建 NestJS 应用
+- `cd projects/sandbox && pnpm test` - 运行 Jest 测试
 
 
 
 **管理后台 (projects/admin/)**:
-- `cd projects/admin && bun dev` - 启动 NextJS 开发服务器
-- `cd projects/admin && bun run build` - 构建 NextJS 应用
-- `cd projects/admin && bun start` - 启动生产服务器
+- `cd projects/admin && pnpm dev` - 启动 NextJS 开发服务器
+- `cd projects/admin && pnpm run build` - 构建 NextJS 应用
+- `cd projects/admin && pnpm start` - 启动生产服务器
 
 
 
 ### 工具命令
-- `bun create:i18n` - 生成国际化翻译文件
-- `bun api:gen` - 生成 OpenAPI 文档
-- `bun initIcon` - 初始化图标资源
-- `bun gen:theme-typings` - 生成 Chakra UI 主题类型定义
+- `pnpm create:i18n` - 生成国际化翻译文件
+- `pnpm api:gen` - 生成 OpenAPI 文档
+- `pnpm initIcon` - 初始化图标资源
+- `pnpm gen:theme-typings` - 生成 Chakra UI 主题类型定义
 
 ## 测试
 
 项目使用 Vitest 进行测试并生成覆盖率报告。主要测试命令:
-- `bun test` - 运行所有测试
-- `bun test:workflow` - 专门运行工作流测试
+- `pnpm test` - 运行所有测试
+- `pnpm test:workflow` - 专门运行工作流测试
 - 测试文件位于 `test/` 目录和 `projects/app/test/`
 - 覆盖率报告生成在 `coverage/` 目录
 
@@ -97,8 +97,8 @@ AgentOS 是一个 AI Agent 构建平台,通过 Flow 提供开箱即用的数据�
 
 ## 开发注意事项
 
-- **包管理器**: 使用 bun 及 workspace 配置
-- **Node 版本**: 需要 bun 
+- **Node 版本**: 需要 Node.js 18+
+- **包管理器**: 使用 pnpm 及 workspace 配置
 - **数据库**: 支持 PostgreSQL、OSS、带 pgvector 的 PostgreSQL 或 Milvus 向量存储
 - **AI 集成**: 通过统一接口支持多个 AI 提供商
 - **国际化**: 完整支持中文、英文和日文
