@@ -1,5 +1,6 @@
 import path from "path";
 import { fileURLToPath } from "url";
+import MonacoWebpackPlugin from "monaco-editor-webpack-plugin";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -12,6 +13,26 @@ const nextConfig = {
   experimental: {
     clientRouterFilter: false,
     outputFileTracingRoot: path.join(__dirname, "../../"),
+  },
+  webpack: (config, { isServer }) => {
+    if (!isServer) {
+      config.plugins.push(
+        new MonacoWebpackPlugin({
+          languages: [
+            "json",
+            "javascript",
+            "typescript",
+            "python",
+            "css",
+            "html",
+            "markdown",
+            "yaml",
+          ],
+          filename: "static/[name].worker.js",
+        })
+      );
+    }
+    return config;
   },
 };
 

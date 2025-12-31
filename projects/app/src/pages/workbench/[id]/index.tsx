@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
+import dynamic from 'next/dynamic';
 import { AdminLayout } from '@/components/layout/AdminLayout';
 import { Button } from '@agentos/web/components/ui/button';
 import { Input } from '@agentos/web/components/ui/input';
@@ -11,12 +12,16 @@ import { ScrollArea } from '@agentos/web/components/ui/scroll-area';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@agentos/web/components/ui/dialog';
 import { Loader2, Save, Play, FileCode, ArrowLeft, Edit2, Box, Rocket, Wand2, Terminal, Trash2 } from 'lucide-react';
 import { toast } from '@agentos/web/components/ui/sonner';
-import Editor from '@monaco-editor/react';
 import { FileTree } from '@/components/workbench/FileTree';
 import { Badge } from '@agentos/web/components/ui/badge';
 import { Switch } from '@agentos/web/components/ui/switch';
 import { parsePythonEntrypoint, ParamInfo } from '@/utils/python-parser';
 import { AutoForm } from '@/components/workbench/AutoForm';
+
+const Editor = dynamic(
+  () => import('@/components/ui/code-editor').then((mod) => mod.CodeEditor),
+  { ssr: false }
+);
 
 type Skill = {
   id: string;
