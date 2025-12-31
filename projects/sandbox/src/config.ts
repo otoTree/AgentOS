@@ -19,7 +19,7 @@ export const BROWSER_CONFIG = {
 // System-level highest security sandbox config
 export const sandboxConfig: SandboxRuntimeConfig = {
   network: {
-    allowedDomains: ['pypi.tuna.tsinghua.edu.cn'], // Allow Tsinghua PyPI Mirror
+    allowedDomains: [], // Allow Tsinghua PyPI Mirror
     deniedDomains: [],
     allowLocalBinding: false, // Block binding to local ports
     allowUnixSockets: [], // Block access to Unix sockets
@@ -42,7 +42,7 @@ export const sandboxConfig: SandboxRuntimeConfig = {
       '~/.env'
     ],
     // Only allow writing to current working directory and tmp
-    allowWrite: ['.', '/tmp'],
+    allowWrite: ['.', '/tmp', '/var/folders'],
     // Protect project integrity by denying write to config, metadata and source
     denyWrite: [
       '.env',
