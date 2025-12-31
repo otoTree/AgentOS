@@ -11,9 +11,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     try {
       const dependencies = await sandboxClient.getPackageSpecifiers();
       return res.status(200).json({ dependencies });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error(error);
-      return res.status(500).json({ error: error.message });
+      return res.status(500).json({ error: (error as Error).message });
     }
   }
 

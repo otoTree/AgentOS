@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { AdminLayout } from '@/components/layout/AdminLayout';
 import { Button } from '@agentos/web/components/ui/button';
@@ -8,9 +8,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@agentos/web/component
 import { Card, CardContent } from '@agentos/web/components/ui/card';
 import { Label } from '@agentos/web/components/ui/label';
 import { ScrollArea } from '@agentos/web/components/ui/scroll-area';
-import { Separator } from '@agentos/web/components/ui/separator';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from '@agentos/web/components/ui/dialog';
-import { Loader2, Save, Play, FileCode, MessageSquare, ArrowLeft, Plus, Edit2, Bot, Box, Rocket, Wand2, Terminal } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@agentos/web/components/ui/dialog';
+import { Loader2, Save, Play, FileCode, ArrowLeft, Edit2, Box, Rocket, Wand2, Terminal, Trash2 } from 'lucide-react';
 import { toast } from '@agentos/web/components/ui/sonner';
 import Editor from '@monaco-editor/react';
 import { FileTree } from '@/components/workbench/FileTree';
@@ -29,8 +28,8 @@ type Skill = {
   meta: {
     files: string[];
     entrypoint: string;
-    input_schema?: any;
-    output_schema?: any;
+    input_schema?: unknown;
+    output_schema?: unknown;
   };
 }
 
@@ -61,12 +60,12 @@ export default function SkillWorkbenchPage() {
   const [chatInput, setChatInput] = useState('');
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [aiLoading, setAiLoading] = useState(false);
-  const [models, setModels] = useState<any[]>([]);
+  const [models, setModels] = useState<{ id: string }[]>([]);
 
   // Execution State
   const [runOpen, setRunOpen] = useState(false);
   const [runInput, setRunInput] = useState('{}');
-  const [runResult, setRunResult] = useState<any>(null);
+  const [runResult, setRunResult] = useState<unknown>(null);
   const [running, setRunning] = useState(false);
 
   // Metadata Edit State
@@ -89,7 +88,7 @@ export default function SkillWorkbenchPage() {
     try {
       const res = await fetch('/api/admin/models');
       const data = await res.json();
-      const allModels = data.flatMap((p: any) => p.models);
+      const allModels = data.flatMap((p: { models: unknown[] }) => p.models);
       setModels(allModels);
     } catch (err) {
       console.error('Failed to fetch models', err);
@@ -124,7 +123,7 @@ export default function SkillWorkbenchPage() {
       } else if (data.meta?.files?.length > 0) {
         selectFile(data.meta.files[0]);
       }
-    } catch (err) {
+    } catch {
       toast.error('Failed to load skill details');
     } finally {
       setLoading(false);
@@ -142,7 +141,7 @@ export default function SkillWorkbenchPage() {
       const data = await res.json();
       setFileContent(data.content);
       setOriginalContent(data.content);
-    } catch (err) {
+    } catch {
       toast.error(`Failed to load ${filename}`);
       setFileContent('');
     } finally {
@@ -170,7 +169,7 @@ export default function SkillWorkbenchPage() {
       
       if (type === 'file') selectFile(path);
       toast.success(`${type === 'folder' ? 'Folder' : 'File'} created`);
-    } catch (err) {
+    } catch {
       toast.error('Failed to create');
     } finally {
       setLoadingFile(false);
@@ -196,7 +195,7 @@ export default function SkillWorkbenchPage() {
             setSelectedFile('');
             setFileContent('');
         }
-    } catch (err) {
+    } catch {
         toast.error('Delete failed');
     } finally {
         setLoadingFile(false);
@@ -235,7 +234,7 @@ export default function SkillWorkbenchPage() {
         
         fetchSkill();
         toast.success('Renamed');
-     } catch (err) {
+     } catch {
         toast.error('Rename failed');
      } finally {
         setLoadingFile(false);
@@ -258,7 +257,7 @@ export default function SkillWorkbenchPage() {
       if (!res.ok) throw new Error('Failed to save file');
       setOriginalContent(fileContent);
       toast.success('File saved');
-    } catch (err) {
+    } catch {
       toast.error('Failed to save file');
     } finally {
       setSavingFile(false);
@@ -274,11 +273,11 @@ export default function SkillWorkbenchPage() {
         body: JSON.stringify(editForm)
       });
       if (!res.ok) throw new Error('Failed to update skill');
-      const updated = await res.json();
+      await res.json();
       setSkill(prev => prev ? { ...prev, ...editForm } : null);
       setEditOpen(false);
       toast.success('Skill updated');
-    } catch (err) {
+    } catch {
       toast.error('Update failed');
     }
   };
@@ -294,7 +293,7 @@ export default function SkillWorkbenchPage() {
       if (!res.ok) throw new Error('Failed to delete skill');
       toast.success('Skill deleted');
       router.push('/workbench');
-    } catch (err) {
+    } catch {
       toast.error('Delete failed');
     }
   };
@@ -335,10 +334,10 @@ export default function SkillWorkbenchPage() {
       }
       
       toast.success('Skill code updated by AI');
-    } catch (err: any) {
+    } catch (err: unknown) {
         const errorMsg: ChatMessage = {
             role: 'system',
-            content: `Error: ${err.message || 'AI generation failed'}`,
+            content: `Error: ${(err as Error).message || 'AI generation failed'}`,
             timestamp: Date.now()
         };
         setChatHistory(prev => [...prev, errorMsg]);
@@ -370,8 +369,8 @@ export default function SkillWorkbenchPage() {
       
       const result = await res.json();
       setRunResult(result);
-    } catch (err: any) {
-        toast.error(err.message || 'Execution failed');
+    } catch (err: unknown) {
+        toast.error((err as Error).message || 'Execution failed');
     } finally {
       setRunning(false);
     }
@@ -416,7 +415,7 @@ export default function SkillWorkbenchPage() {
                 setFormMode(true);
                 // Pre-fill defaults if input is empty/default
                 if (runInput === '{}' || !runInput) {
-                    const defaults: any = {};
+                    const defaults: Record<string, unknown> = {};
                     params.forEach(p => {
                         if (p.default !== undefined) defaults[p.name] = p.default;
                     });
@@ -442,7 +441,7 @@ export default function SkillWorkbenchPage() {
   const hasUnsavedChanges = fileContent !== originalContent;
 
   return (
-    <AdminLayout>
+    <AdminLayout mainClassName="overflow-y-auto">
       {/* Header */}
       <div className="flex flex-col gap-4 mb-6">
         <div className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground cursor-pointer" onClick={() => router.push('/workbench')}>
@@ -475,7 +474,7 @@ export default function SkillWorkbenchPage() {
         </div>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0 overflow-hidden">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-[500px] overflow-hidden">
         <div className="flex-shrink-0 mb-4">
           <TabsList className="w-fit">
             <TabsTrigger value="code" className="flex items-center gap-2">
@@ -583,7 +582,10 @@ export default function SkillWorkbenchPage() {
                          <FileTree 
                             files={skill.meta?.files || []} 
                             selectedFile={selectedFile} 
-                            onSelect={selectFile} 
+                            onSelect={selectFile}
+                            onCreate={handleCreateFile}
+                            onDelete={handleDeleteFile}
+                            onRename={handleRenameFile}
                         />
                     </div>
                 </ScrollArea>
@@ -738,9 +740,15 @@ export default function SkillWorkbenchPage() {
                     <Input className="w-16 text-center text-xl" value={editForm.emoji} onChange={e => setEditForm({...editForm, emoji: e.target.value})} />
                 </div>
             </div>
-            <DialogFooter>
-                <Button variant="outline" onClick={() => setEditOpen(false)}>Cancel</Button>
-                <Button onClick={handleUpdateMeta}>Save Changes</Button>
+            <DialogFooter className="flex justify-between sm:justify-between">
+                <Button variant="destructive" onClick={handleDelete}>
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Delete Skill
+                </Button>
+                <div className="flex gap-2">
+                    <Button variant="outline" onClick={() => setEditOpen(false)}>Cancel</Button>
+                    <Button onClick={handleUpdateMeta}>Save Changes</Button>
+                </div>
             </DialogFooter>
         </DialogContent>
       </Dialog>

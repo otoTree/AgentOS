@@ -60,7 +60,7 @@ export default function WorkbenchPage() {
       .then(data => {
         setSkills(Array.isArray(data) ? data : []);
       })
-      .catch(err => toast.error('Failed to load skills'))
+      .catch(() => toast.error('Failed to load skills'))
       .finally(() => setLoading(false));
   }, [selectedTeamId]);
 
@@ -85,8 +85,8 @@ export default function WorkbenchPage() {
       setNewSkill({ name: '', description: '', emoji: '🤖' });
       toast.success('Skill created');
       router.push(`/workbench/${skill.id}`);
-    } catch (err: any) {
-      toast.error(err.message || 'Failed to create skill');
+    } catch (err: unknown) {
+      toast.error((err as Error).message || 'Failed to create skill');
     } finally {
       setCreating(false);
     }

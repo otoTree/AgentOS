@@ -167,10 +167,11 @@ export class SkillService {
          const ossPath = skill.ossPath;
          
          // 1. Update DB
+         // eslint-disable-next-line @typescript-eslint/no-explicit-any
          await db.update(skills).set({
              ...updates,
              updatedAt: new Date(),
-         }).where(eq(skills.id, id));
+         } as any).where(eq(skills.id, id));
          
          // 2. Update Meta.json (sync name/desc)
          if (updates.name || updates.description) {

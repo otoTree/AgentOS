@@ -8,8 +8,7 @@ import {
     FilePlus,
     FolderPlus,
     Pencil,
-    Trash2,
-    Plus
+    Trash2
 } from 'lucide-react';
 import { cn } from '@agentos/web/lib/utils';
 import {
@@ -29,14 +28,14 @@ import {
 import { Input } from "@agentos/web/components/ui/input";
 import { Button } from "@agentos/web/components/ui/button";
 
-interface TreeNode {
+type TreeNode = {
     name: string;
     path: string;
     type: 'file' | 'folder';
     children: TreeNode[];
-}
+};
 
-interface FileTreeProps {
+type FileTreeProps = {
     files: string[];
     selectedFile: string;
     onSelect: (file: string) => void;
@@ -44,7 +43,7 @@ interface FileTreeProps {
     onDelete?: (path: string) => void;
     onRename?: (path: string, newPath: string) => void;
     className?: string;
-}
+};
 
 const buildFileTree = (paths: string[]): TreeNode[] => {
     const root: TreeNode[] = [];
@@ -91,13 +90,13 @@ const buildFileTree = (paths: string[]): TreeNode[] => {
     return root;
 };
 
-interface FileTreeNodeProps {
+type FileTreeNodeProps = {
     node: TreeNode;
     level: number;
     onSelect: (file: string) => void;
     selectedFile: string;
     onAction: (action: string, node: TreeNode) => void;
-}
+};
 
 const FileTreeNode = ({ node, level, onSelect, selectedFile, onAction }: FileTreeNodeProps) => {
     const [isOpen, setIsOpen] = useState(false);
@@ -204,6 +203,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
 
     const handleAction = (action: string, node: TreeNode) => {
         setTargetNode(node);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         setDialogType(action as any);
         if (action === 'rename') {
             setInputValue(node.name);
@@ -233,22 +233,25 @@ export const FileTree: React.FC<FileTreeProps> = ({
         // For rename/delete, targetNode is the item itself.
         
         switch (dialogType) {
-            case 'new-file':
+            case 'new-file': {
                 // targetNode is parent folder
                 const newFilePath = basePath ? `${basePath}/${inputValue}` : inputValue;
                 onCreate?.('file', newFilePath);
                 break;
-            case 'new-folder':
+            }
+            case 'new-folder': {
                  // targetNode is parent folder
                 const newFolderPath = basePath ? `${basePath}/${inputValue}` : inputValue;
                 onCreate?.('folder', newFolderPath);
                 break;
-            case 'rename':
+            }
+            case 'rename': {
                 // targetNode is item
                 const parentPath = targetNode?.path.split('/').slice(0, -1).join('/') || '';
                 const renamedPath = parentPath ? `${parentPath}/${inputValue}` : inputValue;
                 onRename?.(targetNode!.path, renamedPath);
                 break;
+            }
             case 'delete':
                 onDelete?.(targetNode!.path);
                 break;

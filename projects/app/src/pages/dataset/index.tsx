@@ -8,9 +8,10 @@ import { Tabs, TabsList, TabsTrigger } from '@agentos/web/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@agentos/web/components/ui/dialog';
 import { Label } from '@agentos/web/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@agentos/web/components/ui/select';
-import { Upload, Trash2, FileIcon, Folder, FolderPlus, Share2, ArrowLeft, ChevronRight, MoreVertical } from 'lucide-react';
+import { Upload, Trash2, FileIcon, Folder, FolderPlus, Share2, ArrowLeft, ChevronRight, MoreVertical, Link as LinkIcon } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@agentos/web/components/ui/dropdown-menu';
 import { format } from 'date-fns';
+import { ShareLinkDialog } from '@/components/dataset/ShareLinkDialog';
 
 type Team = {
   id: string;
@@ -61,6 +62,9 @@ export default function DatasetPage() {
   const [shareOpen, setShareOpen] = useState(false);
   const [selectedFileForShare, setSelectedFileForShare] = useState<string | null>(null);
   const [shareTeamId, setShareTeamId] = useState<string>("");
+
+  const [shareLinkOpen, setShareLinkOpen] = useState(false);
+  const [fileForLinkShare, setFileForLinkShare] = useState<{id: string, name: string} | null>(null);
 
   // Load Teams
   useEffect(() => {
@@ -368,10 +372,16 @@ export default function DatasetPage() {
                                                     </DropdownMenuTrigger>
                                                     <DropdownMenuContent align="end">
                                                         <DropdownMenuItem onClick={() => {
+                                                            setFileForLinkShare({ id: file.id, name: file.name });
+                                                            setShareLinkOpen(true);
+                                                        }}>
+                                                            <LinkIcon className="w-4 h-4 mr-2" /> Share Link
+                                                        </DropdownMenuItem>
+                                                        <DropdownMenuItem onClick={() => {
                                                             setSelectedFileForShare(file.id);
                                                             setShareOpen(true);
                                                         }}>
-                                                            <Share2 className="w-4 h-4 mr-2" /> Share
+                                                            <Share2 className="w-4 h-4 mr-2" /> Share to Team
                                                         </DropdownMenuItem>
                                                         <DropdownMenuItem className="text-red-600" onClick={() => handleDeleteFile(file.id)}>
                                                             <Trash2 className="w-4 h-4 mr-2" /> Delete
@@ -427,6 +437,13 @@ export default function DatasetPage() {
                 </DialogFooter>
             </DialogContent>
         </Dialog>
+
+        <ShareLinkDialog 
+            open={shareLinkOpen} 
+            onOpenChange={setShareLinkOpen} 
+            fileId={fileForLinkShare?.id || ''} 
+            fileName={fileForLinkShare?.name || ''} 
+        />
 
       </Tabs>
     </AdminLayout>

@@ -152,6 +152,7 @@ export const filesRelations = relations(files, ({ one, many }) => ({
     references: [folders.id],
   }),
   permissions: many(datasetPermissions),
+  shares: many(fileShares),
 }));
 
 export const folders = pgTable('folders', {
@@ -209,6 +210,29 @@ export const datasetPermissionsRelations = relations(datasetPermissions, ({ one 
   }),
   user: one(users, {
     fields: [datasetPermissions.userId],
+    references: [users.id],
+  }),
+}));
+
+export const fileShares = pgTable('file_shares', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  fileId: uuid('file_id').notNull().references(() => files.id, { onDelete: 'cascade' }),
+  token: text('token').notNull().unique(),
+  isPasswordProtected: boolean('is_password_protected').default(false).notNull(),
+  password: text('password'),
+  expiresAt: timestamp('expires_at'),
+  viewCount: integer('view_count').default(0),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  createdBy: uuid('created_by').references(() => users.id),
+});
+
+export const fileSharesRelations = relations(fileShares, ({ one }) => ({
+  file: one(files, {
+    fields: [fileShares.fileId],
+    references: [files.id],
+  }),
+  creator: one(users, {
+    fields: [fileShares.createdBy],
     references: [users.id],
   }),
 }));

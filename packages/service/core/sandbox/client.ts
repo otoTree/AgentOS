@@ -31,6 +31,16 @@ const SandboxConfigSchema = z.object({
 
 export type SandboxConfig = z.infer<typeof SandboxConfigSchema>;
 
+const ExecuteResponseSchema = z.object({
+  executionId: z.string(),
+  exitCode: z.number(),
+  stdout: z.string(),
+  stderr: z.string(),
+  uploads: z.array(z.any()).optional(),
+});
+
+export type ExecuteResult = z.infer<typeof ExecuteResponseSchema>;
+
 export class SandboxClient {
   private url: string;
   private token?: string;
@@ -183,6 +193,126 @@ export class SandboxClient {
     if (!res.ok) {
         throw new Error(`Failed to update allowed domains: ${await res.text()}`);
     }
+  }
+
+  /**
+   * Check sandbox health
+   */
+  async checkHealth(): Promise<boolean> {
+    if (!this.token) return false;
+    try {
+      const res = await fetch(`${this.url}/health`, {
+        headers: { 'Authorization': `Bearer ${this.token}` }
+      });
+      return res.ok;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /**
+   * Execute Python code
+   */
+  async executeCode(code: string, options: { 
+    timeoutMs?: number, 
+    fileUploadUrl?: string, 
+    uploadToken?: string,
+    isPublic?: boolean
+  } = {}): Promise<ExecuteResult> {
+    if (!this.token) throw new Error('SANDBOX_TOKEN not configured');
+
+    const body: any = { code };
+    if (options.timeoutMs) body.timeoutMs = options.timeoutMs;
+    if (options.fileUploadUrl) body.fileUploadUrl = options.fileUploadUrl;
+    if (options.uploadToken) body.uploadToken = options.uploadToken;
+    if (options.isPublic !== undefined) body.public = options.isPublic;
+
+    const res = await fetch(`${this.url}/execute`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${this.token}`
+      },
+      body: JSON.stringify(body)
+    });
+
+    if (!res.ok) {
+      throw new Error(`Execution failed: ${await res.text()}`);
+    }
+
+    const data = await res.json();
+    const parsed = ExecuteResponseSchema.safeParse(data);
+    
+    if (!parsed.success) {
+      throw new Error(`Invalid execution response: ${parsed.error}`);
+    }
+
+    return parsed.data;
+  }
+
+  /**
+   * Download file from execution
+   */
+  async getExecutionFile(executionId: string, filename: string): Promise<ArrayBuffer> {
+    if (!this.token) throw new Error('SANDBOX_TOKEN not configured');
+
+    const res = await fetch(`${this.url}/executions/${executionId}/files/${filename}`, {
+      headers: { 'Authorization': `Bearer ${this.token}` }
+    });
+
+    if (!res.ok) {
+      throw new Error(`Failed to download file: ${await res.text()}`);
+    }
+
+    return await res.arrayBuffer();
+  }
+
+  /**
+   * Call deployed service
+   */
+  async callService(sandboxId: string, data: any, options: {
+    fileUploadUrl?: string,
+    uploadToken?: string,
+    isPublic?: boolean
+  } = {}): Promise<any> {
+    if (!this.token) throw new Error('SANDBOX_TOKEN not configured');
+
+    const body: any = { data };
+    if (options.fileUploadUrl) body.fileUploadUrl = options.fileUploadUrl;
+    if (options.uploadToken) body.uploadToken = options.uploadToken;
+    if (options.isPublic !== undefined) body.public = options.isPublic;
+
+    const res = await fetch(`${this.url}/services/${sandboxId}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${this.token}`
+      },
+      body: JSON.stringify(body)
+    });
+
+    if (!res.ok) {
+      throw new Error(`Service call failed: ${await res.text()}`);
+    }
+
+    return await res.json();
+  }
+
+  /**
+   * Download file from service invocation
+   */
+  async getServiceFile(executionId: string, filename: string): Promise<ArrayBuffer> {
+    if (!this.token) throw new Error('SANDBOX_TOKEN not configured');
+
+    const res = await fetch(`${this.url}/invokes/${executionId}/files/${filename}`, {
+      headers: { 'Authorization': `Bearer ${this.token}` }
+    });
+
+    if (!res.ok) {
+      throw new Error(`Failed to download service file: ${await res.text()}`);
+    }
+
+    return await res.arrayBuffer();
   }
 }
 

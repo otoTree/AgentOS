@@ -4,7 +4,7 @@ import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/router';
 import { Button } from '@agentos/web/components/ui/button';
 
-export const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const AdminLayout: React.FC<{ children: React.ReactNode; mainClassName?: string }> = ({ children, mainClassName }) => {
   const { data: session } = useSession();
   const router = useRouter();
 
@@ -29,7 +29,7 @@ export const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children 
           <Button variant="outline" size="sm" onClick={() => signOut()}>Sign Out</Button>
         </div>
       </header>
-      <main className="flex-1 p-6 bg-muted/10 flex flex-col">
+      <main className={`flex-1 p-6 bg-muted/10 flex flex-col ${mainClassName || ''}`}>
         {children}
       </main>
     </div>

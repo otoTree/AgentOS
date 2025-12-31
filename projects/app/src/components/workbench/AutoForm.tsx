@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Input } from '@agentos/web/components/ui/input';
 import { Label } from '@agentos/web/components/ui/label';
 import { Switch } from '@agentos/web/components/ui/switch';
@@ -8,30 +8,31 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Plus, Trash2 } from 'lucide-react';
 import { ParamInfo } from '@/utils/python-parser';
 
-interface AutoFormProps {
+type AutoFormProps = {
   params: ParamInfo[];
-  value: Record<string, any>;
-  onChange: (value: Record<string, any>) => void;
-}
+  value: Record<string, unknown>;
+  onChange: (value: Record<string, unknown>) => void;
+};
 
 export function AutoForm({ params, value, onChange }: AutoFormProps) {
   const schemaKeys = new Set(params.map(p => p.name));
   const customKeys = Object.keys(value).filter(k => !schemaKeys.has(k));
 
-  const handleChange = (name: string, val: any) => {
+  const handleChange = (name: string, val: unknown) => {
     const newValue = { ...value, [name]: val };
     onChange(newValue);
   };
 
-  const handleCustomChange = (oldKey: string, newKey: string, newVal: any) => {
+  const handleCustomChange = (oldKey: string, newKey: string, newVal: unknown) => {
     // If key changed
     if (oldKey !== newKey) {
-       const { [oldKey]: _, ...rest } = value;
-       // If newKey is empty, we just delete the old one? No, user might be typing.
-       // But we can't have empty keys in object really. 
-       // Let's assume user is careful or handle key collision.
+       const newValues = { ...value };
+       delete newValues[oldKey];
+       
        if (newKey) {
-           onChange({ ...rest, [newKey]: newVal });
+           onChange({ ...newValues, [newKey]: newVal });
+       } else {
+           onChange(newValues);
        }
     } else {
        onChange({ ...value, [oldKey]: newVal });
@@ -41,15 +42,17 @@ export function AutoForm({ params, value, onChange }: AutoFormProps) {
   const addCustomParam = () => {
     let base = 'new_param';
     let i = 1;
-    while (value[base] !== undefined) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    while ((value as any)[base] !== undefined) {
         base = `new_param_${i++}`;
     }
     onChange({ ...value, [base]: '' });
   };
 
   const removeParam = (key: string) => {
-      const { [key]: _, ...rest } = value;
-      onChange(rest);
+      const newValues = { ...value };
+      delete newValues[key];
+      onChange(newValues);
   };
 
   if (!params || params.length === 0) {
@@ -124,13 +127,13 @@ export function AutoForm({ params, value, onChange }: AutoFormProps) {
 
 function CustomParamRow({ name, value, onChange, onDelete }: { 
     name: string, 
-    value: any, 
-    onChange: (key: string, val: any) => void, 
+    value: unknown, 
+    onChange: (key: string, val: unknown) => void, 
     onDelete: () => void 
 }) {
     const [keyName, setKeyName] = useState(name);
     // Infer type from value or default to string
-    const inferType = (val: any) => {
+    const inferType = (val: unknown) => {
         if (typeof val === 'boolean') return 'bool';
         if (typeof val === 'number') return Number.isInteger(val) ? 'int' : 'float';
         if (typeof val === 'object') return 'json';
@@ -198,26 +201,11 @@ function CustomParamRow({ name, value, onChange, onDelete }: {
     );
 }
 
-function ParamInput({ param, value, onChange }: { param: ParamInfo, value: any, onChange: (val: any) => void }) {
+function ParamInput({ param, value, onChange }: { param: ParamInfo, value: unknown, onChange: (val: unknown) => void }) {
   const type = param.type.toLowerCase();
-  // Local state for text inputs to avoid cursor jumping or parsing issues while typing
-  const [textVal, setTextVal] = useState<string>('');
-
-  useEffect(() => {
-    if (value !== undefined && value !== null) {
-        if (typeof value === 'object') {
-            setTextVal(JSON.stringify(value, null, 2));
-        } else {
-            setTextVal(String(value));
-        }
-    } else {
-        setTextVal('');
-    }
-  }, [value]); // Only update when external value changes significantly? 
-  // Actually, syncing local state with props is tricky if we want to parse on change.
-  // Better approach: Controlled components for simple types. 
-  // Uncontrolled or debounced for complex JSON types.
-
+  
+  // Local state removed as it was unused and causing lint errors
+  
   if (type === 'bool' || type === 'boolean') {
     return (
       <div className="flex items-center space-x-2 h-10">
@@ -234,7 +222,7 @@ function ParamInput({ param, value, onChange }: { param: ParamInfo, value: any, 
     return (
       <Input 
         type="number" 
-        value={value ?? ''} 
+        value={(value as number) ?? ''} 
         onChange={(e) => {
             const val = e.target.value;
             if (val === '') onChange(undefined);
@@ -250,7 +238,7 @@ function ParamInput({ param, value, onChange }: { param: ParamInfo, value: any, 
         <Input 
           type="number" 
           step="any"
-          value={value ?? ''} 
+          value={(value as number) ?? ''} 
           onChange={(e) => {
             const val = e.target.value;
             if (val === '') onChange(undefined);
@@ -266,7 +254,7 @@ function ParamInput({ param, value, onChange }: { param: ParamInfo, value: any, 
      return (
         <div className="space-y-1">
             <Textarea 
-                defaultValue={typeof value === 'object' ? JSON.stringify(value, null, 2) : value ?? ''}
+                defaultValue={typeof value === 'object' ? JSON.stringify(value, null, 2) : (value as string) ?? ''}
                 onChange={(e) => {
                     try {
                         const val = e.target.value;
@@ -291,7 +279,9 @@ function ParamInput({ param, value, onChange }: { param: ParamInfo, value: any, 
                         if (val.trim()) {
                             onChange(JSON.parse(val));
                         }
-                     } catch {}
+                     } catch {
+                        // ignore
+                     }
                 }}
                 placeholder={type.includes('dict') ? '{}' : '[]'}
                 className="font-mono text-xs min-h-[80px]"
@@ -304,7 +294,7 @@ function ParamInput({ param, value, onChange }: { param: ParamInfo, value: any, 
   // Default: String
   return (
     <Input 
-      value={value ?? ''} 
+      value={(value as string) ?? ''} 
       onChange={(e) => onChange(e.target.value)}
       placeholder={String(param.default ?? '')}
     />

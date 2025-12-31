@@ -1,9 +1,9 @@
-export interface ParamInfo {
+export type ParamInfo = {
   name: string;
   type: string;
-  default?: any;
+  default?: unknown;
   required: boolean;
-}
+};
 
 export function parsePythonEntrypoint(code: string): ParamInfo[] {
   // Find "def main(...)"

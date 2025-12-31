@@ -23,9 +23,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     try {
       const skills = await skillService.listSkills(teamId);
       return res.status(200).json(skills);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error(error);
-      return res.status(500).json({ error: error.message });
+      return res.status(500).json({ error: (error as Error).message });
     }
   }
 
@@ -42,9 +42,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         ownerId: session.user.id
       });
       return res.status(201).json(skill);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error(error);
-      return res.status(400).json({ error: error.message });
+      return res.status(400).json({ error: (error as Error).message });
     }
   }
 

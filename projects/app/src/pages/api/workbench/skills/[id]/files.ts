@@ -17,9 +17,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     try {
       const content = await skillService.getSkillFile(id, filename);
       return res.status(200).json({ content });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error(error);
-      return res.status(404).json({ error: error.message });
+      return res.status(404).json({ error: (error as Error).message });
     }
   }
 
@@ -30,9 +30,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       
       const meta = await skillService.updateSkillFiles(id, files, metaUpdates);
       return res.status(200).json(meta);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error(error);
-      return res.status(500).json({ error: error.message });
+      return res.status(500).json({ error: (error as Error).message });
     }
   }
 
@@ -43,9 +43,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     try {
       const meta = await skillService.deleteSkillFile(id, filename);
       return res.status(200).json(meta);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error(error);
-      return res.status(500).json({ error: error.message });
+      return res.status(500).json({ error: (error as Error).message });
     }
   }
 
