@@ -29,7 +29,7 @@ export default function SettingsPage() {
       } else {
         throw new Error('Failed to fetch settings');
       }
-    } catch (err) {
+    } catch {
       setError('Failed to load system settings');
     } finally {
       setLoading(false);
@@ -47,7 +47,7 @@ export default function SettingsPage() {
       if (!res.ok) {
         throw new Error('Update failed');
       }
-    } catch (err) {
+    } catch {
       alert('Failed to update multi-team mode');
       setMultiTeamMode(!checked); // Revert
     }

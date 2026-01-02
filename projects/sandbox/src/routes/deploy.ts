@@ -24,6 +24,33 @@ export async function deployHandler(req: Request, res: Response) {
   }
 }
 
+export async function listDeploymentsHandler(req: Request, res: Response) {
+    const deployments = deployManager.listDeployments()
+    res.json({ deployments })
+}
+
+export async function getDeploymentHandler(req: Request, res: Response) {
+    const { sandboxId } = req.params
+    const deployment = deployManager.getDeployment(sandboxId)
+    if (!deployment) {
+        return res.status(404).json({ error: 'Sandbox not found' })
+    }
+    res.json(deployment)
+}
+
+export async function deleteDeploymentHandler(req: Request, res: Response) {
+    const { sandboxId } = req.params
+    try {
+        await deployManager.deleteDeployment(sandboxId)
+        res.json({ status: 'success', message: 'Deployment deleted' })
+    } catch (err) {
+        if ((err as Error).message === 'Sandbox not found') {
+            return res.status(404).json({ error: 'Sandbox not found' })
+        }
+        res.status(500).json({ error: (err as Error).message })
+    }
+}
+
 export async function patchHandler(req: Request, res: Response) {
   console.log('[Deploy] Received request to patch sandbox')
   const parseResult = patchSchema.safeParse(req.body)

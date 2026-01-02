@@ -27,7 +27,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       const sharesWithLinks = shares.map(s => ({
           ...s,
-          link: `${baseUrl}/share/${s.token}`
+          link: `${baseUrl}/api/share/${s.token}/download`
       }));
 
       return res.status(200).json(sharesWithLinks);

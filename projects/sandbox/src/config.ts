@@ -47,7 +47,7 @@ export const sandboxConfig: SandboxRuntimeConfig = {
       '~/.env'
     ],
     // Only allow writing to current working directory and tmp
-    allowWrite: ['.', '/tmp', '/var/folders'],
+    allowWrite: ['.', '/tmp', '/var/folders', 'python-venv'],
     // Protect project integrity by denying write to config, metadata and source
     denyWrite: [
       '.env',

@@ -7,7 +7,7 @@ import { healthHandler } from './routes/health.js'
 import { listPackagesHandler, managePackageHandler } from './routes/python.js'
 import { createSessionHandler, destroySessionHandler, navigateHandler, actionHandler, getTabsHandler, createTabHandler, closeTabHandler, getContentHandler, getSessionStateHandler } from './routes/browser.js'
 import { updateAllowedDomainsHandler, getConfigHandler } from './routes/config.js'
-import { deployHandler, patchHandler, handleServiceRequest, downloadFileHandler } from './routes/deploy.js'
+import { deployHandler, patchHandler, handleServiceRequest, downloadFileHandler, listDeploymentsHandler, getDeploymentHandler, deleteDeploymentHandler } from './routes/deploy.js'
 import { bearerAuth } from './middleware/auth.js'
 import { cleanupService } from './services/cleanup-service.js'
 
@@ -27,6 +27,9 @@ app.use(bearerAuth)
 app.post('/execute', executeHandler)
 app.get('/executions/:executionId/files/:filename', downloadExecuteFileHandler)
 app.post('/deploy', deployHandler)
+app.get('/deploy', listDeploymentsHandler)
+app.get('/deploy/:sandboxId', getDeploymentHandler)
+app.delete('/deploy/:sandboxId', deleteDeploymentHandler)
 app.post('/update', patchHandler)
 app.all('/services/:sandboxId', handleServiceRequest)
 app.get('/invokes/:executionId/files/:filename', downloadFileHandler)

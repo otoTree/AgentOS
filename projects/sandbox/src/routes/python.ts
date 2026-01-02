@@ -42,11 +42,6 @@ export async function managePackageHandler(req: Request, res: Response) {
     const { action, packages } = parseResult.data
     
     try {
-        // Ensure sandbox is initialized
-        if (!SandboxManager.isSandboxingEnabled()) {
-          await SandboxManager.initialize(sandboxConfig)
-        }
-
         const args = ['-m', 'pip', action]
         if (action === 'install') {
             args.push('-i', 'https://pypi.tuna.tsinghua.edu.cn/simple')
@@ -56,13 +51,13 @@ export async function managePackageHandler(req: Request, res: Response) {
             args.push('-y') // Auto confirm
         }
 
-        // Construct command string for sandbox wrapping
+        // Construct command string
         // Note: Simple joining is risky for arbitrary input, but packages are validated by schema (string.min(1))
         // Ideally should escape arguments, but for now we trust schema validation
         const cmd = `${venvPython} ${args.join(' ')}`
-        const wrappedCmd = await SandboxManager.wrapWithSandbox(cmd)
-
-        const result = spawnSync(wrappedCmd, { shell: true, encoding: 'utf8' })
+        
+        // Execute directly without sandbox for package management
+        const result = spawnSync(cmd, { shell: true, encoding: 'utf8' })
         
         if (result.error) {
             throw result.error

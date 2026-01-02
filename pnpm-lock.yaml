@@ -369,8 +369,8 @@ importers:
   projects/sandbox:
     dependencies:
       '@anthropic-ai/sandbox-runtime':
-        specifier: ^0.0.4
-        version: 0.0.4
+        specifier: file:./sandbox-runtime
+        version: file:projects/sandbox/sandbox-runtime
       '@asteasolutions/zod-to-openapi':
         specifier: ^7.3.4
         version: 7.3.4(zod@3.25.76)
@@ -442,8 +442,8 @@ packages:
     resolution: {integrity: sha512-UrcABB+4bUrFABwbluTIBErXwvbsU/V7TZWfmbgJfbkwiBuziS9gxdODUyuiecfdGQ85jglMW6juS3+z5TsKLw==}
     engines: {node: '>=10'}
 
-  '@anthropic-ai/sandbox-runtime@0.0.4':
-    resolution: {integrity: sha512-sIZlBaK6RZ1ghyYCb0CRRrpImP+/I7l78Q0B+8eq29zvuEw67UfQ8WES6UsOyvW50AY1elHIu81NT+/zSqFAew==}
+  '@anthropic-ai/sandbox-runtime@file:projects/sandbox/sandbox-runtime':
+    resolution: {directory: projects/sandbox/sandbox-runtime, type: directory}
     engines: {node: '>=18.0.0'}
     hasBin: true
 
@@ -4521,7 +4521,7 @@ snapshots:
 
   '@alloc/quick-lru@5.2.0': {}
 
-  '@anthropic-ai/sandbox-runtime@0.0.4':
+  '@anthropic-ai/sandbox-runtime@file:projects/sandbox/sandbox-runtime':
     dependencies:
       '@pondwader/socks5-server': 1.0.10
       '@types/lodash-es': 4.17.12

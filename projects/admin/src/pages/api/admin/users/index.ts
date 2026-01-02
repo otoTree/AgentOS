@@ -2,7 +2,7 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '../../auth/[...nextauth]';
 import { db, users, teamService } from '@agentos/service';
-import { eq, desc, sql } from 'drizzle-orm';
+import { desc } from 'drizzle-orm';
 import bcrypt from 'bcryptjs';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -26,8 +26,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
       });
       return res.status(200).json(allUsers);
-    } catch (error: any) {
-      return res.status(500).json({ error: error.message });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      return res.status(500).json({ error: message });
     }
   }
 
@@ -43,6 +44,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         name,
         email,
         password: hashedPassword,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } as any).returning();
 
       return res.status(201).json({
@@ -50,11 +52,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         name: newUser.name,
         email: newUser.email,
       });
-    } catch (error: any) {
-      if (error.code === '23505') { // Unique violation
-        return res.status(400).json({ error: 'User with this email already exists' });
+    } catch (error) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      if ((error as any).code === '23505') { // Unique violation
+        return res.status(409).json({ error: 'User with this email already exists' });
       }
-      return res.status(500).json({ error: error.message });
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      return res.status(500).json({ error: message });
     }
   }
 

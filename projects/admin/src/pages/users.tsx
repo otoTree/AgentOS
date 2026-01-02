@@ -3,9 +3,7 @@ import { AdminLayout } from '@/components/AdminLayout';
 import { 
   Card, 
   CardHeader, 
-  CardTitle, 
-  CardDescription, 
-  CardContent,
+  CardContent, 
   Button,
   Input,
   Table,
@@ -24,9 +22,9 @@ import {
   AvatarFallback,
   AvatarImage
 } from '@agentos/web';
-import { Plus, Loader2, Search, Mail, User } from 'lucide-react';
+import { Plus, Loader2, Search } from 'lucide-react';
 
-interface UserData {
+type UserData = {
   id: string;
   name: string | null;
   email: string;
@@ -53,7 +51,7 @@ export default function UsersPage() {
       if (Array.isArray(data)) {
         setUsers(data);
       }
-    } catch (err) {
+    } catch {
       console.error('Failed to fetch users');
     } finally {
       setLoading(false);
@@ -77,7 +75,7 @@ export default function UsersPage() {
         const err = await res.json();
         alert(err.error || 'Failed to create user');
       }
-    } catch (err) {
+    } catch {
       alert('Error creating user');
     } finally {
       setCreating(false);

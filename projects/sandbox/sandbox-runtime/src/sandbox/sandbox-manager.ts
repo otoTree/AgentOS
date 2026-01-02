@@ -99,6 +99,14 @@ async function filterNetworkRequest(
   }
 
   // Check allowed domains
+  // If allowedDomains is empty, treat as blacklist mode (allow all except denied)
+  if (config.network.allowedDomains.length === 0) {
+    logForDebugging(
+      `Allowed by default (blacklist mode, allowedDomains is empty): ${host}:${port}`,
+    )
+    return true
+  }
+
   for (const allowedDomain of config.network.allowedDomains) {
     if (matchesDomainPattern(host, allowedDomain)) {
       logForDebugging(`Allowed by config rule: ${host}:${port}`)

@@ -179,6 +179,33 @@ class DeployManager {
     // Reload is ignored as there is no persistent process
   }
 
+  listDeployments() {
+    return Array.from(this.deployments.values()).map(d => ({
+      sandboxId: d.sandboxId,
+      entry: d.entry,
+      metaUrl: d.metaUrl,
+      namespace: d.namespace,
+      workDir: d.workDir
+    }))
+  }
+
+  getDeployment(sandboxId: string) {
+    return this.deployments.get(sandboxId)
+  }
+
+  async deleteDeployment(sandboxId: string) {
+    const deployment = this.deployments.get(sandboxId)
+    if (!deployment) throw new Error('Sandbox not found')
+    
+    try {
+        await fsp.rm(deployment.workDir, { recursive: true, force: true })
+    } catch (err) {
+        console.error(`Failed to cleanup workDir for ${sandboxId}:`, err)
+    }
+
+    this.deployments.delete(sandboxId)
+  }
+
   async getFile(executionId: string, filename: string, type: 'invokes' | 'executions' = 'invokes') {
     const filePath = path.join(STORAGE_CONFIG.bucketDir, type, executionId, filename)
     try {

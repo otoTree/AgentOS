@@ -20,6 +20,7 @@ export default function SandboxPage() {
   const [error, setError] = useState('');
 
   // Config State
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [config, setConfig] = useState<any>(null);
   const [domainsInput, setDomainsInput] = useState('');
   const [configLoading, setConfigLoading] = useState(false);
@@ -42,6 +43,7 @@ export default function SandboxPage() {
       }
     } catch (err) {
       console.error('Failed to fetch config', err);
+      setError('Failed to fetch config');
     } finally {
       setConfigLoading(false);
     }
@@ -70,8 +72,9 @@ export default function SandboxPage() {
             setDomainsInput(newConfig.network.allowedDomains.join('\n'));
         }
         alert('Sandbox configuration updated successfully.');
-    } catch (err: any) {
-        alert(`Error updating config: ${err.message}`);
+    } catch (err) {
+        const message = err instanceof Error ? err.message : 'Unknown error';
+        alert(`Error updating config: ${message}`);
     } finally {
         setProcessing(false);
     }
@@ -85,7 +88,7 @@ export default function SandboxPage() {
       if (data.dependencies) {
         setDependencies(data.dependencies);
       }
-    } catch (err) {
+    } catch {
       setError('Failed to fetch dependencies');
     } finally {
       setLoading(false);
@@ -122,8 +125,9 @@ export default function SandboxPage() {
         
         setNewPackage('');
         await fetchDependencies(); // Refresh list
-    } catch (err: any) {
-        alert(`Error installing package: ${err.message}`);
+    } catch (err) {
+        const message = err instanceof Error ? err.message : 'Unknown error';
+        alert(`Error installing package: ${message}`);
     } finally {
         setProcessing(false);
     }
@@ -149,8 +153,9 @@ export default function SandboxPage() {
         }
         
         await fetchDependencies(); // Refresh list
-    } catch (err: any) {
-        alert(`Error uninstalling package: ${err.message}`);
+    } catch (err) {
+        const message = err instanceof Error ? err.message : 'Unknown error';
+        alert(`Error uninstalling package: ${message}`);
     } finally {
         setProcessing(false);
     }

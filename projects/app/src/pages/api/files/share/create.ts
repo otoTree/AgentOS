@@ -34,7 +34,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const protocol = Array.isArray(protoHeader) ? protoHeader[0] : protoHeader || 'http';
     const host = req.headers.host;
     const baseUrl = `${protocol}://${host}`;
-    const link = `${baseUrl}/share/${share.token}`;
+    const link = `${baseUrl}/api/share/${share.token}/download`;
 
     return res.status(200).json({ ...share, link });
   } catch (error: unknown) {

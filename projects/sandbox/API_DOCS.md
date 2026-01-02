@@ -64,6 +64,9 @@
 | Config | POST | `/config/allowed-domains` | 更新沙箱网络允许域名（会重置沙箱） |
 | Python | GET | `/python/packages` | 列出 venv 中已安装包 |
 | Python | POST | `/python/packages` | 安装/卸载 Python 包 |
+| Deployment | GET | `/deploy` | 列出所有部署 |
+| Deployment | GET | `/deploy/:sandboxId` | 获取部署详情 |
+| Deployment | DELETE | `/deploy/:sandboxId` | 删除部署 |
 | Deployment | ANY | `/services/:sandboxId` | 调用已部署的服务（返回 executionId） |
 | Deployment | GET | `/invokes/:executionId/files/:filename` | 下载服务调用产生的文件 |
 | Browser | POST | `/browser/sessions` | 创建浏览器会话 |
@@ -513,7 +516,62 @@ curl -sS \
 
 ---
 
-### 3.7 调用部署服务 (Deployment Invoke)
+### 3.7 管理部署 (Manage Deployments)
+
+#### 3.7.1 列出所有部署
+
+- **方法**: `GET`
+- **路径**: `/deploy`
+- **说明**: 列出当前内存中活跃的所有部署项目。
+
+**响应示例**
+```json
+{
+  "deployments": [
+    {
+      "sandboxId": "...",
+      "entry": "main.py",
+      "metaUrl": "...",
+      "namespace": "default",
+      "workDir": "/tmp/..."
+    }
+  ]
+}
+```
+
+#### 3.7.2 获取部署详情
+
+- **方法**: `GET`
+- **路径**: `/deploy/:sandboxId`
+
+**响应示例**
+```json
+{
+  "sandboxId": "...",
+  "entry": "main.py",
+  "metaUrl": "...",
+  "namespace": "default",
+  "workDir": "/tmp/..."
+}
+```
+
+#### 3.7.3 删除部署
+
+- **方法**: `DELETE`
+- **路径**: `/deploy/:sandboxId`
+- **说明**: 删除部署记录并清理对应的工作目录。
+
+**响应示例**
+```json
+{
+  "status": "success",
+  "message": "Deployment deleted"
+}
+```
+
+---
+
+### 3.8 调用部署服务 (Deployment Invoke)
 
 #### 接口名称与功能描述
 - 名称：Invoke Deployment
@@ -567,7 +625,7 @@ curl -H 'Authorization: Bearer dev' \
 
 ---
 
-### 3.9 创建浏览器会话
+### 3.10 创建浏览器会话
 
 #### 接口名称与功能描述
 - 名称：Create Browser Session
