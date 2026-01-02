@@ -21,7 +21,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const shares = await shareService.getFileShares(fileId);
       
       const protoHeader = req.headers['x-forwarded-proto'];
-      const protocol = Array.isArray(protoHeader) ? protoHeader[0] : protoHeader || 'http';
+      const rawProtocol = Array.isArray(protoHeader) ? protoHeader[0] : protoHeader;
+      const protocol = rawProtocol?.split(',')[0].trim() || 'http';
       const host = req.headers.host;
       const baseUrl = `${protocol}://${host}`;
 

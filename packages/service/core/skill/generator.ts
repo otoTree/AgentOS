@@ -114,7 +114,11 @@ export class SkillGenerator {
         const meta = skill.meta;
         
         // Let's focus on the entrypoint for refinement
-        const targetFile = meta.entrypoint;
+        const targetFile = meta.entry || meta.entrypoint;
+        if (!targetFile) {
+            throw new Error('Skill entrypoint not found in metadata');
+        }
+
         const currentCode = await skillService.getSkillFile(params.skillId, targetFile);
 
         let promptName = 'SKILL_GEN_CODE';

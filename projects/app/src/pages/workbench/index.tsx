@@ -7,9 +7,10 @@ import { Input } from '@agentos/web/components/ui/input';
 import { Label } from '@agentos/web/components/ui/label';
 import { Textarea } from '@agentos/web/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@agentos/web/components/ui/select';
-import { Plus, Bot, Code2, Terminal, Loader2 } from 'lucide-react';
+import { Plus, Bot, Code2, Terminal, Loader2, MoreVertical, Pencil, Trash2 } from 'lucide-react';
 import { useRouter } from 'next/router';
 import { toast } from '@agentos/web/components/ui/sonner';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@agentos/web/components/ui/dropdown-menu';
 
 type Skill = {
   id: string;
@@ -34,6 +35,12 @@ export default function WorkbenchPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [newSkill, setNewSkill] = useState({ name: '', description: '', emoji: '🤖' });
   const [creating, setCreating] = useState(false);
+  
+  // Edit State
+  const [editOpen, setEditOpen] = useState(false);
+  const [editingSkill, setEditingSkill] = useState<Skill | null>(null);
+  const [editForm, setEditForm] = useState({ name: '', description: '', emoji: '' });
+  const [updating, setUpdating] = useState(false);
 
   // Fetch Teams
   useEffect(() => {
@@ -89,6 +96,58 @@ export default function WorkbenchPage() {
       toast.error((err as Error).message || 'Failed to create skill');
     } finally {
       setCreating(false);
+    }
+  };
+
+  const handleEditClick = (e: React.MouseEvent, skill: Skill) => {
+    e.stopPropagation();
+    setEditingSkill(skill);
+    setEditForm({
+      name: skill.name,
+      description: skill.description,
+      emoji: skill.emoji || '🤖'
+    });
+    setEditOpen(true);
+  };
+
+  const handleUpdate = async () => {
+    if (!editingSkill) return;
+    setUpdating(true);
+    try {
+      const res = await fetch(`/api/workbench/skills/${editingSkill.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(editForm)
+      });
+      
+      if (!res.ok) throw new Error(await res.text());
+      
+      const updatedSkill = await res.json();
+      setSkills(skills.map(s => s.id === editingSkill.id ? { ...s, ...updatedSkill } : s));
+      setEditOpen(false);
+      toast.success('Skill updated');
+    } catch (err: unknown) {
+      toast.error((err as Error).message || 'Failed to update skill');
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  const handleDelete = async (e: React.MouseEvent, skill: Skill) => {
+    e.stopPropagation();
+    if (!confirm(`Are you sure you want to delete "${skill.name}"?`)) return;
+
+    try {
+      const res = await fetch(`/api/workbench/skills/${skill.id}`, {
+        method: 'DELETE'
+      });
+      
+      if (!res.ok) throw new Error(await res.text());
+      
+      setSkills(skills.filter(s => s.id !== skill.id));
+      toast.success('Skill deleted');
+    } catch (err: unknown) {
+      toast.error((err as Error).message || 'Failed to delete skill');
     }
   };
 
@@ -180,6 +239,21 @@ export default function WorkbenchPage() {
                     <span className="text-2xl">{skill.emoji || '🤖'}</span>
                     {skill.name}
                   </span>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <MoreVertical className="w-4 h-4" />
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={(e) => handleEditClick(e, skill)}>
+                            <Pencil className="w-4 h-4 mr-2" /> Edit
+                        </DropdownMenuItem>
+                        <DropdownMenuItem className="text-red-600" onClick={(e) => handleDelete(e, skill)}>
+                            <Trash2 className="w-4 h-4 mr-2" /> Delete
+                        </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </CardTitle>
                 <CardDescription className="line-clamp-2 h-10">
                   {skill.description || 'No description provided.'}
@@ -198,6 +272,45 @@ export default function WorkbenchPage() {
           ))}
         </div>
       )}
+
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent>
+            <DialogHeader>
+                <DialogTitle>Edit Skill</DialogTitle>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+                <div className="grid gap-2">
+                    <Label>Name</Label>
+                    <Input 
+                        value={editForm.name}
+                        onChange={e => setEditForm({...editForm, name: e.target.value})}
+                    />
+                </div>
+                <div className="grid gap-2">
+                    <Label>Description</Label>
+                    <Textarea 
+                        value={editForm.description}
+                        onChange={e => setEditForm({...editForm, description: e.target.value})}
+                    />
+                </div>
+                <div className="grid gap-2">
+                    <Label>Emoji</Label>
+                    <Input 
+                        className="w-16 text-center text-xl" 
+                        value={editForm.emoji}
+                        onChange={e => setEditForm({...editForm, emoji: e.target.value})}
+                    />
+                </div>
+            </div>
+            <DialogFooter>
+                <Button variant="outline" onClick={() => setEditOpen(false)}>Cancel</Button>
+                <Button onClick={handleUpdate} disabled={updating}>
+                    {updating && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                    Save Changes
+                </Button>
+            </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AdminLayout>
   );
 }

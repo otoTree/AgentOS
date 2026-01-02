@@ -37,7 +37,7 @@ skills/
   "id": "uuid",
   "name": "hacker-news-digest",
   "version": "1.0.0",
-  "entrypoint": "src/main.py",
+  "entry": "src/main.py",
   "description": "Fetch and summarize Hacker News top stories",
   
   "files": [

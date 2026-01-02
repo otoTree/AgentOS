@@ -245,6 +245,22 @@ export const systemSettings = pgTable('system_settings', {
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
 
+export const apiKeys = pgTable('api_keys', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id').references(() => users.id).notNull(),
+  key: text('key').notNull().unique(),
+  name: text('name'),
+  lastUsedAt: timestamp('last_used_at'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+export const apiKeysRelations = relations(apiKeys, ({ one }) => ({
+  user: one(users, {
+    fields: [apiKeys.userId],
+    references: [users.id],
+  }),
+}));
+
 // --- Skills (Workbench) ---
 
 export const skills = pgTable('skills', {
@@ -265,8 +281,12 @@ export const skills = pgTable('skills', {
   outputSchema: jsonb('output_schema'),
   
   // Permissions & Status
-  isPublished: boolean('is_published').default(false),
-  isPublic: boolean('is_public').default(false),
+  isPublished: boolean('is_published').default(false), // Deprecated in favor of publicDeployedAt? Or kept for flag.
+  isPublic: boolean('is_public').default(false), // Visible in market
+  
+  // Deployment Status
+  privateDeployedAt: timestamp('private_deployed_at'),
+  publicDeployedAt: timestamp('public_deployed_at'),
   
   // Ownership
   ownerId: uuid('owner_id').references(() => users.id).notNull(),
@@ -275,7 +295,7 @@ export const skills = pgTable('skills', {
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
 
-export const skillsRelations = relations(skills, ({ one }) => ({
+export const skillsRelations = relations(skills, ({ one, many }) => ({
   team: one(teams, {
     fields: [skills.teamId],
     references: [teams.id],
@@ -283,6 +303,26 @@ export const skillsRelations = relations(skills, ({ one }) => ({
   owner: one(users, {
     fields: [skills.ownerId],
     references: [users.id],
+  }),
+  deployments: many(deployments),
+}));
+
+export const deployments = pgTable('deployments', {
+  id: uuid('id').primaryKey().defaultRandom(), // Acts as sandboxId
+  skillId: uuid('skill_id').references(() => skills.id).notNull(),
+  type: text('type').notNull(), // 'private' | 'public'
+  status: text('status').notNull().default('pending'), // 'pending', 'running', 'failed', 'stopped'
+  url: text('url'), // Optional public URL
+  version: text('version'), // Snapshot of version at deployment
+  config: jsonb('config'), // Any env vars or config used
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+export const deploymentsRelations = relations(deployments, ({ one }) => ({
+  skill: one(skills, {
+    fields: [deployments.skillId],
+    references: [skills.id],
   }),
 }));
 

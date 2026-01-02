@@ -1,0 +1,25 @@
+import type { NextApiRequest, NextApiResponse } from 'next';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '../../auth/[...nextauth]';
+import { skillService } from '@agentos/service';
+
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  const session = await getServerSession(req, res, authOptions);
+  if (!session?.user?.id) return res.status(401).json({ error: 'Unauthorized' });
+
+  const { id } = req.query;
+  if (!id || typeof id !== 'string') return res.status(400).json({ error: 'Deployment ID required' });
+
+  if (req.method === 'DELETE') {
+    try {
+      await skillService.deleteDeployment(id);
+      return res.status(200).json({ success: true });
+    } catch (error: unknown) {
+      console.error(error);
+      return res.status(500).json({ error: (error as Error).message });
+    }
+  }
+
+  res.setHeader('Allow', ['DELETE']);
+  res.status(405).end(`Method ${req.method} Not Allowed`);
+}

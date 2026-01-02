@@ -11,7 +11,19 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Upload, Trash2, FileIcon, Folder, FolderPlus, Share2, ArrowLeft, ChevronRight, MoreVertical, Link as LinkIcon } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@agentos/web/components/ui/dropdown-menu';
 import { format } from 'date-fns';
+import dynamic from 'next/dynamic';
+import { CreateFileDialog } from '@agentos/web/components/file-manager';
+import { Loader2, FilePlus, Download } from 'lucide-react';
 import { ShareLinkDialog } from '@/components/dataset/ShareLinkDialog';
+
+const FileEditor = dynamic(
+  () => import('@agentos/web/components/file-manager').then((mod) => mod.FileEditor),
+  { ssr: false }
+);
+const FilePreview = dynamic(
+  () => import('@agentos/web/components/file-manager').then((mod) => mod.FilePreview),
+  { ssr: false }
+);
 
 type Team = {
   id: string;
@@ -65,6 +77,14 @@ export default function DatasetPage() {
 
   const [shareLinkOpen, setShareLinkOpen] = useState(false);
   const [fileForLinkShare, setFileForLinkShare] = useState<{id: string, name: string} | null>(null);
+
+  // File Preview/Edit State
+  const [selectedFile, setSelectedFile] = useState<FileData | null>(null);
+  const [fileContent, setFileContent] = useState<string>('');
+  const [loadingFile, setLoadingFile] = useState(false);
+  const [viewMode, setViewMode] = useState<'preview' | 'edit'>('preview');
+  const [createFileOpen, setCreateFileOpen] = useState(false);
+  const [savingFile, setSavingFile] = useState(false);
 
   // Load Teams
   useEffect(() => {
@@ -136,6 +156,113 @@ export default function DatasetPage() {
         // Clear input
         e.target.value = '';
     }
+  };
+
+  const handleCreateFile = async (name: string, type: 'file' | 'folder') => {
+      if (type === 'folder') {
+          setNewFolderName(name);
+          // reuse createFolder logic but adjusted for arguments
+          // Wait, createFolder uses state newFolderName. 
+          // Let's just set state and call createFolder? 
+          // Or refactor createFolder.
+          // Since CreateFileDialog passes name, let's call API directly here.
+          
+          try {
+            const res = await fetch('/api/dataset/folder', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    name: name,
+                    parentId: currentFolderId,
+                    teamId: activeTab === 'team' ? selectedTeam : undefined
+                })
+            });
+            if (res.ok) {
+                setCreateFileOpen(false);
+                loadDataset();
+            } else {
+                alert('Failed to create folder');
+            }
+          } catch {
+              alert('Error creating folder');
+          }
+      } else {
+          // Create Empty File
+          const formData = new FormData();
+          // Use a space to ensure file is not empty (some systems reject 0-byte files)
+          const emptyFile = new File(["New File Content"], name, { type: "text/plain" });
+          formData.append('file', emptyFile);
+          if (activeTab === 'team' && selectedTeam) {
+              formData.append('teamId', selectedTeam);
+          }
+          if (currentFolderId) {
+              formData.append('folderId', currentFolderId);
+          }
+
+          try {
+            const res = await fetch('/api/dataset/upload', {
+                method: 'POST',
+                body: formData,
+            });
+            if (res.ok) {
+                setCreateFileOpen(false);
+                loadDataset();
+            } else {
+                const err = await res.json();
+                alert(`Create failed: ${err.error}`);
+            }
+          } catch (e) {
+              console.error(e);
+              alert('Create failed');
+          }
+      }
+  };
+
+  const openFile = async (file: FileData) => {
+      setSelectedFile(file);
+      const isMedia = ['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'mp4', 'webm', 'pdf'].includes(file.name.split('.').pop()?.toLowerCase() || '');
+      
+      if (!isMedia) {
+          // Load content
+          setLoadingFile(true);
+          try {
+            const res = await fetch(`/api/dataset/file?id=${file.id}&raw=true`);
+            if (res.ok) {
+                const text = await res.text();
+                setFileContent(text);
+                setViewMode('preview'); // Default to preview
+            } else {
+                setFileContent('Failed to load content');
+            }
+          } catch {
+              setFileContent('Failed to load content');
+          } finally {
+              setLoadingFile(false);
+          }
+      } else {
+          setViewMode('preview');
+      }
+  };
+
+  const handleSaveFile = async () => {
+      if (!selectedFile) return;
+      setSavingFile(true);
+      try {
+          const res = await fetch(`/api/dataset/file?id=${selectedFile.id}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ content: fileContent })
+          });
+          if (res.ok) {
+              alert('Saved');
+          } else {
+              alert('Failed to save');
+          }
+      } catch {
+          alert('Error saving');
+      } finally {
+          setSavingFile(false);
+      }
   };
 
   const createFolder = async () => {
@@ -287,11 +414,27 @@ export default function DatasetPage() {
                             </div>
 
                             <div className="flex gap-2">
+                                <Button onClick={() => setCreateFileOpen(true)}>
+                                    <FilePlus className="w-4 h-4 mr-2" />
+                                    New
+                                </Button>
+                                <div className="relative">
+                                    <Input 
+                                        type="file" 
+                                        className="absolute inset-0 opacity-0 cursor-pointer" 
+                                        onChange={handleUpload}
+                                        disabled={uploading}
+                                    />
+                                    <Button variant="outline" disabled={uploading}>
+                                        {uploading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Upload className="w-4 h-4 mr-2" />}
+                                        Upload
+                                    </Button>
+                                </div>
                                 <Dialog open={createFolderOpen} onOpenChange={setCreateFolderOpen}>
                                     <DialogTrigger asChild>
                                         <Button variant="outline">
                                             <FolderPlus className="w-4 h-4 mr-2" />
-                                            New Folder
+                                            Folder
                                         </Button>
                                     </DialogTrigger>
                                     <DialogContent>
@@ -307,19 +450,6 @@ export default function DatasetPage() {
                                         </DialogFooter>
                                     </DialogContent>
                                 </Dialog>
-
-                                <div className="relative">
-                                    <Input 
-                                        type="file" 
-                                        className="absolute inset-0 opacity-0 cursor-pointer" 
-                                        onChange={handleUpload}
-                                        disabled={uploading}
-                                    />
-                                    <Button disabled={uploading}>
-                                        <Upload className="w-4 h-4 mr-2" />
-                                        {uploading ? 'Uploading...' : 'Upload File'}
-                                    </Button>
-                                </div>
                             </div>
                         </div>
                         
@@ -354,40 +484,52 @@ export default function DatasetPage() {
 
                                     {/* Files */}
                                     {dataset.files?.map(file => (
-                                        <TableRow key={file.id}>
+                                        <TableRow key={file.id} className="cursor-pointer hover:bg-muted/50" onClick={() => openFile(file)}>
                                             <TableCell><FileIcon className="w-4 h-4 text-blue-500" /></TableCell>
                                             <TableCell className="font-medium">
-                                                <a href={file.url} target="_blank" rel="noopener noreferrer" className="hover:underline flex items-center gap-2">
+                                                <div className="flex items-center gap-2">
                                                     {file.name}
                                                     {file.isShared && <span className="text-xs bg-blue-100 text-blue-800 px-1 rounded">Shared</span>}
-                                                </a>
+                                                </div>
                                             </TableCell>
                                             <TableCell>{(file.size / 1024).toFixed(1)} KB</TableCell>
                                             <TableCell>{file.uploader?.name}</TableCell>
                                             <TableCell>{format(new Date(file.createdAt), 'yyyy-MM-dd HH:mm')}</TableCell>
                                             <TableCell className="text-right">
-                                                <DropdownMenu>
-                                                    <DropdownMenuTrigger asChild>
-                                                        <Button variant="ghost" size="icon"><MoreVertical className="w-4 h-4" /></Button>
-                                                    </DropdownMenuTrigger>
-                                                    <DropdownMenuContent align="end">
-                                                        <DropdownMenuItem onClick={() => {
-                                                            setFileForLinkShare({ id: file.id, name: file.name });
-                                                            setShareLinkOpen(true);
-                                                        }}>
-                                                            <LinkIcon className="w-4 h-4 mr-2" /> Share Link
-                                                        </DropdownMenuItem>
-                                                        <DropdownMenuItem onClick={() => {
-                                                            setSelectedFileForShare(file.id);
-                                                            setShareOpen(true);
-                                                        }}>
-                                                            <Share2 className="w-4 h-4 mr-2" /> Share to Team
-                                                        </DropdownMenuItem>
-                                                        <DropdownMenuItem className="text-red-600" onClick={() => handleDeleteFile(file.id)}>
-                                                            <Trash2 className="w-4 h-4 mr-2" /> Delete
-                                                        </DropdownMenuItem>
-                                                    </DropdownMenuContent>
-                                                </DropdownMenu>
+                                                <div className="flex items-center justify-end gap-1">
+                                                    <a href={file.url} download onClick={(e) => e.stopPropagation()}>
+                                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground">
+                                                            <Download className="w-4 h-4" />
+                                                        </Button>
+                                                    </a>
+                                                    <DropdownMenu>
+                                                        <DropdownMenuTrigger asChild>
+                                                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => e.stopPropagation()}><MoreVertical className="w-4 h-4" /></Button>
+                                                        </DropdownMenuTrigger>
+                                                        <DropdownMenuContent align="end">
+                                                            <DropdownMenuItem onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setFileForLinkShare({ id: file.id, name: file.name });
+                                                                setShareLinkOpen(true);
+                                                            }}>
+                                                                <LinkIcon className="w-4 h-4 mr-2" /> Share Link
+                                                            </DropdownMenuItem>
+                                                            <DropdownMenuItem onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setSelectedFileForShare(file.id);
+                                                                setShareOpen(true);
+                                                            }}>
+                                                                <Share2 className="w-4 h-4 mr-2" /> Share to Team
+                                                            </DropdownMenuItem>
+                                                            <DropdownMenuItem className="text-red-600" onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                handleDeleteFile(file.id);
+                                                            }}>
+                                                                <Trash2 className="w-4 h-4 mr-2" /> Delete
+                                                            </DropdownMenuItem>
+                                                        </DropdownMenuContent>
+                                                    </DropdownMenu>
+                                                </div>
                                             </TableCell>
                                         </TableRow>
                                     ))}
@@ -410,6 +552,70 @@ export default function DatasetPage() {
                 )}
             </Card>
         </div>
+
+        {/* File Preview/Edit Dialog */}
+        <Dialog open={!!selectedFile} onOpenChange={(o) => !o && setSelectedFile(null)}>
+            <DialogContent className="max-w-4xl h-[80vh] flex flex-col p-0 gap-0">
+                <DialogHeader className="p-4 border-b">
+                    <div className="flex items-center justify-between">
+                        <DialogTitle>{selectedFile?.name}</DialogTitle>
+                        <div className="flex items-center gap-2 mr-6">
+                            {/* Toggle Edit/Preview if text/markdown */}
+                            {selectedFile && !['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'mp4', 'webm', 'pdf'].includes(selectedFile.name.split('.').pop()?.toLowerCase() || '') && (
+                                <>
+                                    <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as 'preview' | 'edit')} className="h-8">
+                                        <TabsList className="h-8">
+                                            <TabsTrigger value="preview" className="text-xs">Preview</TabsTrigger>
+                                            <TabsTrigger value="edit" className="text-xs">Edit</TabsTrigger>
+                                        </TabsList>
+                                    </Tabs>
+                                    {viewMode === 'edit' && (
+                                        <Button size="sm" onClick={handleSaveFile} disabled={savingFile}>
+                                            {savingFile && <Loader2 className="w-3 h-3 mr-2 animate-spin" />}
+                                            Save
+                                        </Button>
+                                    )}
+                                </>
+                            )}
+                            <a href={selectedFile?.url} download onClick={(e) => e.stopPropagation()}>
+                                <Button size="sm" variant="outline">Download</Button>
+                            </a>
+                        </div>
+                    </div>
+                </DialogHeader>
+                <div className="flex-1 overflow-hidden relative bg-slate-50 dark:bg-slate-900">
+                    {loadingFile ? (
+                        <div className="absolute inset-0 flex items-center justify-center">
+                            <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+                        </div>
+                    ) : (
+                        selectedFile && (
+                            viewMode === 'preview' ? (
+                                <FilePreview 
+                                    name={selectedFile.name}
+                                    url={`/api/dataset/file?id=${selectedFile.id}&raw=true`} // Use raw endpoint for correct content-type
+                                    content={fileContent} // Provide content for text files if loaded
+                                    className="h-full w-full"
+                                />
+                            ) : (
+                                <FileEditor 
+                                    content={fileContent}
+                                    fileName={selectedFile.name}
+                                    onChange={(v) => setFileContent(v || '')}
+                                    className="h-full w-full"
+                                />
+                            )
+                        )
+                    )}
+                </div>
+            </DialogContent>
+        </Dialog>
+
+        <CreateFileDialog 
+            open={createFileOpen} 
+            onOpenChange={setCreateFileOpen} 
+            onCreate={handleCreateFile} 
+        />
 
         {/* Share Dialog */}
         <Dialog open={shareOpen} onOpenChange={setShareOpen}>

@@ -197,29 +197,32 @@ export class DatasetService {
                 // Default: Read. Write? "不支持成员在团队空间修改其他成员的文件，除非有权限"
                 // Check if user has explicit write permission via roles? 
                 // Currently system roles are simplistic.
-                // Let's assume Read for all team members, Write requires check?
-                // But wait, if it's a team file, we might check datasetPermissions too?
-                // "除非有权限" -> datasetPermissions can be used for internal team file permissions too?
-                // Let's support it: if there is a permission record for this user/team on this file.
+                return 'read'; // MVP
             }
-            
-            // Check Shared permission
+
+            // Check if shared to this team
             const perm = await db.query.datasetPermissions.findFirst({
                 where: and(
                     eq(datasetPermissions.fileId, fileId),
                     eq(datasetPermissions.teamId, teamId)
                 )
             });
-            
-            if (perm) return perm.permission as 'read' | 'write';
+            if (perm) return perm.permission as any;
         }
-        
-        return 'none'; // Or 'read' if it's a team file and we assume default read? 
-        // For now safe default is none/read based on context.
-        // If it's a team file and user is member, they usually have read access.
-        if (file?.teamId && teamId === file?.teamId) return 'read';
-        
+
         return 'none';
+    }
+
+    async getFile(id: string) {
+        return await db.query.files.findFirst({
+            where: eq(files.id, id)
+        });
+    }
+
+    async getFileBuffer(id: string) {
+        const file = await this.getFile(id);
+        if (!file) throw new Error("File not found");
+        return await storageService.getObjectRaw(file.path);
     }
 }
 

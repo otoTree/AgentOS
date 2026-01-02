@@ -10,29 +10,40 @@ import { Card, CardContent } from '@agentos/web/components/ui/card';
 import { Label } from '@agentos/web/components/ui/label';
 import { ScrollArea } from '@agentos/web/components/ui/scroll-area';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@agentos/web/components/ui/dialog';
-import { Loader2, Save, Play, FileCode, ArrowLeft, Edit2, Box, Rocket, Wand2, Terminal, Trash2 } from 'lucide-react';
+import { Loader2, Save, Play, FileCode, ArrowLeft, Edit2, Box, Rocket, Wand2, Trash2 } from 'lucide-react';
 import { toast } from '@agentos/web/components/ui/sonner';
 import { FileTree } from '@/components/workbench/FileTree';
+import { RunSkillDialog } from '@/components/workbench/RunSkillDialog';
 import { Badge } from '@agentos/web/components/ui/badge';
-import { Switch } from '@agentos/web/components/ui/switch';
-import { parsePythonEntrypoint, ParamInfo } from '@/utils/python-parser';
-import { AutoForm } from '@/components/workbench/AutoForm';
+import { parsePythonEntrypoint, paramsToJsonSchema } from '@/utils/python-parser';
 
-const Editor = dynamic(
-  () => import('@/components/ui/code-editor').then((mod) => mod.CodeEditor),
+const FileEditor = dynamic(
+  () => import('@agentos/web').then((mod) => mod.FileEditor),
+  { ssr: false }
+);
+const FilePreview = dynamic(
+  () => import('@agentos/web').then((mod) => mod.FilePreview),
   { ssr: false }
 );
 
 type Skill = {
   id: string;
   name: string;
-  description: string;
+  description?: string;
   emoji?: string;
-  ossPath: string;
   version: string;
+  ossPath: string;
+  isPublished: boolean;
+  isPublic: boolean;
+  ownerId: string;
+  createdAt: string;
+  updatedAt: string;
+  privateDeployedAt?: string;
+  publicDeployedAt?: string;
   meta: {
     files: string[];
-    entrypoint: string;
+    entry: string;
+    entrypoint?: string; // Keep for legacy if needed during transition
     input_schema?: unknown;
     output_schema?: unknown;
   };
@@ -69,17 +80,24 @@ export default function SkillWorkbenchPage() {
 
   // Execution State
   const [runOpen, setRunOpen] = useState(false);
-  const [runInput, setRunInput] = useState('{}');
-  const [runResult, setRunResult] = useState<unknown>(null);
-  const [running, setRunning] = useState(false);
 
   // Metadata Edit State
   const [editOpen, setEditOpen] = useState(false);
   const [editForm, setEditForm] = useState({ name: '', description: '', emoji: '' });
 
-  // Auto Form State
-  const [formMode, setFormMode] = useState(true);
-  const [parsedParams, setParsedParams] = useState<ParamInfo[]>([]);
+  // Deploy State
+  const [deployOpen, setDeployOpen] = useState(false);
+  const [deploying, setDeploying] = useState(false);
+  const [userApiKeys, setUserApiKeys] = useState<{ key: string, name: string }[]>([]);
+
+  const [viewMode, setViewMode] = useState<'edit' | 'preview'>('edit');
+
+  const isMedia = (filename: string) => {
+    const ext = filename.split('.').pop()?.toLowerCase();
+    return ['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'mp4', 'webm', 'pdf'].includes(ext || '');
+  };
+
+  const isMarkdown = (filename: string) => filename.endsWith('.md');
 
   // Initial Fetch
   useEffect(() => {
@@ -122,9 +140,9 @@ export default function SkillWorkbenchPage() {
       setSkill(data);
       setEditForm({ name: data.name, description: data.description || '', emoji: data.emoji || '🤖' });
       
-      // Select entrypoint by default
-      if (data.meta?.entrypoint) {
-        selectFile(data.meta.entrypoint);
+      // Select entry by default
+      if (data.meta?.entry) {
+        selectFile(data.meta.entry);
       } else if (data.meta?.files?.length > 0) {
         selectFile(data.meta.files[0]);
       }
@@ -250,16 +268,37 @@ export default function SkillWorkbenchPage() {
     if (!selectedFile || !skill) return;
     setSavingFile(true);
     try {
+      let metaUpdates = {};
+      
+      // Auto-extract params if entry
+      if (skill.meta?.entry && selectedFile === skill.meta.entry) {
+         try {
+             const params = parsePythonEntrypoint(fileContent);
+             // Always update schema, even if empty (to clear it if params removed)
+             const schema = paramsToJsonSchema(params);
+             metaUpdates = { input_schema: schema };
+         } catch (e) {
+             console.warn('Failed to parse entry params', e);
+         }
+      }
+
       const res = await fetch(`/api/workbench/skills/${id}/files`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           files: {
             [selectedFile]: fileContent
-          }
+          },
+          metaUpdates: Object.keys(metaUpdates).length > 0 ? metaUpdates : undefined
         })
       });
       if (!res.ok) throw new Error('Failed to save file');
+      
+      const updatedMeta = await res.json();
+      if (updatedMeta) {
+          setSkill(prev => prev ? { ...prev, meta: updatedMeta } : null);
+      }
+
       setOriginalContent(fileContent);
       toast.success('File saved');
     } catch {
@@ -352,85 +391,85 @@ export default function SkillWorkbenchPage() {
   };
 
   // Execution
-  const handleExecute = async () => {
-    setRunning(true);
-    setRunResult(null);
-
-    try {
-      let inputPayload = {};
-      try {
-        inputPayload = JSON.parse(runInput);
-      } catch {
-        toast.error('Invalid JSON input');
-        setRunning(false);
-        return;
-      }
-
-      const res = await fetch(`/api/workbench/skills/${id}/run`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ input: inputPayload })
-      });
-      
-      const result = await res.json();
-      setRunResult(result);
-    } catch (err: unknown) {
-        toast.error((err as Error).message || 'Execution failed');
-    } finally {
-      setRunning(false);
+  const handleExecute = async (input: Record<string, unknown>) => {
+    const res = await fetch(`/api/workbench/skills/${id}/run`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ input })
+    });
+    
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || 'Execution failed');
     }
+    
+    return await res.json();
   };
 
   const handleDeploy = async () => {
     if (hasUnsavedChanges) {
       await handleSaveFile();
     }
-    toast.success('Skill deployed successfully');
+    setDeployOpen(true);
+    fetchApiKeys();
+  };
+
+  const fetchApiKeys = async () => {
+      try {
+          const res = await fetch('/api/user/api-keys');
+          if (res.ok) {
+              const data = await res.json();
+              setUserApiKeys(data);
+          }
+      } catch (e) {
+          console.error('Failed to fetch api keys', e);
+      }
+  };
+
+  const handleCreateApiKey = async () => {
+      try {
+          const res = await fetch('/api/user/api-keys', { method: 'POST' });
+          if (res.ok) {
+              const newKey = await res.json();
+              setUserApiKeys(prev => [newKey, ...prev]);
+              toast.success('API Key created');
+          }
+      } catch {
+          toast.error('Failed to create API Key');
+      }
+  };
+
+  const handleDeployAction = async (type: 'private' | 'public') => {
+      setDeploying(true);
+      try {
+          const res = await fetch(`/api/workbench/skills/${id}/deploy`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ type })
+          });
+          if (!res.ok) throw new Error('Deploy failed');
+          
+          const updated = await res.json();
+          setSkill(prev => prev ? { ...prev, ...updated } : null);
+          toast.success(`Deployed to ${type} environment`);
+      } catch (e: unknown) {
+          console.error(e);
+          const message = e instanceof Error ? e.message : 'Deployment failed';
+          toast.error(`Deployment failed: ${message}`);
+      } finally {
+          setDeploying(false);
+      }
   };
 
   const handleQuickRun = async () => {
-    setRunOpen(true);
-
-    // Parse entrypoint parameters
-    if (skill?.meta?.entrypoint) {
-        let code = '';
-        // If entrypoint is currently open, use current content
-        if (selectedFile === skill.meta.entrypoint) {
-            code = fileContent;
-        } else {
-            // Otherwise fetch it
-            try {
-                const res = await fetch(`/api/workbench/skills/${id}/files?filename=${encodeURIComponent(skill.meta.entrypoint)}`);
-                if (res.ok) {
-                    const data = await res.json();
-                    code = data.content;
-                }
-            } catch (err) {
-                console.error('Failed to fetch entrypoint for parsing', err);
-            }
-        }
-
-        if (code) {
-            const params = parsePythonEntrypoint(code);
-            setParsedParams(params);
-            
-            // If we detected params, default to Form Mode. 
-            // If no params (e.g. no main function), fallback to JSON mode.
-            if (params.length > 0) {
-                setFormMode(true);
-                // Pre-fill defaults if input is empty/default
-                if (runInput === '{}' || !runInput) {
-                    const defaults: Record<string, unknown> = {};
-                    params.forEach(p => {
-                        if (p.default !== undefined) defaults[p.name] = p.default;
-                    });
-                    setRunInput(JSON.stringify(defaults, null, 2));
-                }
-            } else {
-                setFormMode(false);
-            }
-        }
+    // Check private deployment
+    if (skill && !skill.privateDeployedAt) {
+        toast.error('Please deploy to Private environment first');
+        setDeployOpen(true);
+        fetchApiKeys();
+        return;
     }
+    setRunOpen(true);
   };
 
   if (loading || !skill) {
@@ -494,84 +533,63 @@ export default function SkillWorkbenchPage() {
           </TabsList>
         </div>
 
-        {/* Run Dialog */}
-        <Dialog open={runOpen} onOpenChange={setRunOpen}>
-            <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
+        {/* Deploy Dialog */}
+        <Dialog open={deployOpen} onOpenChange={setDeployOpen}>
+            <DialogContent>
                 <DialogHeader>
-                    <DialogTitle className="flex items-center gap-2">
-                        <Play className="w-5 h-5 text-green-600" />
-                        Run Skill: {skill.name}
-                    </DialogTitle>
+                    <DialogTitle>Deploy Skill</DialogTitle>
                 </DialogHeader>
-                
-                <div className="flex-1 overflow-y-auto py-4 flex flex-col gap-6">
+                <div className="space-y-4 py-4">
                     <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                            <Label className="text-sm font-medium flex items-center gap-2">
-                                <Terminal className="w-4 h-4" /> Input
-                            </Label>
-                            {parsedParams.length > 0 && (
-                                <div className="flex items-center gap-2">
-                                    <Label className="text-xs text-muted-foreground font-normal">Form Mode</Label>
-                                    <Switch checked={formMode} onCheckedChange={setFormMode} />
-                                </div>
-                            )}
+                        <Label>Deployment Environment</Label>
+                        <div className="flex gap-2">
+                            <Button className="flex-1" onClick={() => handleDeployAction('private')} disabled={deploying}>
+                                {deploying ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Rocket className="w-4 h-4 mr-2" />}
+                                Private
+                            </Button>
+                            <Button variant="outline" className="flex-1" onClick={() => handleDeployAction('public')} disabled={deploying}>
+                                {deploying ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Rocket className="w-4 h-4 mr-2" />}
+                                Public
+                            </Button>
                         </div>
-
-                        {formMode && parsedParams.length > 0 ? (
-                            <div className="border rounded-md p-4 bg-muted/10 max-h-60 overflow-y-auto">
-                                <AutoForm 
-                                    params={parsedParams}
-                                    value={(() => {
-                                        try { return JSON.parse(runInput); }
-                                        catch { return {}; }
-                                    })()}
-                                    onChange={(val) => setRunInput(JSON.stringify(val, null, 2))}
-                                />
-                            </div>
-                        ) : (
-                            <div className="border rounded-md overflow-hidden h-40">
-                                <Editor
-                                    height="100%"
-                                    defaultLanguage="json"
-                                    value={runInput}
-                                    onChange={(val) => setRunInput(val || '')}
-                                    theme="vs-dark"
-                                    options={{
-                                        minimap: { enabled: false },
-                                        fontSize: 13,
-                                        lineNumbers: 'off',
-                                        scrollBeyondLastLine: false,
-                                        folding: false,
-                                    }}
-                                />
-                            </div>
-                        )}
                     </div>
 
-                    {runResult && (
-                        <div className="space-y-2">
-                            <Label className="text-sm font-medium flex items-center gap-2">
-                                <Box className="w-4 h-4" /> Output
-                            </Label>
-                            <div className="bg-slate-950 rounded-md p-4 overflow-x-auto">
-                                <pre className="text-xs text-slate-100 font-mono">
-                                    {JSON.stringify(runResult, null, 2)}
-                                </pre>
-                            </div>
+                    <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                            <Label>API Keys</Label>
+                            <Button variant="ghost" size="sm" onClick={handleCreateApiKey} className="h-6 text-xs">
+                                + Create New
+                            </Button>
                         </div>
-                    )}
+                        <ScrollArea className="h-32 rounded-md border p-2">
+                            {userApiKeys.length === 0 ? (
+                                <p className="text-xs text-muted-foreground text-center py-4">No API keys found</p>
+                            ) : (
+                                <div className="space-y-2">
+                                    {userApiKeys.map((key) => (
+                                        <div key={key.key} className="flex flex-col gap-1">
+                                            <span className="text-xs font-medium">{key.name}</span>
+                                            <code className="text-[10px] bg-muted p-1 rounded break-all">{key.key}</code>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </ScrollArea>
+                    </div>
                 </div>
-
-                <DialogFooter className="border-t pt-4">
-                    <Button variant="outline" onClick={() => setRunOpen(false)}>Close</Button>
-                    <Button onClick={handleExecute} disabled={running}>
-                        {running ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Play className="w-4 h-4 mr-2" />}
-                        Execute
-                    </Button>
-                </DialogFooter>
             </DialogContent>
         </Dialog>
+
+        {/* Run Dialog */}
+        <RunSkillDialog
+            open={runOpen}
+            onOpenChange={setRunOpen}
+            skillId={id as string}
+            skillName={skill.name}
+            entry={skill.meta?.entry}
+            code={selectedFile === skill.meta?.entry ? fileContent : undefined}
+            onRun={handleExecute}
+        />
 
 
         {/* Code Tab */}
@@ -601,6 +619,14 @@ export default function SkillWorkbenchPage() {
                 <div className=" h-auto py-2 border-b flex items-center justify-between px-4 bg-muted/10">
                     <span className="text-sm font-medium text-muted-foreground">{selectedFile}</span>
                     <div className="flex items-center gap-2">
+                         {isMarkdown(selectedFile) && (
+                            <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as 'edit' | 'preview')} className="mr-2">
+                                <TabsList className="h-8">
+                                    <TabsTrigger value="edit" className="text-xs">Edit</TabsTrigger>
+                                    <TabsTrigger value="preview" className="text-xs">Preview</TabsTrigger>
+                                </TabsList>
+                            </Tabs>
+                        )}
                          {hasUnsavedChanges && <span className="text-xs text-yellow-600 mr-2">Unsaved changes</span>}
                          <Button size="sm" onClick={handleSaveFile} disabled={savingFile || !hasUnsavedChanges}>
                             {savingFile ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3 mr-2" />}
@@ -608,25 +634,34 @@ export default function SkillWorkbenchPage() {
                          </Button>
                     </div>
                 </div>
-                <div className="flex-1 relative">
+                <div className="flex-1 relative overflow-hidden">
                     {loadingFile ? (
                         <div className="absolute inset-0 flex items-center justify-center bg-background/50 z-10">
                             <Loader2 className="w-6 h-6 animate-spin" />
                         </div>
                     ) : (
-                        <Editor
-                            height="100%"
-                            defaultLanguage="python"
-                            language={selectedFile.endsWith('.py') ? 'python' : 'json'}
-                            value={fileContent}
-                            onChange={(value) => setFileContent(value || '')}
-                            theme="vs-dark" // or light based on system theme
-                            options={{
-                                minimap: { enabled: false },
-                                fontSize: 14,
-                                scrollBeyondLastLine: false,
-                            }}
-                        />
+                        selectedFile && isMedia(selectedFile) ? (
+                             <FilePreview 
+                                name={selectedFile}
+                                url={`/api/workbench/skills/${id}/files?filename=${encodeURIComponent(selectedFile)}&raw=true`}
+                                className="h-full w-full"
+                            />
+                        ) : (
+                             viewMode === 'preview' && isMarkdown(selectedFile) ? (
+                                <FilePreview 
+                                    name={selectedFile} 
+                                    content={fileContent} 
+                                    className="h-full w-full"
+                                />
+                             ) : (
+                                <FileEditor
+                                    content={fileContent}
+                                    fileName={selectedFile}
+                                    onChange={(value) => setFileContent(value || '')}
+                                    className="h-full w-full"
+                                />
+                             )
+                        )
                     )}
                 </div>
             </div>

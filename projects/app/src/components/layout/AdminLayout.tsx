@@ -18,6 +18,9 @@ export const AdminLayout: React.FC<{ children: React.ReactNode; mainClassName?: 
         <div className="flex items-center gap-6">
           <Link href="/" className="font-bold text-xl">AgentOS Admin</Link>
           <nav className="flex gap-4">
+            <Link href="/workbench" className={router.pathname.startsWith('/workbench') && !router.pathname.startsWith('/workbench/deployments') ? 'text-primary' : 'text-muted-foreground'}>Workbench</Link>
+            <Link href="/workbench/deployments" className={router.pathname.startsWith('/workbench/deployments') ? 'text-primary' : 'text-muted-foreground'}>Deployments</Link>
+            <Link href="/user/api-keys" className={router.pathname.startsWith('/user/api-keys') ? 'text-primary' : 'text-muted-foreground'}>API Keys</Link>
             <Link href="/admin/models" className={router.pathname.startsWith('/admin/models') ? 'text-primary' : 'text-muted-foreground'}>Models</Link>
             <Link href="/team" className={router.pathname.startsWith('/team') ? 'text-primary' : 'text-muted-foreground'}>Team</Link>
             <Link href="/dataset" className={router.pathname.startsWith('/dataset') ? 'text-primary' : 'text-muted-foreground'}>Files</Link>

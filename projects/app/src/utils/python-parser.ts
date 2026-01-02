@@ -79,3 +79,39 @@ export function parsePythonEntrypoint(code: string): ParamInfo[] {
     return { name, type, default: defaultValue, required } as ParamInfo;
   }).filter((p): p is ParamInfo => p !== null && p.name !== 'self' && p.name !== 'cls');
 }
+
+export function paramsToJsonSchema(params: ParamInfo[]): Record<string, unknown> {
+  const properties: Record<string, unknown> = {};
+  const required: string[] = [];
+
+  params.forEach(p => {
+    let type = 'string';
+    const rawType = p.type.toLowerCase();
+    
+    if (rawType === 'int' || rawType === 'integer') type = 'integer';
+    else if (rawType === 'float' || rawType === 'number') type = 'number';
+    else if (rawType === 'bool' || rawType === 'boolean') type = 'boolean';
+    else if (rawType.startsWith('dict') || rawType === 'json') type = 'object';
+    else if (rawType.startsWith('list') || rawType === 'array') type = 'array';
+
+    properties[p.name] = { 
+        type, 
+        title: p.name 
+    };
+    
+    if (p.default !== undefined) {
+      const prop = properties[p.name] as Record<string, unknown>;
+      prop.default = p.default;
+    }
+    
+    if (p.required) {
+      required.push(p.name);
+    }
+  });
+
+  return {
+    type: 'object',
+    properties,
+    required
+  };
+}

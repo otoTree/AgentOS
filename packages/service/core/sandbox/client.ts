@@ -41,6 +41,20 @@ const ExecuteResponseSchema = z.object({
 
 export type ExecuteResult = z.infer<typeof ExecuteResponseSchema>;
 
+const DeploymentSchema = z.object({
+  sandboxId: z.string(),
+  entry: z.string(),
+  metaUrl: z.string().optional(),
+  namespace: z.string().optional(),
+  workDir: z.string(),
+});
+
+const DeploymentsResponseSchema = z.object({
+  deployments: z.array(DeploymentSchema),
+});
+
+export type SandboxDeployment = z.infer<typeof DeploymentSchema>;
+
 export class SandboxClient {
   private url: string;
   private token?: string;
@@ -49,6 +63,7 @@ export class SandboxClient {
   private constructor(url?: string, token?: string) {
     this.url = url || process.env.SANDBOX_URL || 'http://localhost:8080';
     this.token = token || process.env.SANDBOX_TOKEN;
+    console.log('[SandboxClient] Initialized with URL:', this.url);
   }
 
   public static getInstance(): SandboxClient {
@@ -251,20 +266,128 @@ export class SandboxClient {
   }
 
   /**
-   * Download file from execution
+   * Create a new deployment
    */
-  async getExecutionFile(executionId: string, filename: string): Promise<ArrayBuffer> {
+  async createDeployment(params: {
+    sandboxId: string;
+    code: string;
+    entry?: string;
+    metaUrl?: string; // Made optional to match usage, but actually backend requires it?
+    isPublic?: boolean;
+    namespace?: string;
+  }): Promise<SandboxDeployment> {
     if (!this.token) throw new Error('SANDBOX_TOKEN not configured');
 
-    const res = await fetch(`${this.url}/executions/${executionId}/files/${filename}`, {
-      headers: { 'Authorization': `Bearer ${this.token}` }
-    });
+    try {
+        const res = await fetch(`${this.url}/deploy`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${this.token}`
+          },
+          body: JSON.stringify({
+              ...params,
+              metaUrl: params.metaUrl || `s3://agentos/skills/${params.sandboxId}/meta.json` 
+          })
+        });
 
-    if (!res.ok) {
-      throw new Error(`Failed to download file: ${await res.text()}`);
+        if (!res.ok) {
+          throw new Error(`Failed to create deployment: ${await res.text()}`);
+        }
+
+        const data = await res.json();
+        return data as SandboxDeployment;
+    } catch (e: any) {
+        console.error(`[SandboxClient] Create Deployment Failed. URL: ${this.url}/deploy`, e);
+        if (e.cause) console.error('[SandboxClient] Error Cause:', e.cause);
+        throw e;
+    }
+  }
+
+  /**
+   * List all deployments
+   */
+  async listDeployments(): Promise<SandboxDeployment[]> {
+    if (!this.token) {
+        if (process.env.NODE_ENV === 'development') {
+            console.warn('SANDBOX_TOKEN not set, returning empty deployment list');
+        }
+        return [];
     }
 
-    return await res.arrayBuffer();
+    try {
+      const res = await fetch(`${this.url}/deploy`, {
+        headers: {
+          'Authorization': `Bearer ${this.token}`
+        }
+      });
+
+      if (!res.ok) {
+        throw new Error(`Sandbox service returned ${res.status}: ${await res.text()}`);
+      }
+
+      const data = await res.json();
+      const parsed = DeploymentsResponseSchema.safeParse(data);
+
+      if (!parsed.success) {
+          console.error('Invalid response format from sandbox:', parsed.error);
+          return [];
+      }
+
+      return parsed.data.deployments;
+    } catch (e) {
+      console.error('Failed to fetch deployments:', e);
+      throw e;
+    }
+  }
+
+  /**
+   * Get deployment details
+   */
+  async getDeployment(sandboxId: string): Promise<SandboxDeployment | null> {
+    if (!this.token) throw new Error('SANDBOX_TOKEN not configured');
+
+    try {
+      const res = await fetch(`${this.url}/deploy/${sandboxId}`, {
+        headers: {
+          'Authorization': `Bearer ${this.token}`
+        }
+      });
+
+      if (res.status === 404) return null;
+
+      if (!res.ok) {
+        throw new Error(`Sandbox service returned ${res.status}: ${await res.text()}`);
+      }
+
+      const data = await res.json();
+      const parsed = DeploymentSchema.safeParse(data);
+
+      if (!parsed.success) {
+          throw new Error(`Invalid deployment format: ${parsed.error}`);
+      }
+
+      return parsed.data;
+    } catch (e) {
+      console.error(`Failed to fetch deployment ${sandboxId}:`, e);
+      throw e;
+    }
+  }
+
+  /**
+   * Delete deployment
+   */
+  async deleteDeployment(sandboxId: string): Promise<boolean> {
+    if (!this.token) throw new Error('SANDBOX_TOKEN not configured');
+
+    const res = await fetch(`${this.url}/deploy/${sandboxId}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${this.token}`
+      }
+    });
+
+    return res.ok;
   }
 
   /**

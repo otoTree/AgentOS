@@ -1,18 +1,20 @@
 import { eq, and, desc } from 'drizzle-orm';
 import { db } from '../../database';
-import { skills } from '../../database/schema';
+import { skills, deployments } from '../../database/schema';
 import { storageService } from '../storage/service';
+import { sandboxClient } from '../sandbox/client';
 
 export interface MetaJson {
   id: string;
   name: string;
   version: string;
-  entrypoint: string;
+  entry: string; // Changed from entrypoint to entry
   description?: string;
   files: string[];
   input_schema?: any;
   output_schema?: any;
   test_cases?: any[];
+  entrypoint?: string; // Keep for backward compatibility reading
 }
 
 export class SkillService {
@@ -52,7 +54,7 @@ export class SkillService {
             id,
             name: params.name,
             version: '1.0.0',
-            entrypoint: 'src/main.py',
+            entry: 'src/main.py', // Use entry
             description: params.description,
             files: ['src/main.py'],
         };
@@ -139,6 +141,13 @@ export class SkillService {
             meta = { ...meta, ...metaUpdates };
         }
 
+        // Fix entry vs entrypoint legacy
+        if (metaUpdates?.entrypoint) {
+            meta.entry = metaUpdates.entrypoint;
+        } else if (meta.entrypoint && !meta.entry) {
+            meta.entry = meta.entrypoint;
+        }
+
         // Ensure all updated files are in meta.files
         const newFiles = Object.keys(files);
         let filesChanged = false;
@@ -198,12 +207,19 @@ export class SkillService {
      * Get Skill File Content
      */
     async getSkillFile(id: string, filename: string) {
+        const buffer = await this.getSkillFileBuffer(id, filename);
+        return buffer.toString('utf-8');
+    }
+
+    /**
+     * Get Skill File Buffer
+     */
+    async getSkillFileBuffer(id: string, filename: string) {
         const skill = await db.query.skills.findFirst({ where: eq(skills.id, id) });
         if (!skill) throw new Error('Skill not found');
 
         const ossPath = skill.ossPath;
-        const buffer = await storageService.getObjectRaw(`${ossPath}${filename}`);
-        return buffer.toString('utf-8');
+        return await storageService.getObjectRaw(`${ossPath}${filename}`);
     }
 
     /**
@@ -248,6 +264,11 @@ export class SkillService {
 
         const ossPath = skill.ossPath;
         const meta = await this.getMeta(ossPath);
+        const entry = meta.entry || meta.entrypoint;
+
+        if (!entry) {
+             throw new Error('Entry point not defined in skill metadata');
+        }
 
         // 1. Prepare Code for Sandbox
         // We need to fetch all files and combine them.
@@ -256,7 +277,7 @@ export class SkillService {
         
         // Fetch all files
         for (const file of meta.files) {
-            if (file === meta.entrypoint) continue;
+            if (file === entry) continue;
             
             // Fetch content
             const buffer = await storageService.getObjectRaw(`${ossPath}${file}`);
@@ -271,15 +292,15 @@ with open("${file}", "wb") as f:
 `;
         }
 
-        // Fetch Entrypoint
-        const entryBuffer = await storageService.getObjectRaw(`${ossPath}${meta.entrypoint}`);
+        // Fetch Entry
+        const entryBuffer = await storageService.getObjectRaw(`${ossPath}${entry}`);
         const entryContent = entryBuffer.toString('utf-8');
 
         // Append Entrypoint logic
         const inputBase64 = Buffer.from(JSON.stringify(input)).toString('base64');
 
         bootstrapCode += `
-# --- Entrypoint: ${meta.entrypoint} ---
+# --- Entrypoint: ${entry} ---
 ${entryContent}
 
 # --- Runner ---
@@ -369,9 +390,166 @@ if __name__ == "__main__":
         );
     }
     /**
+     * Deploy Skill
+     */
+    async deploySkill(id: string, type: 'private' | 'public') {
+        const skill = await db.query.skills.findFirst({ where: eq(skills.id, id) });
+        if (!skill) throw new Error('Skill not found');
+
+        // 1. Prepare Code for Sandbox Deployment
+        const ossPath = skill.ossPath;
+        const meta = await this.getMeta(ossPath);
+        
+        let bootstrapCode = 'import os\n';
+        
+        // Fetch all files including entry and write them to disk
+        for (const file of meta.files) {
+            const buffer = await storageService.getObjectRaw(`${ossPath}${file}`);
+            const content = buffer.toString('utf-8');
+            const b64 = Buffer.from(content).toString('base64');
+            
+            bootstrapCode += `
+os.makedirs(os.path.dirname("${file}"), exist_ok=True)
+with open("${file}", "wb") as f:
+    import base64
+    f.write(base64.b64decode("${b64}"))
+`;
+        }
+
+        // 2. Create Deployment Record
+        const deploymentId = crypto.randomUUID();
+        const [deployment] = await db.insert(deployments).values({
+            id: deploymentId,
+            skillId: id,
+            type,
+            status: 'pending',
+            version: meta.version || '1.0.0',
+            url: '', // TODO: Generate if public
+        } as unknown as typeof deployments.$inferInsert).returning();
+
+        // 3. Call Sandbox to Create Deployment
+        try {
+            // Generate Presigned URL for meta.json instead of s3:// URI
+            // Sandbox service might not have S3 credentials configured to access our bucket directly via s3:// scheme.
+            // Providing a presigned http(s) URL allows it to download via standard HTTP.
+            const metaKey = `${ossPath}meta.json`;
+            const metaUrl = await storageService.downloadRaw(metaKey);
+
+            // Ensure entry is set correctly in payload if meta has it as 'entrypoint' or 'entry'
+            // Sandbox expects 'entry' in meta.json, but here we are sending it in payload too?
+            // Actually createDeployment sends 'entry'.
+            const entry = meta.entry || meta.entrypoint || 'src/main.py';
+
+            await sandboxClient.createDeployment({
+                sandboxId: deploymentId, // Use deployment ID as sandboxId
+                code: bootstrapCode,
+                entry: entry,
+                isPublic: type === 'public',
+                namespace: type,
+                metaUrl
+            });
+            
+            // Update Deployment Status
+            await db.update(deployments)
+                .set({ status: 'running', updatedAt: new Date() } as any)
+                .where(eq(deployments.id, deploymentId));
+
+        } catch (error: unknown) {
+            const err = error as Error;
+            console.error(`[SkillService] Deployment failed: ${err.message}`);
+            
+            // Update Deployment Status to Failed
+            await db.update(deployments)
+                .set({ status: 'failed', updatedAt: new Date() } as any)
+                .where(eq(deployments.id, deploymentId));
+
+             if ((error as any).cause?.code === 'ECONNREFUSED' || err.message.includes('fetch failed')) {
+                 throw new Error('Sandbox Unavailable: Could not connect to the deployment service.');
+            }
+            throw error;
+        }
+
+        // 4. Update DB (Skills)
+        const update: any = { updatedAt: new Date() };
+        if (type === 'private') {
+            update.privateDeployedAt = new Date();
+        } else {
+            update.publicDeployedAt = new Date();
+            update.isPublic = true; // Mark as visible in market
+        }
+        await db.update(skills).set(update).where(eq(skills.id, id));
+        return this.getSkill(id);
+    }
+
+    /**
+     * List Deployments
+     */
+    async listDeployments(teamId: string) {
+        const skillsList = await db.query.skills.findMany({
+            where: eq(skills.teamId, teamId),
+            with: {
+                deployments: true
+            }
+        });
+        
+        // Flatten and sort
+        const deploymentsList = skillsList.flatMap(s => s.deployments.map(d => ({
+            ...d,
+            skillName: s.name, // Attach skill name for display
+            skillEmoji: s.emoji
+        })));
+        
+        return deploymentsList.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
+    }
+
+    /**
+     * Run Deployment
+     */
+    async runDeployment(deploymentId: string, input: any) {
+        const deployment = await db.query.deployments.findFirst({
+            where: eq(deployments.id, deploymentId)
+        });
+        if (!deployment) throw new Error('Deployment not found');
+        
+        // If status is failed, maybe don't run? 
+        // But user might want to try.
+        
+        return await sandboxClient.callService(deploymentId, input);
+    }
+
+    /**
+     * Delete Deployment
+     */
+    async deleteDeployment(id: string) {
+        const deployment = await db.query.deployments.findFirst({ where: eq(deployments.id, id) });
+        if (!deployment) throw new Error('Deployment not found');
+
+        // 1. Delete from Sandbox
+        try {
+            // Check if sandboxClient has deleteDeployment
+            // It was used in [id].ts so it must exist.
+            await sandboxClient.deleteDeployment(id);
+        } catch (e) {
+            console.warn('Failed to delete from sandbox', e);
+        }
+
+        // 2. Delete from DB
+        await db.delete(deployments).where(eq(deployments.id, id));
+    }
+
+    /**
      * Delete Skill
      */
     async deleteSkill(id: string) {
+        // 1. Delete associated deployments first to avoid FK constraint error
+        const skillDeployments = await db.query.deployments.findMany({
+            where: eq(deployments.skillId, id)
+        });
+
+        for (const deployment of skillDeployments) {
+            await this.deleteDeployment(deployment.id);
+        }
+
         // Optional: Clean up OSS
         // const skill = await this.getSkill(id);
         // ... list and delete objects ...

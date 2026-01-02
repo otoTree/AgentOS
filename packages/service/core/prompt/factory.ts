@@ -36,7 +36,7 @@ Output Format (JSON):
 {
   "name": "snake_case_name",
   "description": "Short description",
-  "entrypoint": "src/main.py",
+  "entry": "src/main.py",
   "files": ["src/main.py", "src/utils.py"],
   "input_schema": { ...JSON Schema... },
   "output_schema": { ...JSON Schema... },

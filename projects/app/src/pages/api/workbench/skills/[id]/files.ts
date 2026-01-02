@@ -11,10 +11,35 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (!id || typeof id !== 'string') return res.status(400).json({ error: 'ID required' });
 
   if (req.method === 'GET') {
-    const { filename } = req.query;
+    const { filename, raw } = req.query;
     if (!filename || typeof filename !== 'string') return res.status(400).json({ error: 'Filename required' });
 
     try {
+      if (raw === 'true') {
+        const buffer = await skillService.getSkillFileBuffer(id, filename);
+        // Determine content type
+        const ext = filename.split('.').pop()?.toLowerCase();
+        let contentType = 'application/octet-stream';
+        const mimeMap: Record<string, string> = {
+            'png': 'image/png',
+            'jpg': 'image/jpeg',
+            'jpeg': 'image/jpeg',
+            'gif': 'image/gif',
+            'svg': 'image/svg+xml',
+            'webp': 'image/webp',
+            'mp4': 'video/mp4',
+            'webm': 'video/webm',
+            'pdf': 'application/pdf'
+        };
+        if (ext && mimeMap[ext]) {
+            contentType = mimeMap[ext];
+        }
+        
+        res.setHeader('Content-Type', contentType);
+        res.send(buffer);
+        return;
+      }
+
       const content = await skillService.getSkillFile(id, filename);
       return res.status(200).json({ content });
     } catch (error: unknown) {

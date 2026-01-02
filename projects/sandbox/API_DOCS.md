@@ -58,8 +58,8 @@
 | 模块 | 方法 | 路径 | 说明 |
 |---|---|---|---|
 | System | GET | `/health` | 健康检查 |
-| Execution | POST | `/execute` | 执行 Python 代码（返回 executionId） |
-| Execution | GET | `/executions/:executionId/files/:filename` | 下载代码执行产生的文件 |
+| Execution | POST | `/execute` | 执行 Python 代码（返回 executionId）（拟废弃） |
+| Execution | GET | `/executions/:executionId/files/:filename` | 下载代码执行产生的文件 （拟废弃） |
 | Config | GET | `/config` | 获取当前沙箱配置（network/filesystem） |
 | Config | POST | `/config/allowed-domains` | 更新沙箱网络允许域名（会重置沙箱） |
 | Python | GET | `/python/packages` | 列出 venv 中已安装包 |
