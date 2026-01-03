@@ -7,3 +7,5 @@ export const DEFAULT_CONFIG: AppConfig = {
   name: "AgentOS",
   version: "0.1.0",
 };
+
+export * from './tool';

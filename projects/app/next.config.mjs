@@ -9,7 +9,7 @@ const __dirname = path.dirname(__filename);
 const nextConfig = {
   output: "standalone",
   reactStrictMode: true,
-  transpilePackages: ["@agentos/global", "@agentos/service", "@agentos/web"],
+  transpilePackages: ["@agentos/global", "@agentos/service", "@agentos/web", "@agentos/superagent"],
   experimental: {
     clientRouterFilter: false,
     outputFileTracingRoot: path.join(__dirname, "../../"),

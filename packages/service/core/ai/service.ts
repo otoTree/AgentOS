@@ -213,9 +213,9 @@ export class ModelService {
   }
 
   /**
-   * Chat Completion (Simple Interface)
+   * Chat Completion (Full Interface with Tools)
    */
-  async chat(modelId: string, messages: { role: string, content: string }[], options: { temperature?: number, maxTokens?: number } = {}) {
+  async chatComplete(modelId: string, messages: any[], options: { temperature?: number, maxTokens?: number, tools?: any[] } = {}) {
       // 1. Get Model & Provider
       const model = await db.query.aiModels.findFirst({
           where: eq(aiModels.id, modelId),
@@ -234,19 +234,25 @@ export class ModelService {
       // 2. Call API based on type
       if (type === 'openai' || type === 'local') {
           const url = (baseUrl || 'https://api.openai.com/v1').replace(/\/$/, '') + '/chat/completions';
+          const body: any = {
+              model: model.name,
+              messages,
+              temperature: options.temperature ?? 0.7,
+              max_tokens: options.maxTokens,
+              stream: false
+          };
+          
+          if (options.tools && options.tools.length > 0) {
+              body.tools = options.tools;
+          }
+
           const res = await fetch(url, {
               method: 'POST',
               headers: {
                   'Authorization': `Bearer ${apiKey}`,
                   'Content-Type': 'application/json'
               },
-              body: JSON.stringify({
-                  model: model.name,
-                  messages,
-                  temperature: options.temperature ?? 0.7,
-                  max_tokens: options.maxTokens,
-                  stream: false
-              })
+              body: JSON.stringify(body)
           });
 
           if (!res.ok) {
@@ -255,14 +261,34 @@ export class ModelService {
           }
 
           const data = await res.json();
-          return data.choices[0].message.content;
+          const message = data.choices[0].message;
+          return {
+              content: message.content,
+              toolCalls: message.tool_calls?.map((tc: any) => ({
+                  id: tc.id,
+                  name: tc.function.name,
+                  arguments: JSON.parse(tc.function.arguments)
+              }))
+          };
       }
 
       if (type === 'anthropic') {
+          // Anthropic Tool Use implementation is complex, skip for now or implement basic
           const url = (baseUrl || 'https://api.anthropic.com/v1').replace(/\/$/, '') + '/messages';
-          // Convert system message if exists
           const systemMsg = messages.find(m => m.role === 'system');
           const userMessages = messages.filter(m => m.role !== 'system');
+          
+          const body: any = {
+              model: model.name,
+              system: systemMsg?.content,
+              messages: userMessages,
+              temperature: options.temperature ?? 0.7,
+              max_tokens: options.maxTokens ?? 1024,
+              stream: false
+          };
+          
+          // Note: Anthropic tools format is different from OpenAI
+          // We would need a converter here. For now, just ignore tools for Anthropic in this basic implementation
           
           const res = await fetch(url, {
               method: 'POST',
@@ -271,14 +297,7 @@ export class ModelService {
                   'anthropic-version': '2023-06-01',
                   'Content-Type': 'application/json'
               },
-              body: JSON.stringify({
-                  model: model.name,
-                  system: systemMsg?.content,
-                  messages: userMessages,
-                  temperature: options.temperature ?? 0.7,
-                  max_tokens: options.maxTokens ?? 1024,
-                  stream: false
-              })
+              body: JSON.stringify(body)
           });
 
           if (!res.ok) {
@@ -287,10 +306,20 @@ export class ModelService {
           }
 
           const data = await res.json();
-          return data.content[0].text;
+          return {
+              content: data.content[0].text
+          };
       }
 
       throw new Error(`Unsupported provider type: ${type}`);
+  }
+
+  /**
+   * Chat Completion (Simple Interface)
+   */
+  async chat(modelId: string, messages: { role: string, content: string }[], options: { temperature?: number, maxTokens?: number } = {}) {
+      const res = await this.chatComplete(modelId, messages, options);
+      return res.content || '';
   }
 }
 

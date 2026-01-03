@@ -5,7 +5,6 @@ import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter }
 import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/router';
 import {
-  LayoutDashboard,
   Users,
   FileText,
   Settings,
@@ -13,8 +12,6 @@ import {
   ArrowRight,
   LogOut,
   Key,
-  Database,
-  Shield,
   Plus,
   Upload,
   Sparkles,
@@ -109,7 +106,34 @@ export default function Home() {
         </div>
 
         {/* Core Modules Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-10">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-10">
+            {/* SuperAgent - Primary */}
+            <Card className="border-l-4 border-l-purple-500 hover:shadow-lg transition-all cursor-pointer group" onClick={() => router.push('/chat')}>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-3 text-xl">
+                  <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg text-purple-600 dark:text-purple-400">
+                    <Bot className="w-6 h-6" />
+                  </div>
+                  SuperAgent
+                </CardTitle>
+                <CardDescription>AI Assistant Interface</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground mb-4">
+                  Chat with your AI assistant. Test your agents, ask questions, and experience the power of SuperAgent directly.
+                </p>
+                <div className="flex gap-2">
+                   <span className="text-xs bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded">Chat</span>
+                   <span className="text-xs bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded">Interaction</span>
+                </div>
+              </CardContent>
+              <CardFooter>
+                 <div className="text-sm font-medium text-purple-600 dark:text-purple-400 flex items-center gap-1 group-hover:gap-2 transition-all">
+                    Open Chat <ArrowRight className="w-4 h-4" />
+                 </div>
+              </CardFooter>
+            </Card>
+
             {/* Workbench - Primary */}
             <Card className="border-l-4 border-l-blue-500 hover:shadow-lg transition-all cursor-pointer group" onClick={() => router.push('/workbench')}>
               <CardHeader>

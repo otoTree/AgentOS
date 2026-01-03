@@ -1,0 +1,18 @@
+{
+  "name": "@agentos/superagent",
+  "version": "0.1.0",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@agentos/global": "workspace:*",
+    "@agentos/service": "workspace:*",
+    "zod": "^3.22.0",
+    "zod-to-json-schema": "^3.25.1"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  }
+}
