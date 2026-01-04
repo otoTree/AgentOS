@@ -8,7 +8,6 @@
   },
   "dependencies": {
     "@agentos/global": "workspace:*",
-    "@agentos/service": "workspace:*",
     "@agentos/superagent": "workspace:*",
     "zod": "^3.22.0"
   },

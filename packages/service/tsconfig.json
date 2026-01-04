@@ -8,7 +8,8 @@
     "paths": {
       "@/*": ["./*"],
       "@agentos/global": ["../global/index.ts"],
-      "@agentos/superagent": ["../superagent/src/index.ts"]
+      "@agentos/superagent": ["../superagent/src/index.ts"],
+      "@agentos/coder": ["../coder/src/index.ts"]
     },
     //"types": ["bun-types"]
   },

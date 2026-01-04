@@ -47,9 +47,6 @@ importers:
       '@agentos/global':
         specifier: workspace:*
         version: link:../global
-      '@agentos/service':
-        specifier: workspace:*
-        version: link:../service
       '@agentos/superagent':
         specifier: workspace:*
         version: link:../superagent
@@ -69,6 +66,9 @@ importers:
 
   packages/service:
     dependencies:
+      '@agentos/coder':
+        specifier: workspace:*
+        version: link:../coder
       '@agentos/global':
         specifier: workspace:*
         version: link:../global
@@ -115,9 +115,6 @@ importers:
       '@agentos/global':
         specifier: workspace:*
         version: link:../global
-      '@agentos/service':
-        specifier: workspace:*
-        version: link:../service
       zod:
         specifier: ^3.22.0
         version: 3.25.76

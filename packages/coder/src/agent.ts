@@ -1,12 +1,13 @@
 import { SuperAgent, AgentConfig, LLMClient } from '@agentos/superagent';
 import { ReadFileTool, WriteFileTool, ListFilesTool } from './tools/fs';
 import { CODER_SYSTEM_PROMPT } from './prompts';
+import { SkillFileSystem } from './interfaces';
 
 export class CoderAgent {
   private agent: SuperAgent;
 
   constructor(
-    private skillId: string,
+    private fs: SkillFileSystem,
     private llmClient: LLMClient,
     options?: {
         systemPrompt?: string;
@@ -14,9 +15,9 @@ export class CoderAgent {
     }
   ) {
     const tools = [
-      new ReadFileTool(skillId),
-      new WriteFileTool(skillId),
-      new ListFilesTool(skillId),
+      new ReadFileTool(fs),
+      new WriteFileTool(fs),
+      new ListFilesTool(fs),
     ];
 
     const config: AgentConfig = {
