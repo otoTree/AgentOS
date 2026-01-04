@@ -20,6 +20,8 @@ COPY package.json pnpm-lock.yaml* pnpm-workspace.yaml ./
 COPY packages/global/package.json ./packages/global/package.json
 COPY packages/service/package.json ./packages/service/package.json
 COPY packages/web/package.json ./packages/web/package.json
+COPY packages/coder/package.json ./packages/coder/package.json
+COPY packages/superagent/package.json ./packages/superagent/package.json
 COPY projects/app/package.json ./projects/app/package.json
 COPY projects/admin/package.json ./projects/admin/package.json
 COPY projects/sandbox/package.json ./projects/sandbox/package.json
