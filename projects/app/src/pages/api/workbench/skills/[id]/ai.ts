@@ -1,7 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '../../../auth/[...nextauth]';
-import { skillGenerator } from '@agentos/service/core/skill/generator';
+import { CoderAgent, ServiceLLMClient } from '@agentos/coder';
 import { z } from 'zod';
 
 const aiSchema = z.object({
@@ -21,12 +21,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     try {
       const body = aiSchema.parse(req.body);
       
-      const result = await skillGenerator.refineSkill({
-        skillId: id,
-        modelId: body.modelId,
-        instruction: body.instruction,
-        errorLog: body.errorLog,
-      });
+      const llmClient = new ServiceLLMClient(body.modelId);
+      const agent = new CoderAgent(id, llmClient);
+      
+      // Determine input
+      let input = body.instruction || 'Improve the code.';
+      if (body.errorLog) {
+        input = `I encountered an error:\n${body.errorLog}\nPlease fix the code.`;
+      }
+      
+      const result = await agent.run(input);
       
       return res.status(200).json(result);
     } catch (error: unknown) {

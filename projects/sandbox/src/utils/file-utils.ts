@@ -3,13 +3,13 @@ import * as path from 'path'
 import { fetch, FormData, File } from 'undici'
 import mime from 'mime-types'
 
-export interface UploadConfig {
+export type UploadConfig = {
   fileUploadUrl?: string
   uploadToken?: string
   isPublic?: boolean
 }
 
-export interface UploadResult {
+export type UploadResult = {
   filename: string
   url?: string
   status: number

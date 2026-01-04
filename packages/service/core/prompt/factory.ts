@@ -1,5 +1,5 @@
 
-export interface PromptTemplate {
+export type PromptTemplate = {
   name: string;
   description: string;
   template: string; // Handlebars or simple {{variable}} syntax

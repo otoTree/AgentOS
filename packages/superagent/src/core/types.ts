@@ -1,30 +1,31 @@
 import { z } from 'zod';
 
 // --- Prompt ---
-export interface PromptTemplate {
+export type PromptTemplate = {
   template: string;
   variables: string[];
   format(values: Record<string, any>): string;
 }
 
-export interface PromptConfig {
+export type PromptConfig = {
   system?: string;
   user?: string;
   // 可以扩展支持 few-shot examples 等
 }
 
 // --- Tool ---
-export interface Tool<T extends z.ZodType = any> {
+export type Tool<T extends z.ZodType = any> = {
   name: string;
   description: string;
   parameters: T;
+  jsonSchema?: any; // Optional: Direct JSON schema to bypass Zod conversion
   execute(args: z.infer<T>): Promise<any>;
 }
 
 // --- Action ---
 export type ActionType = 'thought' | 'tool_call' | 'tool_result' | 'answer' | 'error';
 
-export interface AgentAction {
+export type AgentAction = {
   type: ActionType;
   content: string; // 思考内容或最终回答
   toolName?: string;
@@ -34,13 +35,13 @@ export interface AgentAction {
 }
 
 // --- Agent Context ---
-export interface AgentContext {
+export type AgentContext = {
   history: AgentAction[];
   variables: Record<string, any>;
 }
 
 // --- Agent Config ---
-export interface AgentConfig {
+export type AgentConfig = {
   name?: string;
   model: string; // 模型标识符
   temperature?: number;
@@ -49,14 +50,15 @@ export interface AgentConfig {
   tools?: Tool[];
   llmClient?: LLMClient;
   toolCallMethod?: 'native' | 'json_prompt' | 'xml_prompt'; // 新增：工具调用方式
+  history?: { role: string; content: string }[]; // Optional: Previous chat history
 }
 
 // --- LLM Client Interface ---
-export interface LLMResponse {
+export type LLMResponse = {
   content: string;
   toolCalls?: { id?: string; name: string; arguments: any }[];
 }
 
-export interface LLMClient {
+export type LLMClient = {
   chat(messages: { role: string; content: string | null; tool_calls?: any[]; tool_call_id?: string }[], tools?: any[]): Promise<LLMResponse>;
 }

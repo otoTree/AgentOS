@@ -43,6 +43,13 @@
       "when": 1767360329946,
       "tag": "0005_serious_scorpion",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1767505808278,
+      "tag": "0006_overjoyed_tyger_tiger",
+      "breakpoints": true
     }
   ]
 }

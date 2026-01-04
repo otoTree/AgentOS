@@ -11,6 +11,7 @@
   "dependencies": {
     "@agentos/global": "workspace:*",
     "@agentos/service": "workspace:*",
+    "@agentos/coder": "workspace:*",
     "@agentos/superagent": "workspace:*",
     "@agentos/web": "workspace:*",
     "@monaco-editor/react": "^4.7.0",

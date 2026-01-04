@@ -9,7 +9,7 @@ import { randomUUID } from 'crypto'
 import { v4 as uuidv4 } from 'uuid'
 import { uploadFiles, cacheToLocalBucket, walk, UploadConfig, UploadResult } from '../utils/file-utils.js'
 
-export interface Deployment {
+export type Deployment = {
   sandboxId: string
   workDir: string
   entry: string
@@ -17,12 +17,12 @@ export interface Deployment {
   metaUrl: string
 }
 
-export interface MetaFile {
+export type MetaFile = {
   path: string
   url: string
 }
 
-export interface ProjectMeta {
+export type ProjectMeta = {
   entry: string
   files: MetaFile[]
 }

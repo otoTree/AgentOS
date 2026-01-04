@@ -12,7 +12,7 @@ import { Label } from '@agentos/web/components/ui/label';
 import { Switch } from '@agentos/web/components/ui/switch';
 import { Loader2, Play, Terminal, Box } from 'lucide-react';
 import { AutoForm } from './AutoForm';
-import { parsePythonEntrypoint, ParamInfo } from '@/utils/python-parser';
+import { parsePythonEntrypoint, ParamInfo } from '@agentos/global';
 import { toast } from '@agentos/web/components/ui/sonner';
 
 const Editor = dynamic(

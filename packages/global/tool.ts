@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-export interface Tool<T extends z.ZodType = any> {
+export type Tool<T extends z.ZodType = any> = {
   name: string;
   description: string;
   parameters: T;

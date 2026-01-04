@@ -370,7 +370,7 @@ export class TeamService {
 
           if (!existing) {
               // Find Member Role for target team
-              let role = await tx.query.roles.findFirst({
+              const role = await tx.query.roles.findFirst({
                   where: and(eq(roles.name, SYSTEM_ROLES.MEMBER.name), isNull(roles.teamId))
               });
               

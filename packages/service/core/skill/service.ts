@@ -4,7 +4,7 @@ import { skills, deployments } from '../../database/schema';
 import { storageService } from '../storage/service';
 import { sandboxClient } from '../sandbox/client';
 
-export interface MetaJson {
+export type MetaJson = {
   id: string;
   name: string;
   version: string;

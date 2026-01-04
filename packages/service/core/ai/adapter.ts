@@ -1,7 +1,7 @@
 import { LLMClient, LLMResponse } from '@agentos/superagent';
-import { modelService } from '@agentos/service/core/ai/service';
+import { modelService } from './service';
 
-export class AppLLMClient implements LLMClient {
+export class ServiceLLMClient implements LLMClient {
   private modelId: string;
 
   constructor(modelId: string) {

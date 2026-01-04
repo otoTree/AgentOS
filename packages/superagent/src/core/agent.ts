@@ -58,6 +58,10 @@ export class SuperAgent {
     this.context.variables = { ...this.context.variables, ...variables };
   }
 
+  getContext() {
+    return this.context;
+  }
+
   // 运行 Agent
   async run(input: string): Promise<string> {
     // 1. 构造初始消息
@@ -177,6 +181,16 @@ export class SuperAgent {
             role: 'system',
             content: systemPrompt
         });
+    }
+
+    // Inject History
+    if (this.config.history && this.config.history.length > 0) {
+        for (const msg of this.config.history) {
+            messages.push({
+                role: msg.role,
+                content: msg.content
+            });
+        }
     }
 
     // User Prompt

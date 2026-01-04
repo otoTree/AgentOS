@@ -2,7 +2,7 @@ import React from 'react';
 import { CodeEditor } from '../ui/code-editor';
 import { cn } from '../../lib/utils';
 
-interface FileEditorProps {
+type FileEditorProps = {
   content: string;
   language?: string;
   onChange?: (value: string | undefined) => void;

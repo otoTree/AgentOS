@@ -17,7 +17,7 @@ import {
   SelectValue,
 } from "../ui/select";
 
-interface CreateFileDialogProps {
+type CreateFileDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onCreate: (name: string, type: 'file' | 'folder') => void;

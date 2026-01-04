@@ -15,7 +15,7 @@ import { toast } from '@agentos/web/components/ui/sonner';
 import { FileTree } from '@/components/workbench/FileTree';
 import { RunSkillDialog } from '@/components/workbench/RunSkillDialog';
 import { Badge } from '@agentos/web/components/ui/badge';
-import { parsePythonEntrypoint, paramsToJsonSchema } from '@/utils/python-parser';
+import { parsePythonEntrypoint, paramsToJsonSchema } from '@agentos/global';
 
 const FileEditor = dynamic(
   () => import('@agentos/web').then((mod) => mod.FileEditor),
@@ -44,7 +44,7 @@ type Skill = {
     files: string[];
     entry: string;
     entrypoint?: string; // Keep for legacy if needed during transition
-    input_schema?: unknown;
+    input_schema?: Record<string, unknown>;
     output_schema?: unknown;
   };
 }
@@ -279,6 +279,7 @@ export default function SkillWorkbenchPage() {
              metaUpdates = { input_schema: schema };
          } catch (e) {
              console.warn('Failed to parse entry params', e);
+             toast.warning('Failed to parse entry params');
          }
       }
 

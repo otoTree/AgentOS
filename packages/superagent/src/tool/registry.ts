@@ -25,7 +25,9 @@ export class ToolRegistry {
 
   getToolsDescription(): string {
     return this.getAll().map(tool => {
-      const schema = JSON.stringify(zodToJsonSchema(tool.parameters));
+      const schema = tool.jsonSchema 
+        ? JSON.stringify(tool.jsonSchema) 
+        : JSON.stringify(zodToJsonSchema(tool.parameters));
       return `Tool Name: ${tool.name}
 Description: ${tool.description}
 Parameters: ${schema}`;
@@ -39,7 +41,7 @@ Parameters: ${schema}`;
       function: {
         name: tool.name,
         description: tool.description,
-        parameters: zodToJsonSchema(tool.parameters)
+        parameters: tool.jsonSchema || zodToJsonSchema(tool.parameters)
       }
     }));
   }

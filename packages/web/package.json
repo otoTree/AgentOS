@@ -34,7 +34,7 @@
     "remark-gfm": "^4.0.1",
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.4.0",
-    "zod": "^4.2.1"
+    "zod": "^3.22.0"
   },
   "devDependencies": {
     "@types/node": "^25.0.3",

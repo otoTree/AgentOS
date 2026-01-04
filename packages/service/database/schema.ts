@@ -326,4 +326,38 @@ export const deploymentsRelations = relations(deployments, ({ one }) => ({
   }),
 }));
 
+// --- Chat History ---
+
+export const chatSessions = pgTable('chat_sessions', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id').references(() => users.id).notNull(),
+  title: text('title').notNull().default('New Chat'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+export const chatSessionsRelations = relations(chatSessions, ({ one, many }) => ({
+  user: one(users, {
+    fields: [chatSessions.userId],
+    references: [users.id],
+  }),
+  messages: many(chatMessages),
+}));
+
+export const chatMessages = pgTable('chat_messages', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  sessionId: uuid('session_id').references(() => chatSessions.id, { onDelete: 'cascade' }).notNull(),
+  role: text('role').notNull(), // 'user' | 'assistant' | 'system'
+  content: text('content').notNull(),
+  toolCalls: jsonb('tool_calls'), // Store tool usage info
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+export const chatMessagesRelations = relations(chatMessages, ({ one }) => ({
+  session: one(chatSessions, {
+    fields: [chatMessages.sessionId],
+    references: [chatSessions.id],
+  }),
+}));
+
 

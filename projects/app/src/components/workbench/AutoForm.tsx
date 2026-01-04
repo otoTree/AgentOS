@@ -6,7 +6,7 @@ import { Textarea } from '@agentos/web/components/ui/textarea';
 import { Button } from '@agentos/web/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@agentos/web/components/ui/select';
 import { Plus, Trash2 } from 'lucide-react';
-import { ParamInfo } from '@/utils/python-parser';
+import { ParamInfo } from '@agentos/global';
 
 type AutoFormProps = {
   params: ParamInfo[];

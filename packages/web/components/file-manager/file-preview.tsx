@@ -4,7 +4,7 @@ import remarkGfm from 'remark-gfm';
 import { CodeEditor } from '../ui/code-editor';
 import { cn } from '../../lib/utils';
 
-export interface FilePreviewProps {
+export type FilePreviewProps = {
   name: string;
   content?: string;
   url?: string;

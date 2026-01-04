@@ -7,6 +7,43 @@ import { aiProviders, aiModels } from '../../database/schema';
 const encrypt = (data: any) => data; 
 const decrypt = (data: any) => data;
 
+/**
+ * Fetch with retry and timeout
+ */
+async function fetchWithRetry(url: string, options: RequestInit & { timeout?: number, retries?: number } = {}) {
+    const { timeout = 60000, retries = 2, ...fetchOptions } = options;
+    
+    let lastError: any;
+    for (let i = 0; i <= retries; i++) {
+        const controller = new AbortController();
+        const id = setTimeout(() => controller.abort(), timeout);
+        
+        try {
+            const response = await fetch(url, {
+                ...fetchOptions,
+                signal: controller.signal
+            });
+            clearTimeout(id);
+            return response;
+        } catch (err: any) {
+            clearTimeout(id);
+            lastError = err;
+            
+            // Only retry on network errors or timeouts
+            const isNetworkError = err.name === 'AbortError' || err.message.includes('fetch failed') || err.message.includes('timeout');
+            
+            if (isNetworkError && i < retries) {
+                console.warn(`Fetch failed (attempt ${i + 1}/${retries + 1}), retrying...`, err.message);
+                // Exponential backoff
+                await new Promise(resolve => setTimeout(resolve, Math.pow(2, i) * 1000));
+                continue;
+            }
+            throw err;
+        }
+    }
+    throw lastError;
+}
+
 export class ModelService {
   
   /**
@@ -151,43 +188,45 @@ export class ModelService {
       const { type, config: { apiKey, baseUrl } } = provider;
 
       try {
-          if (type === 'openai' || type === 'local') {
-              const url = (baseUrl || 'https://api.openai.com/v1').replace(/\/$/, '') + '/models';
-              const res = await fetch(url, {
-                  headers: {
-                      'Authorization': `Bearer ${apiKey}`
-                  }
-              });
-              
-              if (!res.ok) {
-                  const error = await res.text();
-                  throw new Error(`Connection Failed: ${res.status} ${error}`);
-              }
-              
-              const data = await res.json();
-              return { success: true, models: data.data, message: 'Connection successful' };
-          } 
-          
-          if (type === 'anthropic') {
-              // Anthropic doesn't have a standard models endpoint that works exactly like OpenAI's in all cases,
-              // but let's try the standard one if available or just assume success if we don't crash? 
-              // Better: try to list models if possible, otherwise just return not implemented for now or try a dummy request.
-              // Anthropic GET /v1/models is available.
-              const url = (baseUrl || 'https://api.anthropic.com/v1').replace(/\/$/, '') + '/models';
-              const res = await fetch(url, {
-                  headers: {
-                      'x-api-key': apiKey,
-                      'anthropic-version': '2023-06-01'
-                  }
-              });
+            if (type === 'openai' || type === 'local') {
+                const url = (baseUrl || 'https://api.openai.com/v1').replace(/\/$/, '') + '/models';
+                const res = await fetchWithRetry(url, {
+                    headers: {
+                        'Authorization': `Bearer ${apiKey}`
+                    },
+                    timeout: 10000 // Test connection can have a shorter timeout
+                });
+                
+                if (!res.ok) {
+                    const error = await res.text();
+                    throw new Error(`Connection Failed: ${res.status} ${error}`);
+                }
+                
+                const data = await res.json();
+                return { success: true, models: data.data, message: 'Connection successful' };
+            } 
+            
+            if (type === 'anthropic') {
+                // Anthropic doesn't have a standard models endpoint that works exactly like OpenAI's in all cases,
+                // but let's try the standard one if available or just assume success if we don't crash? 
+                // Better: try to list models if possible, otherwise just return not implemented for now or try a dummy request.
+                // Anthropic GET /v1/models is available.
+                const url = (baseUrl || 'https://api.anthropic.com/v1').replace(/\/$/, '') + '/models';
+                const res = await fetchWithRetry(url, {
+                    headers: {
+                        'x-api-key': apiKey,
+                        'anthropic-version': '2023-06-01'
+                    },
+                    timeout: 10000
+                });
 
-              if (!res.ok) {
-                  const error = await res.text();
-                  throw new Error(`Connection Failed: ${res.status} ${error}`);
-              }
-               
-              return { success: true, message: 'Connection successful' };
-          }
+                if (!res.ok) {
+                    const error = await res.text();
+                    throw new Error(`Connection Failed: ${res.status} ${error}`);
+                }
+                 
+                return { success: true, message: 'Connection successful' };
+            }
           
           throw new Error(`Unsupported provider type: ${type}`);
       } catch (err: any) {
@@ -246,7 +285,7 @@ export class ModelService {
               body.tools = options.tools;
           }
 
-          const res = await fetch(url, {
+          const res = await fetchWithRetry(url, {
               method: 'POST',
               headers: {
                   'Authorization': `Bearer ${apiKey}`,
@@ -290,7 +329,7 @@ export class ModelService {
           // Note: Anthropic tools format is different from OpenAI
           // We would need a converter here. For now, just ignore tools for Anthropic in this basic implementation
           
-          const res = await fetch(url, {
+          const res = await fetchWithRetry(url, {
               method: 'POST',
               headers: {
                   'x-api-key': apiKey,
