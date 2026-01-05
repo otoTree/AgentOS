@@ -4,7 +4,7 @@ import { WordEditor } from '../word/word-editor';
 import { Button } from '../ui/button';
 import { Save, Loader2 } from 'lucide-react';
 
-interface DocxEditorProps {
+type DocxEditorProps = {
     fileUrl?: string;
     fileContent?: ArrayBuffer; // Support direct content
     fileName: string;

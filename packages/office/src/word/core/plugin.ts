@@ -1,4 +1,4 @@
-export interface WordPlugin {
+export type WordPlugin = {
   name: string;
   onInit?(kernel: any): void;
   onDestroy?(): void;

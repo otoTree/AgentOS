@@ -3,7 +3,7 @@ import { CommandBus, Command } from './command';
 import { PluginManager, WordPlugin } from './plugin';
 import { v4 as uuidv4 } from 'uuid';
 
-export interface KernelConfig {
+export type KernelConfig = {
   initialState?: DocumentState;
   plugins?: WordPlugin[];
 }

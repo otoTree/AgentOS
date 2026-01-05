@@ -1,4 +1,4 @@
-export interface Command<T = any> {
+export type Command<T = any> = {
   type: string;
   payload: T;
 }

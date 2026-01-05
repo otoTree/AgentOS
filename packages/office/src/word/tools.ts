@@ -4,7 +4,7 @@ import { AgentCapabilityPlugin } from './plugins/agent';
 import { Tool } from '@agentos/global';
 import { DocumentState } from './model/schema';
 
-export interface WordDocumentStorage {
+export type WordDocumentStorage = {
     load(id: string): Promise<DocumentState>;
     save(id: string, state: DocumentState): Promise<void>;
 }

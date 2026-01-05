@@ -3,7 +3,7 @@ import { WordKernel } from '@agentos/office';
 import { EditorContext } from './editor-context';
 import { RenderNode } from './render-node';
 
-interface WordEditorProps {
+type WordEditorProps = {
   kernel: WordKernel;
   readOnly?: boolean;
 }
