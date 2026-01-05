@@ -301,13 +301,47 @@ export class ModelService {
 
           const data = await res.json();
           const message = data.choices[0].message;
+          
+          let toolCalls = undefined;
+          if (message.tool_calls) {
+              toolCalls = message.tool_calls.map((tc: any) => {
+                  let args = {};
+                  try {
+                      args = JSON.parse(tc.function.arguments);
+                  } catch (e) {
+                      console.warn(`Failed to parse tool arguments for ${tc.function.name}:`, tc.function.arguments);
+                      // Try to fix common JSON issues or extract from markdown
+                      try {
+                          const cleaned = tc.function.arguments.replace(/```json\n?|\n?```/g, '');
+                          args = JSON.parse(cleaned);
+                      } catch (e2) {
+                          // If still fails, return raw string in a wrapper or empty
+                          // But tool execution will likely fail.
+                          // Let's try to extract first valid JSON object
+                          const match = tc.function.arguments.match(/\{[\s\S]*\}/);
+                          if (match) {
+                              try {
+                                  args = JSON.parse(match[0]);
+                              } catch (e3) {
+                                  args = { raw_args: tc.function.arguments, error: 'parse_failed' };
+                              }
+                          } else {
+                               args = { raw_args: tc.function.arguments, error: 'parse_failed' };
+                          }
+                      }
+                  }
+                  
+                  return {
+                      id: tc.id,
+                      name: tc.function.name,
+                      arguments: args
+                  };
+              });
+          }
+
           return {
               content: message.content,
-              toolCalls: message.tool_calls?.map((tc: any) => ({
-                  id: tc.id,
-                  name: tc.function.name,
-                  arguments: JSON.parse(tc.function.arguments)
-              }))
+              toolCalls
           };
       }
 

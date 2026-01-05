@@ -1,4 +1,5 @@
 import { CoderSkillGenerator, CoderAgent } from '@agentos/coder';
+import { AgentCallbacks } from '@agentos/superagent';
 import { skillService } from './service';
 import { sandboxClient } from '../sandbox/client';
 import { ServiceSkillFileSystem } from './fs_adapter';
@@ -87,7 +88,8 @@ export class SkillGenerator {
         skillId: string,
         modelId: string,
         instruction?: string,
-        errorLog?: string
+        errorLog?: string,
+        onProgress?: AgentCallbacks
     }) {
         const fileSystem = new ServiceSkillFileSystem(params.skillId);
         const llmClient = new ServiceLLMClient(params.modelId);
@@ -99,7 +101,7 @@ export class SkillGenerator {
             instruction += `\n\nThe previous run failed with error:\n${params.errorLog}\n\nPlease fix the code.`;
         }
         
-        const result = await coder.run(instruction);
+        const result = await coder.run(instruction, params.onProgress);
         
         return {
             filename: result.filename,

@@ -1,4 +1,4 @@
-import { AgentConfig, AgentContext, AgentAction, LLMClient, LLMResponse } from './types';
+import { AgentConfig, AgentContext, AgentAction, LLMClient, LLMResponse, AgentCallbacks } from './types';
 import { SimplePromptTemplate } from '../prompt/template';
 import { ToolRegistry } from '../tool/registry';
 import { ActionExecutor } from '../action/executor';
@@ -56,6 +56,10 @@ export class SuperAgent {
   // 设置上下文变量
   setVariables(variables: Record<string, any>) {
     this.context.variables = { ...this.context.variables, ...variables };
+  }
+
+  setCallbacks(callbacks: AgentCallbacks) {
+    this.config.callbacks = callbacks;
   }
 
   getContext() {
@@ -122,9 +126,25 @@ export class SuperAgent {
              
              this.context.history.push(action);
 
+             // Callback: Tool Start
+             if (this.config.callbacks?.onToolStart) {
+                 this.config.callbacks.onToolStart(toolCall.name, toolCall.arguments);
+             }
+             if (this.config.callbacks?.onStep) {
+                 this.config.callbacks.onStep(action);
+             }
+
              // 执行工具
              const resultAction = await this.actionExecutor.execute(action);
              this.context.history.push(resultAction);
+             
+             // Callback: Tool End
+             if (this.config.callbacks?.onToolEnd) {
+                 this.config.callbacks.onToolEnd(toolCall.name, resultAction.toolOutput);
+             }
+             if (this.config.callbacks?.onStep) {
+                 this.config.callbacks.onStep(resultAction);
+             }
              
              // 将结果反馈给 LLM
              if (toolMethod === 'native') {

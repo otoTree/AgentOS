@@ -14,6 +14,7 @@ import { Loader2, Save, Play, FileCode, ArrowLeft, Edit2, Box, Rocket, Wand2, Tr
 import { toast } from '@agentos/web/components/ui/sonner';
 import { FileTree } from '@/components/workbench/FileTree';
 import { RunSkillDialog } from '@/components/workbench/RunSkillDialog';
+import { AIChatInterface } from '@/components/workbench/AIChatInterface';
 import { Badge } from '@agentos/web/components/ui/badge';
 import { parsePythonEntrypoint, paramsToJsonSchema } from '@agentos/global';
 
@@ -49,12 +50,6 @@ type Skill = {
   };
 }
 
-type ChatMessage = {
-  role: 'user' | 'assistant' | 'system';
-  content: string;
-  timestamp: number;
-}
-
 export default function SkillWorkbenchPage() {
   const router = useRouter();
   const { id } = router.query;
@@ -73,9 +68,6 @@ export default function SkillWorkbenchPage() {
   const [savingFile, setSavingFile] = useState(false);
   
   // AI Chat State
-  const [chatInput, setChatInput] = useState('');
-  const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
-  const [aiLoading, setAiLoading] = useState(false);
   const [models, setModels] = useState<{ id: string }[]>([]);
 
   // Execution State
@@ -106,6 +98,9 @@ export default function SkillWorkbenchPage() {
     fetchDependencies();
     fetchModels();
   }, [id]);
+
+  // Auto-scroll chat
+  // Removed in favor of AIChatInterface internal scroll
 
   const fetchModels = async () => {
     try {
@@ -343,51 +338,11 @@ export default function SkillWorkbenchPage() {
     }
   };
 
-  // AI Code Assistant
-  const handleAIChat = async () => {
-    if (!chatInput.trim() || !models.length) return;
-    
-    const userMsg: ChatMessage = { role: 'user', content: chatInput, timestamp: Date.now() };
-    setChatHistory(prev => [...prev, userMsg]);
-    setChatInput('');
-    setAiLoading(true);
-
-    try {
-      const res = await fetch(`/api/workbench/skills/${id}/ai`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          instruction: chatInput,
-          modelId: models[0].id // Use first available model for now
-        })
-      });
-      
-      if (!res.ok) throw new Error('AI request failed');
-      const result = await res.json();
-      
-      const assistantMsg: ChatMessage = { 
-        role: 'assistant', 
-        content: `Code generated for ${result.filename}. I have updated the file in the editor.`, 
-        timestamp: Date.now() 
-      };
-      setChatHistory(prev => [...prev, assistantMsg]);
-      
-      // Refresh current file if it's the one AI updated
-      if (selectedFile === result.filename) {
-        setFileContent(result.code);
-        setOriginalContent(result.code);
-      }
-      
-      toast.success('Skill code updated by AI');
-    } catch (err: unknown) {
-        const errorMsg: ChatMessage = {
-            role: 'system',
-            content: `Error: ${(err as Error).message || 'AI generation failed'}`,
-            timestamp: Date.now()
-        };
-        setChatHistory(prev => [...prev, errorMsg]);
-    } finally {
-      setAiLoading(false);
+  const handleCodeUpdate = (filename: string, code: string) => {
+    // Refresh current file if it's the one AI updated
+    if (selectedFile === filename) {
+        setFileContent(code);
+        setOriginalContent(code);
     }
   };
 
@@ -668,54 +623,13 @@ export default function SkillWorkbenchPage() {
             </div>
         </TabsContent>
 
-        <TabsContent value="chat" className="flex-1 flex flex-col gap-4 mt-0 data-[state=inactive]:hidden">
-             <div className="flex-1 border rounded-md p-4 overflow-y-auto bg-slate-50 dark:bg-slate-900/50 flex flex-col gap-4">
-                {chatHistory.length === 0 && (
-                    <div className="text-center text-muted-foreground mt-20">
-                        <Wand2 className="w-12 h-12 mx-auto mb-2 opacity-20" />
-                        <p>Ask the AI to generate or refine your skill code.</p>
-                        <p className="text-xs mt-2">Example: "Add a function to fetch data from an API"</p>
-                    </div>
-                )}
-                {chatHistory.map((msg, i) => (
-                    <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                        <div className={`max-w-[80%] rounded-lg p-3 ${
-                            msg.role === 'user' 
-                            ? 'bg-primary text-primary-foreground' 
-                            : msg.role === 'system'
-                            ? 'bg-destructive/10 text-destructive'
-                            : 'bg-white dark:bg-slate-800 border shadow-sm'
-                        }`}>
-                            <pre className="whitespace-pre-wrap font-sans text-sm">{msg.content}</pre>
-                        </div>
-                    </div>
-                ))}
-                {aiLoading && (
-                    <div className="flex justify-start">
-                        <div className="bg-white dark:bg-slate-800 border shadow-sm rounded-lg p-3">
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                        </div>
-                    </div>
-                )}
-             </div>
-             
-             <div className="flex gap-2">
-                <Textarea 
-                    value={chatInput} 
-                    onChange={e => setChatInput(e.target.value)}
-                    placeholder="Describe what you want to change..."
-                    className="min-h-[60px] max-h-[150px]"
-                    onKeyDown={e => {
-                        if (e.key === 'Enter' && !e.shiftKey) {
-                            e.preventDefault();
-                            handleAIChat();
-                        }
-                    }}
-                />
-                <Button size="icon" className="h-[60px] w-[60px]" onClick={handleAIChat} disabled={aiLoading || !chatInput.trim()}>
-                    {aiLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Wand2 className="w-5 h-5" />}
-                </Button>
-             </div>
+        <TabsContent value="chat" className="flex-1 flex flex-col gap-4 mt-0 data-[state=inactive]:hidden min-h-0">
+             <AIChatInterface 
+                skillId={id as string} 
+                models={models} 
+                onCodeUpdate={handleCodeUpdate}
+                selectedFile={selectedFile}
+             />
         </TabsContent>
 
         {/* Dependencies Tab */}

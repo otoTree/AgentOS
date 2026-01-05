@@ -1,4 +1,4 @@
-import { SuperAgent, AgentConfig, LLMClient } from '@agentos/superagent';
+import { SuperAgent, AgentConfig, LLMClient, AgentCallbacks } from '@agentos/superagent';
 import { ReadFileTool, WriteFileTool, ListFilesTool } from './tools/fs';
 import { CODER_SYSTEM_PROMPT } from './prompts';
 import { SkillFileSystem } from './interfaces';
@@ -34,7 +34,10 @@ export class CoderAgent {
     this.agent = new SuperAgent(config);
   }
 
-  async run(instruction: string) {
+  async run(instruction: string, callbacks?: AgentCallbacks) {
+    if (callbacks) {
+        this.agent.setCallbacks(callbacks);
+    }
     const result = await this.agent.run(instruction);
     
     // Find the last file written

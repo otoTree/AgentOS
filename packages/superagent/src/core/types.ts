@@ -51,6 +51,13 @@ export type AgentConfig = {
   llmClient?: LLMClient;
   toolCallMethod?: 'native' | 'json_prompt' | 'xml_prompt'; // 新增：工具调用方式
   history?: { role: string; content: string }[]; // Optional: Previous chat history
+  callbacks?: AgentCallbacks;
+}
+
+export type AgentCallbacks = {
+  onToolStart?: (toolName: string, args: any) => void;
+  onToolEnd?: (toolName: string, output: any) => void;
+  onStep?: (step: AgentAction) => void;
 }
 
 // --- LLM Client Interface ---

@@ -1,8 +1,8 @@
 import { LLMClient } from '@agentos/superagent';
 import { SkillFileSystem } from './interfaces';
-import { SKILL_GEN_STRUCTURE_PROMPT, SKILL_GEN_CODE_PROMPT } from './prompts';
+import { SKILL_GEN_STRUCTURE_PROMPT, SKILL_GEN_CODE_PROMPT, SKILL_GEN_DOC_PROMPT } from './prompts';
 
-export interface SkillStructure {
+export type SkillStructure = {
     name: string;
     description: string;
     entrypoint: string;
@@ -53,8 +53,24 @@ export class CoderSkillGenerator {
         }
 
         // 2. Generate Code for each file
+        const BLACKLIST_FILES = ['requirements.txt', 'Pipfile', '.env', '.env.example', 'README.md'];
+        
         for (const filename of structure.files) {
-            const codePrompt = this.renderPrompt(SKILL_GEN_CODE_PROMPT, {
+            // Skip blacklisted files
+            if (BLACKLIST_FILES.includes(filename) || filename.endsWith('.pyc')) {
+                continue;
+            }
+
+            // Select Prompt based on file type
+            let promptTemplate = SKILL_GEN_CODE_PROMPT;
+            let isDoc = false;
+
+            if (filename.endsWith('.md') || filename === 'SKILL.md') {
+                promptTemplate = SKILL_GEN_DOC_PROMPT;
+                isDoc = true;
+            }
+
+            const codePrompt = this.renderPrompt(promptTemplate, {
                 name: structure.name,
                 filename,
                 context: request,
@@ -62,13 +78,24 @@ export class CoderSkillGenerator {
             });
 
             const codeRes = await llmClient.chat([
-                { role: 'system', content: 'You are a Python expert.' },
+                { role: 'system', content: isDoc ? 'You are a Technical Writer.' : 'You are a Python expert.' },
                 { role: 'user', content: codePrompt }
             ]);
 
             const codeContent = codeRes.content || '';
+            
             // Clean markdown
-            const code = codeContent.replace(/```python\n?|\n?```/g, '');
+            let code = codeContent;
+            if (isDoc) {
+                // Remove wrapping markdown blocks if present, but keep internal markdown
+                if (code.startsWith('```markdown')) {
+                    code = code.replace(/^```markdown\n?/, '').replace(/\n?```$/, '');
+                } else if (code.startsWith('```')) {
+                    code = code.replace(/^```\n?/, '').replace(/\n?```$/, '');
+                }
+            } else {
+                code = codeContent.replace(/```python\n?|\n?```/g, '');
+            }
 
             // 3. Write File
             await fileSystem.writeFile(filename, code);

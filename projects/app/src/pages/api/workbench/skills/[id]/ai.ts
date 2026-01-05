@@ -21,17 +21,34 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     try {
       const body = aiSchema.parse(req.body);
       
+      // Enable Streaming
+      res.writeHead(200, {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+      });
+
       const result = await skillGenerator.refineSkill({
         skillId: id,
         modelId: body.modelId,
         instruction: body.instruction,
-        errorLog: body.errorLog
+        errorLog: body.errorLog,
+        onProgress: {
+            onStep: (step) => {
+                res.write(`data: ${JSON.stringify({ type: 'step', step })}\n\n`);
+            }
+        }
       });
       
-      return res.status(200).json(result);
+      res.write(`data: ${JSON.stringify({ type: 'result', result })}\n\n`);
+      res.end();
     } catch (error: unknown) {
       console.error(error);
-      return res.status(500).json({ error: (error as Error).message });
+      if (!res.headersSent) {
+          return res.status(500).json({ error: (error as Error).message });
+      }
+      res.write(`data: ${JSON.stringify({ type: 'error', error: (error as Error).message })}\n\n`);
+      res.end();
     }
   }
 
