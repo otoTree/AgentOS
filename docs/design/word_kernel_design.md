@@ -2,7 +2,7 @@
 
 ## 1. 概述
 
-本文档旨在设计一个高性能、可扩展且面向 AI Agent 优化的云端 Word 文档微内核。该内核将被封装在 `@agentos/word-kernel` 包中，作为 AgentOS 平台处理文档的核心基础设施。
+本文档旨在设计一个高性能、可扩展且面向 AI Agent 优化的云端 Word 文档微内核。该内核将被封装在 `@agentos/office` 包的 Word 模块中，作为 AgentOS 平台处理文档的核心基础设施。
 
 ### 1.1 设计目标
 - **微内核架构**: 核心仅负责状态管理与分发，功能通过插件扩展。
@@ -30,22 +30,18 @@
 
 ## 3. 目录结构与包封装
 
-该内核将作为 Monorepo 中的一个独立包进行封装：
+该内核将作为 Monorepo 中的 `@agentos/office` 包的一个子模块：
 
 ```text
-packages/word-kernel/
+packages/office/
 ├── src/
-│   ├── core/           # 微内核核心 (State, Command, Plugin Manager)
-│   ├── model/          # Schema 定义与数据模型
-│   ├── plugins/        # 官方标准插件
-│   │   ├── parser/     # Docx 解析插件
-│   │   ├── renderer/   # 基础渲染插件
-│   │   └── agent/      # Agent 能力封装
-│   ├── shared/         # 工具函数与常量
-│   └── index.ts        # 公共 API 出口
-├── tests/              # 单元测试与集成测试
-├── package.json
-└── tsconfig.json
+│   ├── word/           # Word 内核模块
+│   │   ├── core/       # 微内核核心 (State, Command, Plugin Manager)
+│   │   ├── model/      # Schema 定义与数据模型
+│   │   ├── plugins/    # 官方标准插件 (Parser, Renderer, Agent)
+│   │   └── index.ts    # Word 模块导出
+│   ├── shared/         # 办公组件共享工具
+│   └── index.ts        # 总包导出
 ```
 
 ---

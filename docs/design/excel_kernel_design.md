@@ -2,7 +2,7 @@
 
 ## 1. 概述
 
-本文档旨在设计一个高性能、可扩展且面向 AI Agent 优化的云端 Excel 表格微内核。该内核将被封装在 `@agentos/excel-kernel` 包中，作为 AgentOS 平台处理结构化数据、表格计算和数据分析的核心基础设施。
+本文档旨在设计一个高性能、可扩展且面向 AI Agent 优化的云端 Excel 表格微内核。该内核将被封装在 `@agentos/office` 包的 Excel 模块中，作为 AgentOS 平台处理结构化数据、表格计算和数据分析的核心基础设施。
 
 ### 1.1 设计目标
 - **微内核架构**: 核心负责状态管理、坐标索引和计算引擎，功能（如格式化、图表、导出）通过插件扩展。
@@ -30,25 +30,19 @@
 
 ---
 
-## 3. 目录结构与包封装
-
-该内核将作为 Monorepo 中的一个独立包进行封装：
+## 3. 目录结构
 
 ```text
-packages/excel-kernel/
+packages/office/
 ├── src/
-│   ├── core/           # 微内核核心 (Grid, State, Calc Engine)
-│   ├── model/          # 数据结构定义 (Workbook, Sheet, Cell, Style)
-│   ├── engine/         # 公式解析与计算逻辑
-│   ├── plugins/        # 官方标准插件
-│   │   ├── excel/      # XLSX/CSV 解析插件
-│   │   ├── renderer/   # 基础渲染插件 (Canvas/HTML)
-│   │   └── agent/      # Agent 能力封装与工具集
-│   ├── shared/         # 坐标转换、数学工具函数
-│   └── index.ts        # 公共 API 出口
-├── tests/              # 单元测试与计算引擎测试
-├── package.json
-└── tsconfig.json
+│   ├── excel/          # Excel 内核模块
+│   │   ├── core/       # 微内核核心 (Grid, State, Calc Engine)
+│   │   ├── model/      # 数据结构定义 (Workbook, Sheet, Cell, Style)
+│   │   ├── engine/     # 公式解析与计算逻辑
+│   │   ├── plugins/    # 官方标准插件 (Excel, Renderer, Agent)
+│   │   └── index.ts    # Excel 模块导出
+│   ├── shared/         # 办公组件共享工具 (坐标转换、数学工具)
+│   └── index.ts        # 总包导出
 ```
 
 ---

@@ -2,7 +2,7 @@
 
 ## 1. 概述
 
-本文档旨在设计一个轻量级、高性能且面向 AI Agent 深度优化的云端 PDF 微内核。该内核将被封装在 `@agentos/pdf-kernel` 包中，负责 PDF 数据的解析、渲染、结构化提取以及面向 Agent 的原子化操作接口。
+本文档旨在设计一个轻量级、高性能且面向 AI Agent 深度优化的云端 PDF 微内核。该内核将被封装在 `@agentos/office` 包的 PDF 模块中，负责 PDF 数据的解析、渲染、结构化提取以及面向 Agent 的原子化操作接口。
 
 ### 1.1 设计目标
 - **微内核架构**: 核心负责 PDF 文档对象模型（DOM）的状态管理，解析引擎、渲染引擎、导出器均作为插件存在。
@@ -26,8 +26,8 @@
 ### 2.2 插件系统 (Plugins)
 - **PDF Parser**: 基于 `pdf.js` 或 `pdf-lib` 解析二进制流，提取文本内容、字体元数据、层级结构。
 - **Renderer**:
-    - **Canvas Renderer**: 用于 Web 端高性能交互式显示。
-    - **Agent View Renderer**: 将 PDF 页面转换为带坐标信息的结构化 Markdown。
+    - **Canvas Renderer**: 用于 Web 端高性能交互式显示.
+    - **Agent View Renderer**: 将 PDF 页面转换为带坐标信息的结构化 Markdown.
 - **Extraction Engine**: 专门用于复杂结构（如表格、公式、目录）的识别与提取。
 - **Annotation Engine**: 负责批注（Highlight, Comment, Form Fill）的 CRUD。
 
@@ -36,19 +36,18 @@
 ## 3. 目录结构
 
 ```text
-packages/pdf-kernel/
+packages/office/
 ├── src/
-│   ├── core/           # 内核核心 (Store, EventBus, Coordinate)
-│   ├── model/          # 数据模型 (Document, Page, TextLayer, Annotation)
-│   ├── parser/         # 解析逻辑 (基于 PDF.js 的封装)
-│   ├── renderer/       # 渲染适配器 (Canvas, SVG, Markdown)
-│   ├── extractor/      # 结构化提取 (Table, Image, Catalog)
-│   ├── agent/          # 面向 Agent 的语义化能力封装
-│   ├── shared/         # 字节处理、数学计算工具
-│   └── index.ts        # 入口 API
-├── tests/              # 单元测试与基准测试
-├── package.json
-└── tsconfig.json
+│   ├── pdf/            # PDF 内核模块
+│   │   ├── core/       # 内核核心 (Store, EventBus, Coordinate)
+│   │   ├── model/      # 数据模型 (Document, Page, TextLayer, Annotation)
+│   │   ├── parser/     # 解析逻辑 (基于 PDF.js 的封装)
+│   │   ├── renderer/   # 渲染适配器 (Canvas, SVG, Markdown)
+│   │   ├── extractor/  # 结构化提取 (Table, Image, Catalog)
+│   │   ├── agent/      # 面向 Agent 的语义化能力封装
+│   │   └── index.ts    # PDF 模块导出
+│   ├── shared/         # 办公组件共享工具 (字节处理、数学计算)
+│   └── index.ts        # 总包导出
 ```
 
 ---

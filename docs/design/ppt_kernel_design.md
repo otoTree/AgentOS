@@ -2,7 +2,7 @@
 
 ## 1. 概述
 
-本文档旨在设计一个轻量级、模块化且面向 AI Agent 深度优化的云端 PPT 微内核。该内核将被封装在 `@agentos/ppt-kernel` 包中，负责 PPT 的数据结构定义、解析、渲染以及面向 Agent 的原子化操作接口。
+本文档旨在设计一个轻量级、模块化且面向 AI Agent 深度优化的云端 PPT 幻灯片微内核。该内核将被封装在 `@agentos/office` 包的 PPT 模块中，负责 PPT 的数据结构定义、解析、渲染以及面向 Agent 的原子化操作接口。
 
 ### 1.1 设计目标
 - **微内核架构**: 核心负责幻灯片树（Slide Tree）的状态管理和元素索引，解析器、渲染器、导出器均作为插件存在。
@@ -36,19 +36,18 @@
 ## 3. 目录结构
 
 ```text
-packages/ppt-kernel/
+packages/office/
 ├── src/
-│   ├── core/           # 内核核心 (Store, Command Bus, Element Registry)
-│   ├── model/          # 数据模型 (Presentation, Slide, Shape, Theme)
-│   ├── parser/         # PPTX 解析逻辑 (OpenXML 映射)
-│   ├── renderer/       # 渲染适配器 (SVG, Canvas, Text)
-│   ├── plugins/        # 扩展插件 (Animations, SmartArts)
-│   ├── agent/          # 面向 Agent 的语义化能力封装
-│   ├── shared/         # 几何计算、颜色工具
-│   └── index.ts        # 入口 API
-├── tests/              # 单元测试与解析测试
-├── package.json
-└── tsconfig.json
+│   ├── ppt/            # PPT 内核模块
+│   │   ├── core/       # 内核核心 (Store, Command Bus, Element Registry)
+│   │   ├── model/      # 数据模型 (Presentation, Slide, Shape, Theme)
+│   │   ├── parser/     # PPTX 解析逻辑 (OpenXML 映射)
+│   │   ├── renderer/   # 渲染适配器 (SVG, Canvas, Text)
+│   │   ├── plugins/    # 扩展插件 (Animations, SmartArts)
+│   │   ├── agent/      # 面向 Agent 的语义化能力封装
+│   │   └── index.ts    # PPT 模块导出
+│   ├── shared/         # 办公组件共享工具 (几何计算、颜色工具)
+│   └── index.ts        # 总包导出
 ```
 
 ---
