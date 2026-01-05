@@ -16,6 +16,11 @@ import { CreateFileDialog } from '@agentos/web/components/file-manager';
 import { Loader2, FilePlus, Download } from 'lucide-react';
 import { ShareLinkDialog } from '@/components/dataset/ShareLinkDialog';
 
+const DocxEditor = dynamic(
+  () => import('@agentos/web/components/file-manager').then((mod) => mod.DocxEditor),
+  { ssr: false }
+);
+
 const FileEditor = dynamic(
   () => import('@agentos/web/components/file-manager').then((mod) => mod.FileEditor),
   { ssr: false }
@@ -220,8 +225,14 @@ export default function DatasetPage() {
 
   const openFile = async (file: FileData) => {
       setSelectedFile(file);
-      const isMedia = ['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'mp4', 'webm', 'pdf'].includes(file.name.split('.').pop()?.toLowerCase() || '');
+      const ext = file.name.split('.').pop()?.toLowerCase() || '';
+      const isMedia = ['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'mp4', 'webm', 'pdf'].includes(ext);
       
+      if (ext === 'docx') {
+        setViewMode('edit');
+        return;
+      }
+
       if (!isMedia) {
           // Load content
           setLoadingFile(true);
@@ -561,7 +572,7 @@ export default function DatasetPage() {
                         <DialogTitle>{selectedFile?.name}</DialogTitle>
                         <div className="flex items-center gap-2 mr-6">
                             {/* Toggle Edit/Preview if text/markdown */}
-                            {selectedFile && !['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'mp4', 'webm', 'pdf'].includes(selectedFile.name.split('.').pop()?.toLowerCase() || '') && (
+                            {selectedFile && !['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'mp4', 'webm', 'pdf', 'docx'].includes(selectedFile.name.split('.').pop()?.toLowerCase() || '') && (
                                 <>
                                     <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as 'preview' | 'edit')} className="h-8">
                                         <TabsList className="h-8">
@@ -590,7 +601,34 @@ export default function DatasetPage() {
                         </div>
                     ) : (
                         selectedFile && (
-                            viewMode === 'preview' ? (
+                            selectedFile.name.endsWith('.docx') ? (
+                                <DocxEditor
+                                    fileName={selectedFile.name}
+                                    fileUrl={`/api/dataset/file?id=${selectedFile.id}&raw=true`}
+                                    onSave={async (blob) => {
+                                        try {
+                                            const formData = new FormData();
+                                            formData.append('file', blob, selectedFile.name);
+                                            formData.append('fileId', selectedFile.id);
+                                            
+                                            const res = await fetch('/api/dataset/upload', {
+                                                method: 'POST',
+                                                body: formData
+                                            });
+                                            
+                                            if (!res.ok) {
+                                                const err = await res.json();
+                                                throw new Error(err.error || 'Failed to save');
+                                            }
+                                            alert('Saved successfully');
+                                            loadDataset();
+                                        } catch (e) {
+                                            console.error(e);
+                                            alert('Failed to save');
+                                        }
+                                    }}
+                                />
+                            ) : viewMode === 'preview' ? (
                                 <FilePreview 
                                     name={selectedFile.name}
                                     url={`/api/dataset/file?id=${selectedFile.id}&raw=true`} // Use raw endpoint for correct content-type

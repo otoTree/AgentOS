@@ -26,6 +26,8 @@ export * from "./components/ui/textarea"
 export * from "./components/ui/tooltip"
 
 export * from "./components/file-manager"
+export * from "./components/word/word-editor"
+export * from "./components/word/editor-context"
 
 export * from "./lib/utils"
 export * from "./styles/theme"

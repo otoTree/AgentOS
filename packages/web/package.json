@@ -4,6 +4,7 @@
   "main": "index.ts",
   "dependencies": {
     "@agentos/global": "workspace:*",
+    "@agentos/office": "workspace:*",
     "@hookform/resolvers": "^5.2.2",
     "@monaco-editor/react": "^4.7.0",
     "@radix-ui/react-accordion": "^1.2.12",

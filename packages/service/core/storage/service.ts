@@ -110,6 +110,14 @@ export class StorageService {
         return this.provider.getDownloadUrl(key);
     }
 
+    async getObject(key: string): Promise<Buffer> {
+        return this.provider.getObject(key);
+    }
+
+    async uploadObject(key: string, data: any, type: string): Promise<string> {
+        return this.provider.upload(key, data, type);
+    }
+
     /**
      * Upload file and record metadata
      */

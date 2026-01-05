@@ -224,6 +224,12 @@ export class DatasetService {
         if (!file) throw new Error("File not found");
         return await storageService.getObjectRaw(file.path);
     }
+
+    async updateFileMetadata(id: string, updates: { size?: number, hash?: string }) {
+        await db.update(files)
+            .set(updates)
+            .where(eq(files.id, id));
+    }
 }
 
 export const datasetService = new DatasetService();
