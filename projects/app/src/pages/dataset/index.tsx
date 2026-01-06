@@ -21,6 +21,11 @@ const DocxEditor = dynamic(
   { ssr: false }
 );
 
+const ExcelEditor = dynamic(
+  () => import('@agentos/office').then((mod) => mod.Excel.ExcelEditor),
+  { ssr: false }
+);
+
 const FileEditor = dynamic(
   () => import('@agentos/web/components/file-manager').then((mod) => mod.FileEditor),
   { ssr: false }
@@ -90,6 +95,9 @@ export default function DatasetPage() {
   const [viewMode, setViewMode] = useState<'preview' | 'edit'>('preview');
   const [createFileOpen, setCreateFileOpen] = useState(false);
   const [savingFile, setSavingFile] = useState(false);
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const excelEditorRef = React.useRef<any>(null);
 
   // Load Teams
   useEffect(() => {
@@ -163,7 +171,7 @@ export default function DatasetPage() {
     }
   };
 
-  const handleCreateFile = async (name: string, type: 'file' | 'folder') => {
+  const handleCreateFile = async (name: string, type: 'file' | 'folder' | 'excel') => {
       if (type === 'folder') {
           setNewFolderName(name);
           // reuse createFolder logic but adjusted for arguments
@@ -190,6 +198,59 @@ export default function DatasetPage() {
             }
           } catch {
               alert('Error creating folder');
+          }
+      } else if (type === 'excel') {
+          // Create Empty Excel File
+          // We can create an empty file with .xlsx extension.
+          // Ideally we should generate a valid empty xlsx binary.
+          // But for now, let's try creating a file with .xlsx extension and let the editor handle initialization if empty?
+          // No, ExcelJS needs a valid zip structure.
+          // We can use the ExcelAdapter (if exposed) or just fetch to a specialized endpoint?
+          // Or we can just create a dummy file and rely on backend? 
+          // Best way: Create an empty workbook in browser using ExcelAdapter logic if possible, or simple empty buffer.
+          // Let's rely on importing ExcelAdapter to create empty blob.
+          
+          try {
+             // Dynamic import to avoid SSR issues if adapter uses browser specific things (though it shouldn't)
+             const { Excel } = await import('@agentos/office');
+             const { ExcelAdapter } = Excel;
+             const emptySheet = {
+                 id: 'Sheet1',
+                 name: 'Sheet1',
+                 rowCount: 100,
+                 colCount: 26,
+                 cells: new Map(),
+                 mergedCells: [],
+                 styles: {}
+             };
+             const blob = await ExcelAdapter.sheetDataToBlob(emptySheet);
+             
+             const fileName = name.endsWith('.xlsx') ? name : `${name}.xlsx`;
+             const file = new File([blob], fileName, { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+             
+             const formData = new FormData();
+             formData.append('file', file);
+             if (activeTab === 'team' && selectedTeam) {
+                formData.append('teamId', selectedTeam);
+             }
+             if (currentFolderId) {
+                formData.append('folderId', currentFolderId);
+             }
+
+             const res = await fetch('/api/dataset/upload', {
+                method: 'POST',
+                body: formData,
+            });
+            if (res.ok) {
+                setCreateFileOpen(false);
+                loadDataset();
+            } else {
+                const err = await res.json();
+                alert(`Create failed: ${err.error}`);
+            }
+          } catch (e) {
+              console.error(e);
+              alert('Failed to create excel file');
           }
       } else {
           // Create Empty File
@@ -223,13 +284,34 @@ export default function DatasetPage() {
       }
   };
 
-  const openFile = async (file: FileData) => {
+  const [excelBlob, setExcelBlob] = useState<Blob | null>(null);
+
+    // ...
+
+    const openFile = async (file: FileData) => {
       setSelectedFile(file);
       const ext = file.name.split('.').pop()?.toLowerCase() || '';
       const isMedia = ['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'mp4', 'webm', 'pdf'].includes(ext);
       
       if (ext === 'docx') {
         setViewMode('edit');
+        return;
+      }
+      
+      if (ext === 'xlsx') {
+        setViewMode('edit');
+        setLoadingFile(true);
+        try {
+            const res = await fetch(`/api/dataset/file?id=${file.id}&raw=true`);
+            if (res.ok) {
+                const blob = await res.blob();
+                setExcelBlob(blob);
+            }
+        } catch(e) {
+            console.error(e);
+        } finally {
+            setLoadingFile(false);
+        }
         return;
       }
 
@@ -252,6 +334,36 @@ export default function DatasetPage() {
           }
       } else {
           setViewMode('preview');
+      }
+  };
+
+  const handleSaveExcel = async () => {
+      if (!selectedFile || !excelEditorRef.current) return;
+      setSavingFile(true);
+      try {
+          const blob = await excelEditorRef.current.save();
+          // Upload blob
+          const formData = new FormData();
+          formData.append('fileId', selectedFile.id);
+          formData.append('file', new File([blob], selectedFile.name, { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
+          
+          const res = await fetch('/api/dataset/upload', {
+              method: 'POST',
+              body: formData
+          });
+          
+          if (res.ok) {
+              alert('Saved');
+              // Update size in list if possible
+              loadDataset();
+          } else {
+              alert('Failed to save');
+          }
+      } catch (e) {
+          console.error(e);
+          alert('Error saving excel file');
+      } finally {
+          setSavingFile(false);
       }
   };
 
@@ -572,7 +684,7 @@ export default function DatasetPage() {
                         <DialogTitle>{selectedFile?.name}</DialogTitle>
                         <div className="flex items-center gap-2 mr-6">
                             {/* Toggle Edit/Preview if text/markdown */}
-                            {selectedFile && !['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'mp4', 'webm', 'pdf', 'docx'].includes(selectedFile.name.split('.').pop()?.toLowerCase() || '') && (
+                            {selectedFile && !['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'mp4', 'webm', 'pdf', 'docx', 'xlsx'].includes(selectedFile.name.split('.').pop()?.toLowerCase() || '') && (
                                 <>
                                     <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as 'preview' | 'edit')} className="h-8">
                                         <TabsList className="h-8">
@@ -587,6 +699,12 @@ export default function DatasetPage() {
                                         </Button>
                                     )}
                                 </>
+                            )}
+                            {selectedFile?.name.endsWith('.xlsx') && (
+                                <Button size="sm" onClick={handleSaveExcel} disabled={savingFile}>
+                                    {savingFile && <Loader2 className="w-3 h-3 mr-2 animate-spin" />}
+                                    Save
+                                </Button>
                             )}
                             <a href={selectedFile?.url} download onClick={(e) => e.stopPropagation()}>
                                 <Button size="sm" variant="outline">Download</Button>
@@ -628,6 +746,14 @@ export default function DatasetPage() {
                                         }
                                     }}
                                 />
+                            ) : selectedFile.name.endsWith('.xlsx') ? (
+                                excelBlob && (
+                                    <ExcelEditor
+                                        ref={excelEditorRef}
+                                        className="h-full w-full"
+                                        file={excelBlob}
+                                    />
+                                )
                             ) : viewMode === 'preview' ? (
                                 <FilePreview 
                                     name={selectedFile.name}

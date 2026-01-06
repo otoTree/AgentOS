@@ -20,7 +20,7 @@ import {
 type CreateFileDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onCreate: (name: string, type: 'file' | 'folder') => void;
+  onCreate: (name: string, type: 'file' | 'folder' | 'excel') => void;
 }
 
 export const CreateFileDialog: React.FC<CreateFileDialogProps> = ({
