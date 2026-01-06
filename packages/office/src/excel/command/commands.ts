@@ -11,21 +11,11 @@ export class SetCellCommand implements Command {
     ) {}
 
     execute(sheet: SheetData): SheetData {
-        const newSheet = { ...sheet };
-        newSheet.cells = new Map(sheet.cells);
-        const key = `${this.row},${this.col}`;
-        const cell = newSheet.cells.get(key) || { v: null };
-        newSheet.cells.set(key, { ...cell, v: this.newValue });
-        return newSheet;
+        return SheetController.updateCell(sheet, this.row, this.col, this.newValue);
     }
 
     undo(sheet: SheetData): SheetData {
-        const newSheet = { ...sheet };
-        newSheet.cells = new Map(sheet.cells);
-        const key = `${this.row},${this.col}`;
-        const cell = newSheet.cells.get(key) || { v: null };
-        newSheet.cells.set(key, { ...cell, v: this.oldValue });
-        return newSheet;
+        return SheetController.updateCell(sheet, this.row, this.col, this.oldValue);
     }
 }
 

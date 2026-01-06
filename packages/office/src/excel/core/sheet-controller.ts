@@ -1,6 +1,76 @@
 import { SheetData, CellValue, Range } from '../model/schema';
+import { FormulaParser } from '../engine/parser';
+import { DependencyGraph } from '../engine/dependency-graph';
+import { FunctionLibrary } from '../engine/functions';
 
 export class SheetController {
+    // We need a persistent graph for the sheet. 
+    // Ideally this should be stored within SheetData or a separate manager, 
+    // but for now we'll attach it statically or recreate it.
+    // For simplicity in this functional style, we'll re-evaluate relevant chains.
+    // A proper implementation would have a stateful Controller instance holding the Graph.
+    
+    // For MVP, we will do a simple recursive update on setCell.
+    
+    static updateCell(sheet: SheetData, row: number, col: number, rawValue: string | null): SheetData {
+        const newSheet = { ...sheet };
+        // Shallow copy map to trigger reactivity
+        newSheet.cells = new Map(sheet.cells); 
+        
+        const key = `${row},${col}`;
+        const cell = newSheet.cells.get(key) || { v: null };
+        
+        // 1. Update own value
+        if (rawValue && rawValue.startsWith('=')) {
+            cell.f = rawValue;
+            // Calculate initial value
+            const result = this.evaluateFormula(rawValue, newSheet);
+            cell.v = result;
+        } else {
+            cell.f = undefined;
+            // Try to parse number
+            const num = Number(rawValue);
+            cell.v = (rawValue !== null && rawValue !== '' && !isNaN(num)) ? num : rawValue;
+        }
+        
+        newSheet.cells.set(key, cell);
+
+        // 2. Update Dependencies (Naive approach: re-evaluate all formulas)
+        // In a real app, use DependencyGraph to find dependents.
+        // Optimization: We can scan all cells with formulas.
+        
+        // Let's implement a simple multi-pass evaluation or just re-evaluate all formulas once
+        // For better correctness, we should topological sort, but for MVP, we iterate.
+        this.recalculateAll(newSheet);
+
+        return newSheet;
+    }
+
+    private static evaluateFormula(formula: string, sheet: SheetData): string | number | null {
+        const parsed = FormulaParser.parse(formula);
+        if (!parsed) return '#ERROR!';
+        
+        return FunctionLibrary.execute(parsed.functionName, parsed.args, sheet);
+    }
+
+    private static recalculateAll(sheet: SheetData) {
+        // Simple double pass to handle 1-level dependencies
+        // A real graph is needed for deep chains.
+        for (let i = 0; i < 3; i++) { // Max depth 3 for MVP
+            let changed = false;
+            sheet.cells.forEach((cell, key) => {
+                if (cell.f) {
+                    const newValue = this.evaluateFormula(cell.f, sheet);
+                    if (newValue !== cell.v) {
+                        cell.v = newValue;
+                        changed = true;
+                    }
+                }
+            });
+            if (!changed) break;
+        }
+    }
+
     static insertRow(sheet: SheetData, rowIndex: number): SheetData {
         const newSheet = { ...sheet };
         newSheet.rowCount++;
