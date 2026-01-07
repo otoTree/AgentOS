@@ -7,7 +7,6 @@ export * from './system/service';
 export * from './rbac/service';
 export * from './skill/service';
 export * from './context-manager';
-export * from './prompt/factory';
 export * from './skill/generator';
 export * from './sandbox/client';
 export * from './share/service';

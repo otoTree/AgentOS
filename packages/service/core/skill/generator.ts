@@ -1,4 +1,4 @@
-import { CoderSkillGenerator, CoderAgent } from '@agentos/coder';
+import { CoderAgent } from '@agentos/coder';
 import { AgentCallbacks } from '@agentos/superagent';
 import { skillService } from './service';
 import { sandboxClient } from '../sandbox/client';
@@ -40,15 +40,13 @@ export class SkillGenerator {
         // 2. Initialize Coder Generator
         const fileSystem = new ServiceSkillFileSystem(skill.id);
         const llmClient = new ServiceLLMClient(params.modelId);
-        const generator = new CoderSkillGenerator();
+        const coder = new CoderAgent(fileSystem, llmClient);
 
         try {
             // 3. Run Generation
-            const structure = await generator.generate({
+            const structure = await coder.generateSkill({
                 request: params.request,
-                dependencies,
-                llmClient,
-                fileSystem
+                dependencies
             });
 
             // 4. Update Skill Metadata (Schema, Name, Description)

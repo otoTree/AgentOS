@@ -36,6 +36,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         onProgress: {
             onStep: (step) => {
                 res.write(`data: ${JSON.stringify({ type: 'step', step })}\n\n`);
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                (res as any).flush?.();
             }
         }
       });

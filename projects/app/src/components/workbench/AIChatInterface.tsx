@@ -154,6 +154,9 @@ export function AIChatInterface({ skillId, models, onCodeUpdate }: AIChatInterfa
                 if (data.type === 'step') {
                     const step = data.step;
                     if (step.type === 'tool_call') {
+                        if (step.content) {
+                           currentContent += `> 💭 ${step.content}\n`;
+                        }
                         const args = JSON.stringify(step.toolArgs || {});
                         currentContent += `\n> 🛠️ Executing: ${step.toolName} with args: ${args}\n`;
                     } else if (step.type === 'tool_result') {

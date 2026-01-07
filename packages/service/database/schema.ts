@@ -360,4 +360,73 @@ export const chatMessagesRelations = relations(chatMessages, ({ one }) => ({
   }),
 }));
 
+// --- Workflow Engine ---
+
+export const workflows = pgTable('workflows', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  teamId: uuid('team_id').references(() => teams.id).notNull(),
+  name: text('name').notNull(),
+  description: text('description'),
+  graph: jsonb('graph').notNull(), // { nodes: [], edges: [] }
+  triggers: jsonb('triggers'), // { cron: [], event: [] }
+  isPublished: boolean('is_published').default(false),
+  creatorId: uuid('creator_id').references(() => users.id),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+export const workflowsRelations = relations(workflows, ({ one, many }) => ({
+  team: one(teams, {
+    fields: [workflows.teamId],
+    references: [teams.id],
+  }),
+  creator: one(users, {
+    fields: [workflows.creatorId],
+    references: [users.id],
+  }),
+  executions: many(workflowExecutions),
+}));
+
+export const workflowExecutions = pgTable('workflow_executions', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  workflowId: uuid('workflow_id').references(() => workflows.id).notNull(),
+  status: text('status').notNull(), // 'pending', 'running', 'completed', 'failed', 'paused', 'cancelled'
+  input: jsonb('input'),
+  output: jsonb('output'),
+  context: jsonb('context'),
+  error: text('error'),
+  triggerType: text('trigger_type'),
+  startedAt: timestamp('started_at').defaultNow(),
+  completedAt: timestamp('completed_at'),
+});
+
+export const workflowExecutionsRelations = relations(workflowExecutions, ({ one, many }) => ({
+  workflow: one(workflows, {
+    fields: [workflowExecutions.workflowId],
+    references: [workflows.id],
+  }),
+  nodeExecutions: many(workflowNodeExecutions),
+}));
+
+export const workflowNodeExecutions = pgTable('workflow_node_executions', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  executionId: uuid('execution_id').references(() => workflowExecutions.id).notNull(),
+  nodeId: text('node_id').notNull(),
+  nodeType: text('node_type').notNull(),
+  status: text('status').notNull(),
+  input: jsonb('input'),
+  output: jsonb('output'),
+  error: text('error'),
+  startedAt: timestamp('started_at').defaultNow(),
+  completedAt: timestamp('completed_at'),
+  duration: integer('duration'),
+});
+
+export const workflowNodeExecutionsRelations = relations(workflowNodeExecutions, ({ one }) => ({
+  execution: one(workflowExecutions, {
+    fields: [workflowNodeExecutions.executionId],
+    references: [workflowExecutions.id],
+  }),
+}));
+
 

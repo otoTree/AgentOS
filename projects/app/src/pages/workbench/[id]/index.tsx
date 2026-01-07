@@ -94,7 +94,7 @@ export default function SkillWorkbenchPage() {
   // Initial Fetch
   useEffect(() => {
     if (!id) return;
-    fetchSkill();
+    fetchSkill(true);
     fetchDependencies();
     fetchModels();
   }, [id]);
@@ -126,25 +126,28 @@ export default function SkillWorkbenchPage() {
     }
   };
 
-  const fetchSkill = async () => {
+  const fetchSkill = async (initial = false) => {
     try {
-      setLoading(true);
+      if (initial) setLoading(true);
       const res = await fetch(`/api/workbench/skills/${id}`);
       if (!res.ok) throw new Error('Failed to load skill');
       const data = await res.json();
       setSkill(data);
-      setEditForm({ name: data.name, description: data.description || '', emoji: data.emoji || '🤖' });
       
-      // Select entry by default
-      if (data.meta?.entry) {
-        selectFile(data.meta.entry);
-      } else if (data.meta?.files?.length > 0) {
-        selectFile(data.meta.files[0]);
+      if (initial) {
+        setEditForm({ name: data.name, description: data.description || '', emoji: data.emoji || '🤖' });
+      
+        // Select entry by default
+        if (data.meta?.entry) {
+            selectFile(data.meta.entry);
+        } else if (data.meta?.files?.length > 0) {
+            selectFile(data.meta.files[0]);
+        }
       }
     } catch {
       toast.error('Failed to load skill details');
     } finally {
-      setLoading(false);
+      if (initial) setLoading(false);
     }
   };
 
@@ -344,6 +347,7 @@ export default function SkillWorkbenchPage() {
         setFileContent(code);
         setOriginalContent(code);
     }
+    fetchSkill(false);
   };
 
   // Execution
@@ -623,7 +627,7 @@ export default function SkillWorkbenchPage() {
             </div>
         </TabsContent>
 
-        <TabsContent value="chat" className="flex-1 flex flex-col gap-4 mt-0 data-[state=inactive]:hidden min-h-0">
+        <TabsContent value="chat" forceMount={true} className="flex-1 flex flex-col gap-4 mt-0 data-[state=inactive]:hidden min-h-0">
              <AIChatInterface 
                 skillId={id as string} 
                 models={models} 

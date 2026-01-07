@@ -12,7 +12,7 @@ import { Label } from '@agentos/web/components/ui/label';
 import { Switch } from '@agentos/web/components/ui/switch';
 import { Loader2, Play, Terminal, Box } from 'lucide-react';
 import { AutoForm } from './AutoForm';
-import { parsePythonEntrypoint, ParamInfo } from '@agentos/global';
+import { parsePythonEntrypoint, ParamInfo, extractJson } from '@agentos/global';
 import { toast } from '@agentos/web/components/ui/sonner';
 
 const Editor = dynamic(
@@ -114,7 +114,8 @@ export function RunSkillDialog({
     const handleExecute = async () => {
         let inputJson;
         try {
-            inputJson = JSON.parse(runInput);
+            inputJson = extractJson(runInput);
+            if (!inputJson) throw new Error('Invalid JSON');
         } catch {
             toast.error('Invalid JSON input');
             return;
