@@ -1,11 +1,15 @@
 import { Tool } from '@agentos/global';
-import { weatherTool } from './weather';
+
 import { wordTools } from './word';
+import { pptTools } from './ppt';
+import { excelTools } from './excel';
 
 export const builtInTools: Tool[] = [
-    weatherTool,
-    ...wordTools
+    ...wordTools,
+    ...pptTools,
+    ...excelTools
 ];
 
-export * from './weather';
 export * from './word';
+export * from './ppt';
+export * from './excel';

@@ -48,3 +48,4 @@ export * from './core/registry';
 export * from './agent/api';
 export * from './io/exporter';
 export * from './parser/pptx-parser';
+export * from './tools';
