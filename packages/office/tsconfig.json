@@ -9,7 +9,8 @@
     "paths": {
       "@/*": ["./src/*"],
       "@agentos/global": ["../global/index.ts"]
-    }
+    },
+    "jsx": "react-jsx"
   },
-  "include": ["src/**/*.ts"]
+  "include": ["src/**/*.ts", "src/**/*.tsx"]
 }

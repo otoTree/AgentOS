@@ -1,6 +1,6 @@
 import { SheetData } from '../model/schema';
 
-export interface Command {
+export type Command = {
     execute(sheet: SheetData): SheetData;
     undo(sheet: SheetData): SheetData;
 }

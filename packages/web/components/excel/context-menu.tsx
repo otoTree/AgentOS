@@ -22,7 +22,7 @@ export type ContextMenuAction =
     | 'merge-cells'
     | 'unmerge-cells';
 
-interface ContextMenuProps {
+type ContextMenuProps = {
     x: number;
     y: number;
     visible: boolean;

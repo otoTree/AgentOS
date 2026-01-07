@@ -12,7 +12,7 @@ type HitRegion =
   | { type: 'row-resize', row: number }
   | null;
 
-export interface InteractionOptions {
+export type InteractionOptions = {
   sizeManager: SizeManager;
   headerWidth: number;
   headerHeight: number;

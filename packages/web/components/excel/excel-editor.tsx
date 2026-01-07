@@ -8,7 +8,7 @@ import { Command } from '@agentos/office/src/excel/command/interface';
 import { Toolbar } from './toolbar';
 import { ContextMenu, ContextMenuAction } from './context-menu';
 
-interface ExcelEditorProps {
+type ExcelEditorProps = {
   initialData?: SheetData;
 }
 

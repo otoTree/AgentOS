@@ -51,7 +51,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                  'pdf': 'application/pdf',
                  'txt': 'text/plain',
                  'md': 'text/markdown',
-                 'json': 'application/json'
+                 'json': 'application/json',
+                 'pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+                 'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
              };
              if (ext && mimeMap[ext]) {
                  contentType = mimeMap[ext];

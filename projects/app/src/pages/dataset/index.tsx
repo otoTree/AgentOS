@@ -26,6 +26,11 @@ const ExcelEditor = dynamic(
   { ssr: false }
 );
 
+const PPTEditor = dynamic(
+  () => import('@agentos/web/components/ppt').then((mod) => mod.PPTEditor),
+  { ssr: false }
+);
+
 const FileEditor = dynamic(
   () => import('@agentos/web/components/file-manager').then((mod) => mod.FileEditor),
   { ssr: false }
@@ -285,6 +290,7 @@ export default function DatasetPage() {
   };
 
   const [excelBlob, setExcelBlob] = useState<Blob | null>(null);
+  const [pptBlob, setPptBlob] = useState<Blob | null>(null);
 
     // ...
 
@@ -306,6 +312,23 @@ export default function DatasetPage() {
             if (res.ok) {
                 const blob = await res.blob();
                 setExcelBlob(blob);
+            }
+        } catch(e) {
+            console.error(e);
+        } finally {
+            setLoadingFile(false);
+        }
+        return;
+      }
+
+      if (ext === 'pptx') {
+        setViewMode('edit');
+        setLoadingFile(true);
+        try {
+            const res = await fetch(`/api/dataset/file?id=${file.id}&raw=true`);
+            if (res.ok) {
+                const blob = await res.blob();
+                setPptBlob(blob);
             }
         } catch(e) {
             console.error(e);
@@ -684,7 +707,7 @@ export default function DatasetPage() {
                         <DialogTitle>{selectedFile?.name}</DialogTitle>
                         <div className="flex items-center gap-2 mr-6">
                             {/* Toggle Edit/Preview if text/markdown */}
-                            {selectedFile && !['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'mp4', 'webm', 'pdf', 'docx', 'xlsx'].includes(selectedFile.name.split('.').pop()?.toLowerCase() || '') && (
+                            {selectedFile && !['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'mp4', 'webm', 'pdf', 'docx', 'xlsx', 'pptx'].includes(selectedFile.name.split('.').pop()?.toLowerCase() || '') && (
                                 <>
                                     <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as 'preview' | 'edit')} className="h-8">
                                         <TabsList className="h-8">
@@ -752,6 +775,13 @@ export default function DatasetPage() {
                                         ref={excelEditorRef}
                                         className="h-full w-full"
                                         file={excelBlob}
+                                    />
+                                )
+                            ) : selectedFile.name.endsWith('.pptx') ? (
+                                pptBlob && (
+                                    <PPTEditor
+                                        className="h-full w-full"
+                                        file={pptBlob}
                                     />
                                 )
                             ) : viewMode === 'preview' ? (

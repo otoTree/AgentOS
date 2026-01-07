@@ -3,12 +3,12 @@ import { KonvaRenderer } from '../plugins/renderer/konva-renderer';
 import { SheetData } from '../model/schema';
 import { ExcelAdapter } from '../io/excel-adapter';
 
-export interface ExcelEditorRef {
+export type ExcelEditorRef = {
     save: () => Promise<Blob>;
     getData: () => SheetData | null;
 }
 
-interface ExcelEditorProps {
+type ExcelEditorProps = {
     initialData?: SheetData;
     file?: File | Blob; // If provided, initialData is ignored/overwritten
     onChange?: (data: SheetData) => void;
