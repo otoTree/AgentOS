@@ -20,6 +20,11 @@ Global Constraints & Standards:
    - Type hinting is mandatory.
    - Error handling: Print to stderr, do not crash.
    - STRICTLY FORBIDDEN: 'if __name__ == "__main__":'. The entrypoint is the 'main' function.
+   - The 'main' function MUST use explicit, named parameters (NOT 'args: dict').
+   - The 'main' function MUST have exactly ONE return statement at the end.
+   - The 'main' function MUST return a dictionary with a fixed structure.
+   - Every parameter in 'main' MUST have a type hint and match the 'input_schema'.
+   - The return value MUST match the 'output_schema'.
 `;
 
 // 结构生成 Prompt - 关注整体布局
@@ -35,6 +40,8 @@ Constraints:
 1. You MUST include 'SKILL.md' in the files list.
 2. The entrypoint must be 'src/main.py'.
 3. Put executable code in 'src/', static assets in 'assets/', and docs in 'references/'.
+4. The 'input_schema' MUST exactly represent the parameters of the 'main' function in 'src/main.py'.
+5. The 'output_schema' MUST exactly represent the keys of the dictionary returned by the 'main' function.
 
 Output Format (JSON):
 {
@@ -84,9 +91,11 @@ Context:
 
 Specific Requirements for Code:
 1. The 'main' function IS the entry point.
-   - def main(args: dict) -> dict: or typed arguments.
-   - It MUST accept arguments matching the input_schema.
-   - It MUST return a JSON-serializable dict matching the output_schema.
+   - It MUST use explicit, named parameters matching the 'input_schema'.
+    - Example: def main(query: str, count: int) -> dict:
+    - Do NOT use 'args: dict'.
+    - It MUST have exactly ONE return statement at the end of the function.
+    - It MUST return a JSON-serializable dict matching the 'output_schema'.
 2. You can access local files in 'assets/' using relative paths or strict absolute paths if known.
 3. Implement the actual logic inside 'main'.
 

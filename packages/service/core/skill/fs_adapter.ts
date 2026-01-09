@@ -18,4 +18,8 @@ export class ServiceSkillFileSystem implements SkillFileSystem {
         const skill = await skillService.getSkill(this.skillId);
         return skill.meta.files;
     }
+
+    async updateMeta(meta: any): Promise<void> {
+        await skillService.updateSkillFiles(this.skillId, {}, meta);
+    }
 }

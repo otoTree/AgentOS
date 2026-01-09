@@ -64,7 +64,7 @@ export class SkillService {
         // 3. Create default main.py
         await storageService.uploadRaw(
             `${ossPath}src/main.py`, 
-            Buffer.from('def main(args):\n    print("Hello from Skill")\n    return {"status": "ok"}'), 
+            Buffer.from('def main(name: str) -> dict:\n    # Only one return at the end\n    message = f"Hello {name}"\n    return {"status": "ok", "message": message}'), 
             'text/x-python'
         );
 

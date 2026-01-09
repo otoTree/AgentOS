@@ -1,218 +1,176 @@
-# Execution Engine 设计文档
+# Background Task Agent & Execution System 设计文档
 
-## 1. 背景与目标
+## 1. 愿景与范式转变
 
-根据 AgentOS 路线图，第四阶段和第五阶段的核心目标是实现**自动化与复杂决策引擎**。目前的 AgentOS 主要支持单点 Skill 的执行，缺乏对复杂业务流程的编排和自动化调度能力。
+### 1.1 从 "Workflow Orchestration" 到 "Agentic Delegation"
+原有的设计基于传统的 DAG 工作流。在 AgentOS 的新视野下，我们认为 **Skill 本身即是工作流**。
 
-本设计文档旨在定义 **Execution Engine (执行引擎)** 的架构，以支持：
-- **异步任务调度 (Async Task Scheduling)**: 支持 Cron 定时任务、事件触发等自动化机制。
-- **SOP Agent (标准作业程序 Agent)**: 支持算子并行、多路决策、状态保持，实现复杂业务逻辑的编排。
+系统不再需要微观管理每个步骤，而是转向 **基于工具调用的任务委派** 模式：
+1.  **Super Agent (大脑)**: 
+    - 这是一个拥有高级权限的 Agent。
+    - 它配备了一个特殊的工具：`create_task`。
+    - 通过调用此工具，它可以"雇佣"后台 Worker，并为其设定角色和目标。
+    - **批量能力**: Super Agent 可以根据需要多次调用该工具，实现并发任务的批量分发（例如：同时雇佣 5 个"爬虫助手"去抓取不同的网站）。
+2.  **Task Agent (执行者)**: 
+    - 这是一个**运行时概念**，由 Super Agent 通过工具调用动态创建。
+    - 它在后台启动，加载 Super Agent 传入的 Profile 和 Skill，自主完成任务。
+3.  **Artifacts (交付物)**: 任务执行过程中产生的代码、文件、图表等，被自动捕获并持久化。
 
-## 2. 核心概念
+### 1.2 核心目标
+- **去 DAG 化**: 移除复杂的图编排引擎。
+- **Tool-First Design**: 任务创建只是 Super Agent 的一个普通工具调用，逻辑统一且灵活。
+- **交付物管理**: 自动追踪和存储任务产生的文件。
 
-为了实现上述目标，引入以下核心实体：
+## 2. 核心实体定义
 
-### 2.1 Workflow (工作流)
-定义业务逻辑的蓝图。它是一个有向无环图 (DAG)，由节点 (Nodes) 和边 (Edges) 组成。
-- **Input**: 工作流启动时需要的初始参数。
-- **Output**: 工作流执行结束后的最终结果。
+### 2.1 Task (任务)
+描述一个待执行的具体工作。
+- **Instruction**: 任务指令。
+- **Agent Profile**: 动态生成的 Agent 设定。
+- **Allowed Skills**: 授权使用的 Skill ID 列表。
+- **Status**: `QUEUED`, `PROCESSING`, `COMPLETED`, `FAILED`.
 
-### 2.2 Node (节点)
-工作流中的执行单元。类型包括：
-- **Start/End**: 流程的开始和结束。
-- **Skill Node**: 调用现有的 Skill (Python/Sandboxed)。
-- **LLM Node**: 直接调用大模型进行处理。
-- **Logic Node**: 逻辑控制，如 `If-Else` (条件分支), `Switch`, `Loop` (循环)。
-- **Code Node**: 轻量级 JavaScript/TypeScript 代码块 (用于数据转换)。
-- **Human Node**: 需要人工确认或输入的节点 (User-in-the-loop)。
+### 2.2 Super Agent Tools
+Super Agent 默认挂载的核心工具。
 
-### 2.3 Edge (边)
-连接两个节点，定义数据的流向和执行的依赖关系。
-- 支持条件表达式 (Condition)，仅当满足条件时才激活后续节点。
-
-### 2.4 Execution (执行实例)
-Workflow 的一次运行记录。
-- 包含运行时状态、每个节点的输入/输出/日志、执行耗时等。
-- 状态: `PENDING`, `RUNNING`, `PAUSED` (等待人工), `COMPLETED`, `FAILED`, `CANCELLED`.
+#### Tool: `create_task`
+用于分发后台任务。
+- **Arguments**:
+    - `instruction` (string): 具体的任务描述。
+    - `agent_profile` (object): { name, role, goal, tone }。
+    - `skill_ids` (array<string>): 需要使用的 Skill ID 列表。
+- **Returns**: `task_id` (用于后续查询状态).
 
 ## 3. 系统架构
 
-架构分为三层：**调度层 (Scheduler)**、**编排层 (Orchestrator)** 和 **执行层 (Runner)**。
-
 ```mermaid
 graph TD
-    A[Trigger (Cron/API/Event)] -->|1. Enqueue| B(Job Queue)
-    B -->|2. Pick Job| C[Orchestrator / Engine]
-    C -->|3. Parse DAG| D{Node Type?}
-    D -->|Skill| E[Sandbox Runner]
-    D -->|LLM| F[Model Service]
-    D -->|Logic| G[Logic Evaluator]
-    E & F & G -->|4. Result| C
-    C -->|5. Next Node| B
+    User[User] -->|1. Request| Super[Super Agent]
+    
+    subgraph Super Agent Runtime
+        Super -->|2. Reasoning| LLM[LLM]
+        LLM -->|3. Tool Call: create_task| ToolRunner
+    end
+    
+    ToolRunner -->|4. Save Task| DB[(Postgres)]
+    ToolRunner -->|5. Enqueue| Queue[Job Queue (pg-boss)]
+    
+    subgraph Execution Environment
+        Worker[Task Worker] -->|6. Poll Job| Queue
+        Worker -->|7. Init Agent (Apply Profile)| Runtime
+        Worker -->|8. Mount Skills| Runtime
+        Runtime -->|9. Execute & Reason| Sandbox[Python Sandbox]
+        
+        Sandbox -->|10. Generate Files| LocalFS[Local File System]
+    end
+    
+    Worker -->|11. Upload Artifacts| OSS[Object Storage]
+    Worker -->|12. Update Status| DB
 ```
 
-### 3.1 调度层 (Scheduler)
-负责触发工作流的执行。
-- **Cron Scheduler**: 基于时间表达式触发 (如每天 8:00)。
-- **Event Listener**: 监听系统事件 (如 webhook, 数据库变更)。
-- **API Trigger**: 用户手动触发或通过 API 调用。
+### 3.1 调度层 (Dispatcher)
+- **Tool-Based Dispatch**:
+    - 任务的创建完全依赖于 Super Agent 的 `function calling` 能力。
+    - 这意味着 Super Agent 可以通过循环调用 `create_task` 来实现复杂的并发逻辑，或者根据上一个任务的结果来决定是否创建下一个任务。
 
-**技术选型建议**:
-- 鉴于当前架构主要基于 Postgres，推荐使用 **pg-boss** 或 **BullMQ** (需 Redis)。
-- *方案 A (推荐)*: **pg-boss**。利用现有的 Postgres 数据库实现作业队列，无需引入 Redis，运维简单。
-- *方案 B*: **BullMQ**。高性能，标准方案，但需要额外部署 Redis。
+### 3.2 执行层 (Worker & Sandbox)
+- **Dynamic Initialization**:
+    - Worker 从数据库读取 Task。
+    - 提取 `agent_profile`，构建 System Prompt。
+    - 提取 `skill_ids`，仅注入指定的 Skill。
+- **Artifact Sniffer**:
+    - 监听沙箱 `/workspace/output`，自动上传产出物。
 
-### 3.2 编排层 (Orchestrator)
-负责管理 DAG 的生命周期。
-- **状态管理**: 跟踪当前执行到哪个节点。
-- **并发控制**: 识别可以并行执行的节点分支。
-- **数据流转**: 将上一个节点的 Output 映射为下一个节点的 Input。
+## 4. 数据库设计 (Drizzle Schema)
 
-### 3.3 执行层 (Runner)
-具体的任务执行者。
-- 复用现有的 `skillService` 执行 Python Skill。
-- 新增 `LLMService` 调用。
-- 简单的逻辑判断在 Node.js 进程中直接计算。
-
-## 4. 数据库设计 (Schema)
-
-基于 Drizzle ORM 的 Schema 设计草案。
-
-### 4.1 Workflows 表
-存储流程定义。
+### 4.1 Tasks 表
+记录任务及其动态配置。
 
 ```typescript
-export const workflows = pgTable('workflows', {
+export const tasks = pgTable('tasks', {
   id: uuid('id').primaryKey().defaultRandom(),
   teamId: uuid('team_id').references(() => teams.id).notNull(),
-  name: text('name').notNull(),
-  description: text('description'),
   
-  // 核心定义，存储 JSON 结构的 Graph (Nodes & Edges)
-  // 包含: nodes: { id, type, data, position }[], edges: { id, source, target, type }[]
-  graph: jsonb('graph').notNull(), 
+  // 任务指令
+  instruction: text('instruction').notNull(),
   
-  // 触发器配置 (如 Cron)
-  triggers: jsonb('triggers'), 
+  // 动态生成的 Agent 画像 (JSON)
+  agentProfile: jsonb('agent_profile').notNull(),
   
-  isPublished: boolean('is_published').default(false),
+  // 选定的 Skill IDs (Array)
+  skillIds: jsonb('skill_ids').$type<string[]>().notNull(),
+  
+  // 任务状态
+  status: text('status').default('queued').notNull(), 
+  
+  // 执行结果摘要
+  result: text('result'),
+  
+  // 错误信息
+  error: text('error'),
+  
+  startedAt: timestamp('started_at'),
+  completedAt: timestamp('completed_at'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at').defaultNow().notNull(),
-  creatorId: uuid('creator_id').references(() => users.id),
 });
 ```
 
-### 4.2 WorkflowExecutions 表
-存储运行实例。
+### 4.2 TaskArtifacts 表
+记录任务产生的具体文件/交付物。
 
 ```typescript
-export const workflowExecutions = pgTable('workflow_executions', {
+export const taskArtifacts = pgTable('task_artifacts', {
   id: uuid('id').primaryKey().defaultRandom(),
-  workflowId: uuid('workflow_id').references(() => workflows.id).notNull(),
+  taskId: uuid('task_id').references(() => tasks.id).notNull(),
+  teamId: uuid('team_id').references(() => teams.id).notNull(),
   
-  status: text('status').notNull(), // 'pending', 'running', 'completed', 'failed', 'paused'
+  type: text('type').notNull(), 
+  name: text('name').notNull(),
+  url: text('url').notNull(),
+  size: integer('size'),
+  mimeType: text('mime_type'),
   
-  input: jsonb('input'), // 初始输入
-  output: jsonb('output'), // 最终输出
-  
-  // 当前执行上下文，存储所有已完成节点的输出，用于后续节点引用
-  // key: nodeId, value: outputData
-  context: jsonb('context'),
-  
-  startedAt: timestamp('started_at').defaultNow(),
-  completedAt: timestamp('completed_at'),
-  error: text('error'),
-  
-  triggerType: text('trigger_type'), // 'manual', 'cron', 'api'
+  createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 ```
 
-### 4.3 WorkflowNodeExecutions 表 (可选，或存入 context)
-如果需要详细的审计日志，建议独立存储每个节点的执行记录。
+## 5. 交互流程详解
 
-```typescript
-export const workflowNodeExecutions = pgTable('workflow_node_executions', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  executionId: uuid('execution_id').references(() => workflowExecutions.id).notNull(),
-  nodeId: text('node_id').notNull(), // 对应 graph 中的 node id
-  nodeType: text('node_type').notNull(),
-  
-  status: text('status').notNull(),
-  input: jsonb('input'),
-  output: jsonb('output'),
-  error: text('error'),
-  
-  startedAt: timestamp('started_at').defaultNow(),
-  completedAt: timestamp('completed_at'),
-  duration: integer('duration'), // ms
-});
-```
+### 场景：批量分析竞争对手
 
-## 5. 功能特性详解
+1.  **用户请求**:
+    - User: "帮我分析一下这三家公司的官网：ExampleA.com, ExampleB.com, ExampleC.com，分别生成报告。"
 
-### 5.1 异步与并行 (Parallelism)
-引擎在解析 DAG 时，需计算节点的**入度 (In-degree)**。
-- 当一个节点的依赖全部满足 (即父节点都已完成) 时，该节点进入 **Ready** 状态。
-- 引擎可以同时将所有 Ready 的节点放入执行队列。
-- 例如：节点 A 完成后，节点 B 和 C 都可以执行，引擎应同时触发 B 和 C 的任务。
+2.  **Super Agent 规划**:
+    - 识别意图: 需要执行 3 次相同的分析任务。
+    - **生成 Profile**: 
+        - Role: "Competitor Analyst"
+        - Goal: "Analyze website content and generate a brief report."
+    - **选择 Skills**: `web_scrape`, `summarize_text`.
 
-### 5.2 复杂决策 (Branching)
-支持基于数据的路由。
-- **Switch Node**: 根据输入值的不同，激活不同的输出路径。
-- **Condition Edge**: 边上带有条件表达式 (如 `{{nodeA.output.score}} > 0.8`)。只有条件为 true，后续节点才会被激活。
+3.  **工具调用 (Batch Execution)**:
+    - Super Agent 连续发起 3 次 `create_task` 调用（或在一次回复中包含 3 个 tool_call）：
+        1.  `create_task(instruction="Analyze ExampleA.com...", profile=..., skills=...)`
+        2.  `create_task(instruction="Analyze ExampleB.com...", profile=..., skills=...)`
+        3.  `create_task(instruction="Analyze ExampleC.com...", profile=..., skills=...)`
 
-### 5.3 数据引用 (Data Mapping)
-节点需要使用前序节点产生的数据。
-- 采用 `{{nodeId.output.key}}` 的引用语法。
-- 在执行节点前，引擎负责解析这些模板变量，替换为实际值。
+4.  **异步执行**:
+    - 系统将 3 个任务推入队列。
+    - 3 个后台 Worker 并行领取任务，分别启动沙箱进行抓取和分析。
+
+5.  **结果汇总**:
+    - 任务完成后，Super Agent 可以查询这些任务的状态和 Result，最后给用户一个汇总回复："三家公司的分析报告已生成，请查看附件。"
 
 ## 6. 开发计划
 
-### 第一阶段：核心引擎 (Core Engine)
-1. 定义数据库 Schema (`workflows`, `workflow_executions`).
-2. 实现基础的 DAG 解析器 (拓扑排序/依赖检查)。
-3. 实现 `WorkflowService.run()`: 支持同步执行简单的线性流程。
+### 第一阶段：Schema 与 Tool 定义
+1.  **Schema**: 创建 `Tasks` 和 `TaskArtifacts` 表。
+2.  **Tool Implementation**: 在 `packages/service` 中实现 `CreateTaskTool`，该工具负责向数据库插入记录并发送消息到 `pg-boss`。
 
-### 第二阶段：异步调度 (Async Scheduler)
-1. 引入任务队列 (pg-boss 或 BullMQ)。
-2. 实现 `WorkflowWorker`: 从队列消费任务并执行节点。
-3. 支持节点间的异步流转。
+### 第二阶段：Super Agent 增强
+1.  **System Prompt**: 更新 Super Agent 的提示词，使其知晓自己拥有 "雇佣员工" (create_task) 的能力。
+2.  **Context Management**: 让 Super Agent 能够理解任务 ID，并在后续对话中查询任务进度。
 
-### 第三阶段：SOP 组件与 UI
-1. 前端实现基于 ReactFlow 的可视化编排器。
-2. 后端支持更多节点类型 (Logic, Loop)。
-3. 支持 Cron 触发器。
-
-## 7. 示例配置 (Graph JSON)
-
-```json
-{
-  "nodes": [
-    {
-      "id": "start",
-      "type": "start",
-      "data": { "inputSchema": { "topic": "string" } }
-    },
-    {
-      "id": "research_skill",
-      "type": "skill",
-      "data": { "skillId": "xyz-123", "input": { "query": "{{start.topic}}" } }
-    },
-    {
-      "id": "write_skill",
-      "type": "skill",
-      "data": { "skillId": "abc-789", "input": { "context": "{{research_skill.output}}" } }
-    },
-    {
-      "id": "end",
-      "type": "end",
-      "data": { "result": "{{write_skill.output}}" }
-    }
-  ],
-  "edges": [
-    { "source": "start", "target": "research_skill" },
-    { "source": "research_skill", "target": "write_skill" },
-    { "source": "write_skill", "target": "end" }
-  ]
-}
-```
+### 第三阶段：执行器实现
+1.  **Worker**: 实现 `pg-boss` 消费者。
+2.  **Runtime**: 动态构建 LangChain/AgentExecutor。

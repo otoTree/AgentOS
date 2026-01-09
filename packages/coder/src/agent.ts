@@ -83,6 +83,16 @@ export class CoderAgent {
 
     console.log('[CoderAgent] Parsed Structure:', JSON.stringify(structure, null, 2));
 
+    // 1.5 Update Metadata immediately
+    await this.fs.updateMeta({
+        input_schema: structure.input_schema,
+        output_schema: structure.output_schema,
+        entrypoint: structure.entrypoint,
+        name: structure.name,
+        description: structure.description,
+        files: structure.files
+    });
+
     // 2. Generate Code for each file
     const BLACKLIST_FILES = ['requirements.txt', 'Pipfile', '.env', '.env.example', 'README.md'];
     

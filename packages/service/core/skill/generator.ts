@@ -44,27 +44,10 @@ export class SkillGenerator {
 
         try {
             // 3. Run Generation
+            // The generator will write files and update metadata via fileSystem
             const structure = await coder.generateSkill({
                 request: params.request,
                 dependencies
-            });
-
-            // 4. Update Skill Metadata (Schema, Name, Description)
-            // Files are already written by the generator via fileSystem
-            
-            // Update schemas and entrypoint
-            await skillService.updateSkillFiles(skill.id, {}, {
-                input_schema: structure.input_schema,
-                output_schema: structure.output_schema,
-                entrypoint: structure.entrypoint,
-                // Ensure all generated files are tracked
-                files: structure.files
-            });
-
-            // Update Name and Description
-            await skillService.updateSkillMeta(skill.id, {
-                name: structure.name,
-                description: structure.description
             });
 
             return {
