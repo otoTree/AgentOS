@@ -1,7 +1,7 @@
 import { eq, and, isNull } from 'drizzle-orm';
 import { db } from '../../database';
 import { files } from '../../database/schema';
-import { S3Client, DeleteObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, DeleteObjectCommand, GetObjectCommand, ListObjectsV2Command, DeleteObjectsCommand } from '@aws-sdk/client-s3';
 import { Upload } from '@aws-sdk/lib-storage';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
@@ -11,6 +11,8 @@ export type IStorageProvider = {
     getDownloadUrl(key: string): Promise<string>;
     getObject(key: string): Promise<Buffer>; // New method
     delete(key: string): Promise<void>;
+    listObjects(prefix: string): Promise<string[]>;
+    deleteObjects(keys: string[]): Promise<void>;
 }
 
 // S3 Implementation
@@ -92,6 +94,27 @@ class S3Provider implements IStorageProvider {
         const command = new DeleteObjectCommand({
             Bucket: this.bucket,
             Key: key,
+        });
+        await this.client.send(command);
+    }
+
+    async listObjects(prefix: string): Promise<string[]> {
+        const command = new ListObjectsV2Command({
+            Bucket: this.bucket,
+            Prefix: prefix,
+        });
+        const response = await this.client.send(command);
+        return response.Contents?.map(c => c.Key!).filter(Boolean) || [];
+    }
+
+    async deleteObjects(keys: string[]): Promise<void> {
+        if (keys.length === 0) return;
+        
+        const command = new DeleteObjectsCommand({
+            Bucket: this.bucket,
+            Delete: {
+                Objects: keys.map(k => ({ Key: k })),
+            },
         });
         await this.client.send(command);
     }
@@ -251,6 +274,13 @@ export class StorageService {
     }
     async deleteObject(key: string) {
         return this.provider.delete(key);
+    }
+
+    async deleteDir(prefix: string) {
+        const keys = await this.provider.listObjects(prefix);
+        if (keys.length > 0) {
+            await this.provider.deleteObjects(keys);
+        }
     }
 }
 

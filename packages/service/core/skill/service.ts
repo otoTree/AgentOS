@@ -541,7 +541,11 @@ with open("${file}", "wb") as f:
      * Delete Skill
      */
     async deleteSkill(id: string) {
-        // 1. Delete associated deployments first to avoid FK constraint error
+        // 1. Get skill info for OSS cleanup
+        const skill = await db.query.skills.findFirst({ where: eq(skills.id, id) });
+        if (!skill) throw new Error('Skill not found');
+
+        // 2. Delete associated deployments first to avoid FK constraint error
         const skillDeployments = await db.query.deployments.findMany({
             where: eq(deployments.skillId, id)
         });
@@ -550,10 +554,18 @@ with open("${file}", "wb") as f:
             await this.deleteDeployment(deployment.id);
         }
 
-        // Optional: Clean up OSS
-        // const skill = await this.getSkill(id);
-        // ... list and delete objects ...
+        // 3. Clean up OSS
+        try {
+            // Delete the entire skill directory in OSS
+            // ossPath is something like "skills/{id}/v1/"
+            // We want to delete everything under "skills/{id}/"
+            const skillRootPath = `skills/${id}/`;
+            await storageService.deleteDir(skillRootPath);
+        } catch (e) {
+            console.warn('Failed to clean up OSS for skill', id, e);
+        }
         
+        // 4. Delete from DB
         await db.delete(skills).where(eq(skills.id, id));
     }
 }
