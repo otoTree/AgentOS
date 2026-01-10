@@ -1,4 +1,4 @@
-import { SkillFileSystem } from '@agentos/coder';
+import { SkillFileSystem } from '@agentos/agent';
 import { skillService } from './service';
 
 export class ServiceSkillFileSystem implements SkillFileSystem {

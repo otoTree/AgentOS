@@ -9,11 +9,10 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@agentos/coder": "workspace:*",
+    "@agentos/agent": "workspace:*",
     "@agentos/global": "workspace:*",
     "@agentos/office": "workspace:*",
     "@agentos/service": "workspace:*",
-    "@agentos/superagent": "workspace:*",
     "@agentos/web": "workspace:*",
     "@monaco-editor/react": "^4.7.0",
     "@types/uuid": "^9.0.8",

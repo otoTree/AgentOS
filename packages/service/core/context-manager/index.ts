@@ -1,4 +1,4 @@
-import { Tool } from '@agentos/superagent';
+import { Tool } from '@agentos/agent';
 import { MetaJson, skillService } from '../skill/service';
 import { builtInTools } from '../tool';
 import { z } from 'zod';

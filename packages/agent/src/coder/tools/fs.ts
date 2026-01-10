@@ -1,4 +1,4 @@
-import { Tool } from '@agentos/superagent';
+import { Tool } from '../../core/types';
 import { z } from 'zod';
 import { SkillFileSystem } from '../interfaces';
 

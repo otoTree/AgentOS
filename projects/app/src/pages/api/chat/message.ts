@@ -1,5 +1,5 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { SuperAgent } from '@agentos/superagent';
+import { SuperAgent } from '@agentos/agent';
 import { ServiceLLMClient as AppLLMClient, ContextManager } from '@agentos/service';
 import { db, chatSessions, chatMessages } from '@agentos/service/database';
 import { getServerSession } from 'next-auth/next';

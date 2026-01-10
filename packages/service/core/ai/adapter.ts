@@ -1,4 +1,4 @@
-import { LLMClient, LLMResponse } from '@agentos/superagent';
+import { LLMClient, LLMResponse } from '@agentos/agent';
 import { modelService } from './service';
 
 export class ServiceLLMClient implements LLMClient {

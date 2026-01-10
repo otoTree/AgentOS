@@ -1,5 +1,4 @@
-import { CoderAgent } from '@agentos/coder';
-import { AgentCallbacks } from '@agentos/superagent';
+import { CoderAgent, AgentCallbacks } from '@agentos/agent';
 import { skillService } from './service';
 import { sandboxClient } from '../sandbox/client';
 import { ServiceSkillFileSystem } from './fs_adapter';

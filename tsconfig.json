@@ -18,7 +18,7 @@
     "paths": {
       "@agentos/global": ["packages/global/index.ts"],
       "@agentos/service": ["packages/service/index.ts"],
-      "@agentos/superagent": ["packages/superagent/src/index.ts"],
+      "@agentos/agent": ["packages/agent/src/index.ts"],
       "@agentos/web/*": ["packages/web/*"]
     }
   },

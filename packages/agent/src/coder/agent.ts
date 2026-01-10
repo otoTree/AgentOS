@@ -1,4 +1,5 @@
-import { SuperAgent, AgentConfig, LLMClient, AgentCallbacks } from '@agentos/superagent';
+import { AgentConfig, LLMClient, AgentCallbacks } from '../core/types';
+import { SuperAgent } from '../core/agent';
 import { ReadFileTool, WriteFileTool, ListFilesTool } from './tools/fs';
 import { CODER_SYSTEM_PROMPT, SKILL_GEN_STRUCTURE_PROMPT, SKILL_GEN_CODE_PROMPT, SKILL_GEN_DOC_PROMPT } from './prompts';
 import { SkillFileSystem } from './interfaces';
