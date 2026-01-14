@@ -72,6 +72,23 @@ export class SkillService {
     }
 
     /**
+     * Get Skill Documentation (SKILL.md)
+     */
+    async getSkillDoc(id: string): Promise<string | null> {
+        const skill = await db.query.skills.findFirst({ where: eq(skills.id, id) });
+        if (!skill) return null;
+
+        const ossPath = skill.ossPath;
+        try {
+            const buffer = await storageService.getObjectRaw(`${ossPath}SKILL.md`);
+            return buffer.toString('utf-8');
+        } catch (e) {
+            // Document might not exist
+            return null;
+        }
+    }
+
+    /**
      * Get Skill Details (DB + Meta)
      */
     async getSkill(id: string) {

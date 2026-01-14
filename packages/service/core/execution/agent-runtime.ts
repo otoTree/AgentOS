@@ -5,6 +5,7 @@ import { sandboxManager } from './sandbox-manager';
 import { ServiceLLMClient } from '../ai/adapter';
 import { skillService } from '../skill/service';
 import { createFileTools } from '../tool/file';
+import { SkillManager, LoadSkillChunkTool } from '@agentos/agent';
 
 export class AgentRuntime {
     
@@ -24,30 +25,76 @@ export class AgentRuntime {
             .where(eq(tasks.id, taskId));
 
         // 2. Setup Context
-        let context = (task.pipelineContext as any) || { messages: [], iterations: 0 };
+        let context = (task.pipelineContext as any) || { messages: [], iterations: 0, activeChunks: {} };
         const agentProfile = task.agentProfile as any;
         const skillIds = (task.skillIds as string[]) || [];
+
+        // 3. Load Skills & Docs & Init Manager
+        const skillsData = await Promise.all(skillIds.map(async id => {
+            const skill = await skillService.getSkill(id);
+            const doc = await skillService.getSkillDoc(id);
+            return { ...skill, doc };
+        }));
+
+        const skillManager = new SkillManager();
+        skillsData.forEach(s => {
+            if (s.doc) {
+                skillManager.registerSkill(s.doc);
+            } else {
+                // Fallback: Register a minimal skill from meta if no doc exists
+                // This ensures it appears in the prompt even without SKILL.md
+                const minimalDoc = `---
+name: ${s.name}
+description: ${s.description || ''}
+---
+# ${s.name}
+${s.description || 'No description available.'}
+`;
+                skillManager.registerSkill(minimalDoc);
+            }
+        });
+
+        // Restore active chunks from context
+        if (context.activeChunks) {
+            for (const [skillName, chunks] of Object.entries(context.activeChunks)) {
+                if (Array.isArray(chunks)) {
+                    chunks.forEach((chunkId: string) => {
+                        try { skillManager.activateChunk(skillName, chunkId); } catch (e) { console.warn(e); }
+                    });
+                }
+            }
+        }
         
         // System Prompt
+        const skillsPrompt = skillManager.getSkillsPrompt();
         const systemPrompt = `You are ${agentProfile?.name || 'Agent'}, ${agentProfile?.role || 'an AI assistant'}.
 Goal: ${agentProfile?.goal || 'Help the user.'}
 Instruction: ${task.instruction}
 
 You have access to a set of skills. Use them to achieve the goal.
+
+## Skills Documentation
+${skillsPrompt}
+
 When you have completed the task, call the "task_completed" tool.
 `;
 
         if (context.messages.length === 0) {
             context.messages.push({ role: 'system', content: systemPrompt });
             context.messages.push({ role: 'user', content: task.instruction });
+        } else {
+            // Update system prompt to reflect loaded chunks
+            if (context.messages[0].role === 'system') {
+                context.messages[0].content = systemPrompt;
+            }
         }
         
-        // 3. Load Skills & Tools
-        const skills = await Promise.all(skillIds.map(id => skillService.getSkill(id)));
+        // 4. Load Tools
         const fileTools = createFileTools(task.teamId, 'system');
+        const loadSkillTool = new LoadSkillChunkTool(skillManager);
 
-        const tools = [
-            ...skills.map(s => ({
+        const tools: any[] = [
+            ...skillsData.map(s => ({
                 type: 'function',
                 function: {
                     name: s.name,
@@ -62,7 +109,23 @@ When you have completed the task, call the "task_completed" tool.
                     description: t.description,
                     parameters: t.jsonSchema || { type: 'object', properties: {} }
                 }
-            }))
+            })),
+            // Load Skill Chunk Tool
+            {
+                type: 'function',
+                function: {
+                    name: loadSkillTool.name,
+                    description: loadSkillTool.description,
+                    parameters: {
+                        type: 'object',
+                        properties: {
+                            skill_name: { type: 'string', description: 'The name of the skill' },
+                            chunk_id: { type: 'string', description: 'The ID of the chunk to load' }
+                        },
+                        required: ['skill_name', 'chunk_id']
+                    }
+                }
+            }
         ];
         
         // Add built-in control tools
@@ -81,7 +144,7 @@ When you have completed the task, call the "task_completed" tool.
             }
         });
 
-        // 4. Initialize LLM
+        // 5. Initialize LLM
         // For now, hardcode a model or get from settings. 
         // We need a robust way to select model.
         // Let's pick the first active model for now.
@@ -92,7 +155,7 @@ When you have completed the task, call the "task_completed" tool.
         
         const llm = new ServiceLLMClient(model.id);
 
-        // 5. Execution Loop
+        // 6. Execution Loop
         const MAX_ITERATIONS = 20;
         
         while (context.iterations < MAX_ITERATIONS) {
@@ -101,10 +164,6 @@ When you have completed the task, call the "task_completed" tool.
             
             try {
                 // Call LLM
-                // Note: ServiceLLMClient expects OpenAI format tools (array of objects), but chatComplete handles format.
-                // The adapter implementation passes tools directly to OpenAI API.
-                // Our tools array is already in OpenAI format { type: 'function', function: ... }
-                
                 const response = await llm.chat(context.messages, tools as any);
                 
                 // Add Assistant Message
@@ -132,28 +191,44 @@ When you have completed the task, call the "task_completed" tool.
                                 .where(eq(tasks.id, taskId));
                             return; // Exit
                         }
-                        
-                        // Find Skill
-                        const skill = skills.find(s => s.name === name);
-                        const fileTool = fileTools.find(t => t.name === name);
+
                         let result: any;
-                        
-                        if (skill) {
-                            console.log(`[AgentRuntime] Executing skill ${name}`);
+
+                        if (name === 'load_skill_chunk') {
+                            console.log(`[AgentRuntime] Loading chunk ${args.chunk_id} for skill ${args.skill_name}`);
                             try {
-                                result = await sandboxManager.runSkill(taskId, skill.id, args);
-                            } catch (e: any) {
-                                result = { error: e.message };
-                            }
-                        } else if (fileTool) {
-                            console.log(`[AgentRuntime] Executing file tool ${name}`);
-                            try {
-                                result = await fileTool.execute(args);
+                                result = await loadSkillTool.execute(args);
+                                // Update active chunks in context for persistence
+                                if (!context.activeChunks) context.activeChunks = {};
+                                if (!context.activeChunks[args.skill_name]) context.activeChunks[args.skill_name] = [];
+                                if (!context.activeChunks[args.skill_name].includes(args.chunk_id)) {
+                                    context.activeChunks[args.skill_name].push(args.chunk_id);
+                                }
                             } catch (e: any) {
                                 result = { error: e.message };
                             }
                         } else {
-                            result = { error: `Skill ${name} not found` };
+                            // Find Skill
+                            const skill = skillsData.find(s => s.name === name);
+                            const fileTool = fileTools.find(t => t.name === name);
+                            
+                            if (skill) {
+                                console.log(`[AgentRuntime] Executing skill ${name}`);
+                                try {
+                                    result = await sandboxManager.runSkill(taskId, skill.id, args);
+                                } catch (e: any) {
+                                    result = { error: e.message };
+                                }
+                            } else if (fileTool) {
+                                console.log(`[AgentRuntime] Executing file tool ${name}`);
+                                try {
+                                    result = await fileTool.execute(args);
+                                } catch (e: any) {
+                                    result = { error: e.message };
+                                }
+                            } else {
+                                result = { error: `Skill ${name} not found` };
+                            }
                         }
                         
                         // Add Tool Message

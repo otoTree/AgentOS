@@ -65,19 +65,41 @@ Context:
 {{context}}
 
 Specific Requirements for SKILL.md:
-1. Use Markdown format.
+1. Use Markdown format with XML enhancements for progressive loading.
 2. Include YAML Frontmatter at the top with:
    - name: {{name}}
    - description: (short description)
    - version: 1.0.0
 3. Structure:
    - # Title
-   - ## Description
-   - ## Usage
-   - ## Examples (JSON input examples)
+   - ## Overview
+   - ## Interface (Input/Output details)
+   
+4. **Progressive Loading (CRITICAL)**:
+   - Detailed sections MUST be wrapped in <chunk> tags to save tokens when loading summary.
+   - Use <chunk id="..." description="...">...</chunk> syntax.
+   - MANDATORY chunks to include:
+     - "examples": Detailed usage examples.
+     - "troubleshooting": Common errors and fixes (if applicable).
+   
+   Example format:
+   \`\`\`markdown
+   ---
+   name: my_skill
+   description: ...
+   ---
+   # My Skill
+   ## Overview
+   ...
+   
+   <chunk id="examples" description="Detailed usage examples">
+   ## Examples
+   ...
+   </chunk>
+   \`\`\`
 
 Output:
-Pure Markdown content with Frontmatter.
+Pure Markdown content with Frontmatter and XML chunks.
 `;
 
 // 代码生成 Prompt - 关注具体实现

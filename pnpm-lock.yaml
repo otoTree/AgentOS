@@ -143,12 +143,18 @@ importers:
       '@aws-sdk/s3-request-presigner':
         specifier: ^3.958.0
         version: 3.958.0
+      '@types/js-yaml':
+        specifier: ^4.0.9
+        version: 4.0.9
       bcryptjs:
         specifier: ^3.0.3
         version: 3.0.3
       drizzle-orm:
         specifier: ^0.33.0
         version: 0.33.0(@types/react@18.3.27)(pg@8.16.3)(postgres@3.4.7)(react@18.3.1)
+      js-yaml:
+        specifier: ^4.1.1
+        version: 4.1.1
       mongoose:
         specifier: ^8.0.0
         version: 8.21.0
@@ -2405,6 +2411,9 @@ packages:
 
   '@types/http-proxy@1.17.17':
     resolution: {integrity: sha512-ED6LB+Z1AVylNTu7hdzuBqOgMnvG/ld6wGCG8wFnAzKX5uyW2K3WD52v0gnLCTK/VLpXtKckgWuyScYK6cSPaw==}
+
+  '@types/js-yaml@4.0.9':
+    resolution: {integrity: sha512-k4MGaQl5TGo/iipqb2UDG2UwjXziSWkh0uysQelTlJpX1qGlpUZYm8PnO4DxG1qBomtJUdYJ6qR6xdIah10JLg==}
 
   '@types/json-schema@7.0.15':
     resolution: {integrity: sha512-5+fP8P8MFNC+AyZCDxrB2pkZFPGzqQWUzpSeuuVLvm8VMcorNYavBqoFcxK8bQz4Qsbn4oUEEem4wDLfcysGHA==}
@@ -7303,6 +7312,8 @@ snapshots:
   '@types/http-proxy@1.17.17':
     dependencies:
       '@types/node': 20.19.27
+
+  '@types/js-yaml@4.0.9': {}
 
   '@types/json-schema@7.0.15': {}
 
