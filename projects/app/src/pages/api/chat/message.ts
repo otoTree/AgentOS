@@ -57,6 +57,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     
     // 3. Setup Agent
     const contextManager = new ContextManager();
+    let skillsContextInfo = "";
+
     if (context?.skills?.length) {
         console.log('Received skills context:', context.skills);
         
@@ -69,6 +71,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                         // Fetch the main entry code for execution
                         const entry = fullSkill.meta.entry || fullSkill.meta.entrypoint || 'src/main.py';
                         const code = await skillService.getSkillFile(skill, entry);
+                        
+                        // Try to load SKILL.md if it exists
+                        if (fullSkill.meta.files?.includes('SKILL.md')) {
+                            try {
+                                const skillMd = await skillService.getSkillFile(skill, 'SKILL.md');
+                                if (skillMd) {
+                                    skillsContextInfo += `\n\n# Skill Documentation (${fullSkill.name})\n${skillMd}`;
+                                }
+                            } catch (e) {
+                                console.warn(`Failed to load SKILL.md for skill ${skill}`, e);
+                            }
+                        }
                         
                         // Merge DB data and Meta data, prioritize MetaJson for schema
                         return { 
@@ -111,7 +125,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const agent = new SuperAgent({
       model: model.name,
       prompts: {
-        system: 'You are a helpful assistant.',
+        system: `You are a helpful assistant.\n${skillsContextInfo}`,
         user: '{{input}}'
       },
       tools: contextManager.getTools(),

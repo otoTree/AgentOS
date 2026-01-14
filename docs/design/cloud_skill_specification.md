@@ -21,7 +21,7 @@ skills/{skill_id}/v1/
 ├── src/                  # [代码] 源代码目录
 │   ├── main.py           # [入口] 程序入口，引用其他脚本
 │   └── utils.py
-└── requirements.txt      # [依赖] Python 依赖
+
 ```
 
 ### 2.2 meta.json (执行层 - 不变)
