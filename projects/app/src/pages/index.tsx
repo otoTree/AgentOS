@@ -188,6 +188,33 @@ export default function Home() {
                  </div>
               </CardFooter>
             </Card>
+            {/* Task Execution - Primary */}
+            <Card className="border-l-4 border-l-green-500 hover:shadow-lg transition-all cursor-pointer group" onClick={() => router.push('/tasks')}>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-3 text-xl">
+                   <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg text-green-600 dark:text-green-400">
+                    <Cpu className="w-6 h-6" />
+                  </div>
+                  Task Execution
+                </CardTitle>
+                <CardDescription>Pipeline & Agent Tasks</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground mb-4">
+                   Monitor and manage asynchronous tasks, including static pipelines and autonomous agent executions.
+                </p>
+                 <div className="flex gap-2">
+                   <span className="text-xs bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded">Pipelines</span>
+                   <span className="text-xs bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded">Agents</span>
+                   <span className="text-xs bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded">Logs</span>
+                </div>
+              </CardContent>
+              <CardFooter>
+                 <div className="text-sm font-medium text-green-600 dark:text-green-400 flex items-center gap-1 group-hover:gap-2 transition-all">
+                    View Tasks <ArrowRight className="w-4 h-4" />
+                 </div>
+              </CardFooter>
+            </Card>
         </div>
 
         <h2 className="text-xl font-semibold mb-6 text-slate-900 dark:text-slate-100">Management & Settings</h2>

@@ -1,7 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { SuperAgent } from '@agentos/agent';
-import { ServiceLLMClient as AppLLMClient, ContextManager } from '@agentos/service';
-import { db, chatSessions, chatMessages } from '@agentos/service/database';
+import { ServiceLLMClient as AppLLMClient, ContextManager, createExecutionTools } from '@agentos/service';
+import { db, chatSessions, chatMessages, teams } from '@agentos/service/database';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '../auth/[...nextauth]';
 import { eq, desc } from 'drizzle-orm';
@@ -18,6 +18,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   try {
     const { message, context, sessionId } = req.body;
     let currentSessionId = sessionId;
+    
+    // Find default team for user (assuming user has one for now)
+    // For MVP, just pick the first team the user owns
+    const team = await db.query.teams.findFirst({
+        where: eq(teams.ownerId, session.user.id)
+    });
+    
+    // Fallback if no team (should create one on signup ideally)
+    const teamId = team?.id;
 
     // 1. Handle Session
     if (!currentSessionId) {
@@ -59,7 +68,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const contextManager = new ContextManager();
     let skillsContextInfo = "";
 
+    // Load Execution Tools (compile_pipeline, create_agent_task) if teamId exists
+    if (teamId) {
+        const executionTools = createExecutionTools(teamId, session.user.id);
+        // Manually push to context manager (or add loadTools method)
+        // contextManager.loadTools(executionTools); 
+        // Since loadSkills logic is specific to skills, let's just hack it into getTools for now or expose a addTools
+        // But contextManager.systemTools is private.
+        // Let's assume we can modify ContextManager or just pass it to SuperAgent.
+        // Actually ContextManager logic is a bit rigid in previous steps.
+        // Let's just combine them when initializing SuperAgent.
+    }
+
     if (context?.skills?.length) {
+//...
         console.log('Received skills context:', context.skills);
         
         // Fetch full skill data if only IDs are provided
@@ -105,7 +127,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         await contextManager.loadSkills(validSkills);
     }
     
-    console.log('Received context tools:', JSON.stringify(contextManager.getTools().map(t => ({
+    // Combine tools
+    let allTools = contextManager.getTools();
+    
+    // Add Execution Tools
+    if (teamId) {
+        const executionTools = createExecutionTools(teamId, session.user.id);
+        allTools = [...allTools, ...executionTools];
+    }
+    
+    console.log('Received context tools:', JSON.stringify(allTools.map(t => ({
         name: t.name,
         description: t.description,
         jsonSchema: t.jsonSchema
@@ -128,7 +159,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         system: `You are a helpful assistant.\n${skillsContextInfo}`,
         user: '{{input}}'
       },
-      tools: contextManager.getTools(),
+      tools: allTools,
       llmClient: new AppLLMClient(model.id),
       toolCallMethod: 'json_prompt',
       history: history

@@ -1,0 +1,251 @@
+import { z } from 'zod';
+import { Tool } from '@agentos/global';
+import * as fs from 'fs/promises';
+import * as path from 'path';
+import { storageService } from '../storage/service';
+
+const getMimeType = (filename: string) => {
+    const ext = filename.split('.').pop()?.toLowerCase();
+    switch (ext) {
+        case 'txt': return 'text/plain';
+        case 'json': return 'application/json';
+        case 'png': return 'image/png';
+        case 'jpg': case 'jpeg': return 'image/jpeg';
+        case 'pdf': return 'application/pdf';
+        case 'doc': case 'docx': return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+        case 'xls': case 'xlsx': return 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+        case 'ppt': case 'pptx': return 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
+        default: return 'application/octet-stream';
+    }
+}
+
+export const localFileTools: Tool[] = [
+    {
+        name: "fs_list_directory",
+        description: "List files and directories in a given path",
+        parameters: z.object({
+            path: z.string().describe("The absolute path to the directory")
+        }),
+        jsonSchema: {
+            type: "object",
+            properties: {
+                path: { type: "string", description: "The absolute path to the directory" }
+            },
+            required: ["path"]
+        },
+        execute: async ({ path: dirPath }) => {
+            try {
+                const files = await fs.readdir(dirPath, { withFileTypes: true });
+                return files.map(dirent => ({
+                    name: dirent.name,
+                    isDirectory: dirent.isDirectory(),
+                    isFile: dirent.isFile()
+                }));
+            } catch (error: any) {
+                throw new Error(`Failed to list directory: ${error.message}`);
+            }
+        }
+    },
+    {
+        name: "fs_read_file",
+        description: "Read the content of a file",
+        parameters: z.object({
+            path: z.string().describe("The absolute path to the file"),
+            encoding: z.enum(['utf-8', 'base64']).optional().default('utf-8').describe("The encoding to use (default: utf-8)")
+        }),
+        jsonSchema: {
+            type: "object",
+            properties: {
+                path: { type: "string", description: "The absolute path to the file" },
+                encoding: { type: "string", enum: ["utf-8", "base64"], description: "The encoding to use (default: utf-8)", default: "utf-8" }
+            },
+            required: ["path"]
+        },
+        execute: async ({ path: filePath, encoding }) => {
+            try {
+                const content = await fs.readFile(filePath, { encoding: encoding as BufferEncoding });
+                return content;
+            } catch (error: any) {
+                throw new Error(`Failed to read file: ${error.message}`);
+            }
+        }
+    },
+    {
+        name: "fs_write_file",
+        description: "Write content to a file",
+        parameters: z.object({
+            path: z.string().describe("The absolute path to the file"),
+            content: z.string().describe("The content to write"),
+            encoding: z.enum(['utf-8', 'base64']).optional().default('utf-8').describe("The encoding of the content (default: utf-8)")
+        }),
+        jsonSchema: {
+            type: "object",
+            properties: {
+                path: { type: "string", description: "The absolute path to the file" },
+                content: { type: "string", description: "The content to write" },
+                encoding: { type: "string", enum: ["utf-8", "base64"], description: "The encoding of the content (default: utf-8)", default: "utf-8" }
+            },
+            required: ["path", "content"]
+        },
+        execute: async ({ path: filePath, content, encoding }) => {
+            try {
+                await fs.writeFile(filePath, content, { encoding: encoding as BufferEncoding });
+                return { success: true, path: filePath };
+            } catch (error: any) {
+                throw new Error(`Failed to write file: ${error.message}`);
+            }
+        }
+    },
+    {
+        name: "fs_delete_file",
+        description: "Delete a file or directory",
+        parameters: z.object({
+            path: z.string().describe("The absolute path to the file or directory"),
+            recursive: z.boolean().optional().default(false).describe("Whether to delete recursively (for directories)")
+        }),
+        jsonSchema: {
+            type: "object",
+            properties: {
+                path: { type: "string", description: "The absolute path to the file or directory" },
+                recursive: { type: "boolean", description: "Whether to delete recursively (for directories)", default: false }
+            },
+            required: ["path"]
+        },
+        execute: async ({ path: filePath, recursive }) => {
+            try {
+                await fs.rm(filePath, { recursive, force: true });
+                return { success: true, path: filePath };
+            } catch (error: any) {
+                throw new Error(`Failed to delete file: ${error.message}`);
+            }
+        }
+    },
+    {
+        name: "fs_create_directory",
+        description: "Create a directory",
+        parameters: z.object({
+            path: z.string().describe("The absolute path to the directory"),
+            recursive: z.boolean().optional().default(true).describe("Whether to create parent directories")
+        }),
+        jsonSchema: {
+            type: "object",
+            properties: {
+                path: { type: "string", description: "The absolute path to the directory" },
+                recursive: { type: "boolean", description: "Whether to create parent directories", default: true }
+            },
+            required: ["path"]
+        },
+        execute: async ({ path: dirPath, recursive }) => {
+            try {
+                await fs.mkdir(dirPath, { recursive });
+                return { success: true, path: dirPath };
+            } catch (error: any) {
+                throw new Error(`Failed to create directory: ${error.message}`);
+            }
+        }
+    },
+    {
+        name: "fs_move_file",
+        description: "Move or rename a file or directory",
+        parameters: z.object({
+            source: z.string().describe("The source path"),
+            destination: z.string().describe("The destination path")
+        }),
+        jsonSchema: {
+            type: "object",
+            properties: {
+                source: { type: "string", description: "The source path" },
+                destination: { type: "string", description: "The destination path" }
+            },
+            required: ["source", "destination"]
+        },
+        execute: async ({ source, destination }) => {
+            try {
+                await fs.rename(source, destination);
+                return { success: true, source, destination };
+            } catch (error: any) {
+                throw new Error(`Failed to move file: ${error.message}`);
+            }
+        }
+    },
+    {
+        name: "fs_file_info",
+        description: "Get information about a file or directory",
+        parameters: z.object({
+            path: z.string().describe("The absolute path to the file or directory")
+        }),
+        jsonSchema: {
+            type: "object",
+            properties: {
+                path: { type: "string", description: "The absolute path to the file or directory" }
+            },
+            required: ["path"]
+        },
+        execute: async ({ path: filePath }) => {
+            try {
+                const stats = await fs.stat(filePath);
+                return {
+                    isFile: stats.isFile(),
+                    isDirectory: stats.isDirectory(),
+                    size: stats.size,
+                    created: stats.birthtime,
+                    modified: stats.mtime,
+                    accessed: stats.atime
+                };
+            } catch (error: any) {
+                throw new Error(`Failed to get file info: ${error.message}`);
+            }
+        }
+    }
+];
+
+export const createFileTools = (teamId: string, userId: string = 'system'): Tool[] => [
+    ...localFileTools,
+    {
+        name: "fs_get_download_url",
+        description: "Get a downloadable URL for a local file (uploads to cloud storage)",
+        parameters: z.object({
+            path: z.string().describe("The absolute path to the local file")
+        }),
+        jsonSchema: {
+            type: "object",
+            properties: {
+                path: { type: "string", description: "The absolute path to the local file" }
+            },
+            required: ["path"]
+        },
+        execute: async ({ path: filePath }) => {
+            try {
+                // 1. Read file
+                const buffer = await fs.readFile(filePath);
+                const stats = await fs.stat(filePath);
+                const filename = path.basename(filePath);
+                const mimeType = getMimeType(filename);
+
+                // 2. Upload to Storage
+                const result = await storageService.uploadFile(
+                    teamId,
+                    userId,
+                    {
+                        name: filename,
+                        size: stats.size,
+                        type: mimeType,
+                        buffer: buffer
+                    }
+                );
+
+                return {
+                    url: result.url,
+                    fileId: result.id,
+                    expiresIn: 3600 // Presigned URL typically expires in 1h
+                };
+            } catch (error: any) {
+                throw new Error(`Failed to get download URL: ${error.message}`);
+            }
+        }
+    }
+];
+
+// For backward compatibility or default export if needed
+export const fileTools = localFileTools;
+

@@ -20,6 +20,7 @@ export const AdminLayout: React.FC<{ children: React.ReactNode; mainClassName?: 
           <nav className="flex gap-4">
             <Link href="/workbench" className={router.pathname.startsWith('/workbench') && !router.pathname.startsWith('/workbench/deployments') ? 'text-primary' : 'text-muted-foreground'}>Workbench</Link>
             <Link href="/workbench/deployments" className={router.pathname.startsWith('/workbench/deployments') ? 'text-primary' : 'text-muted-foreground'}>Deployments</Link>
+            <Link href="/tasks" className={router.pathname.startsWith('/tasks') ? 'text-primary' : 'text-muted-foreground'}>Tasks</Link>
             <Link href="/user/api-keys" className={router.pathname.startsWith('/user/api-keys') ? 'text-primary' : 'text-muted-foreground'}>API Keys</Link>
             <Link href="/admin/models" className={router.pathname.startsWith('/admin/models') ? 'text-primary' : 'text-muted-foreground'}>Models</Link>
             <Link href="/team" className={router.pathname.startsWith('/team') ? 'text-primary' : 'text-muted-foreground'}>Team</Link>

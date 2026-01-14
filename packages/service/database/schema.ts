@@ -429,4 +429,51 @@ export const workflowNodeExecutionsRelations = relations(workflowNodeExecutions,
   }),
 }));
 
+// --- Execution Engine (Tasks) ---
 
+export const tasks = pgTable('tasks', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  teamId: uuid('team_id').references(() => teams.id).notNull(),
+  type: text('type').notNull(), // 'agent' | 'pipeline'
+  instruction: text('instruction'),
+  status: text('status').notNull().default('queued'), // 'queued', 'processing', 'completed', 'failed'
+  result: text('result'),
+  error: text('error'),
+  
+  // Smart Agent Mode
+  agentProfile: jsonb('agent_profile'), // { name, role, goal, tone }
+  skillIds: jsonb('skill_ids'), // string[]
+  
+  // Pipeline Mode
+  pipelineDefinition: jsonb('pipeline_definition'), // { steps: [...], inputs: [...] }
+  pipelineContext: jsonb('pipeline_context'), // Runtime state
+  
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+export const tasksRelations = relations(tasks, ({ one, many }) => ({
+  team: one(teams, {
+    fields: [tasks.teamId],
+    references: [teams.id],
+  }),
+  artifacts: many(taskArtifacts),
+}));
+
+export const taskArtifacts = pgTable('task_artifacts', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  taskId: uuid('task_id').references(() => tasks.id).notNull(),
+  type: text('type').notNull(), // 'file', 'code', 'link'
+  name: text('name').notNull(),
+  url: text('url').notNull(),
+  size: integer('size'),
+  mimeType: text('mime_type'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+export const taskArtifactsRelations = relations(taskArtifacts, ({ one }) => ({
+  task: one(tasks, {
+    fields: [taskArtifacts.taskId],
+    references: [tasks.id],
+  }),
+}));

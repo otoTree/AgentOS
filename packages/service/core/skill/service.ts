@@ -258,7 +258,10 @@ export class SkillService {
     /**
      * Run Skill
      */
-    async runSkill(id: string, input: any) {
+    async runSkill(id: string, input: any, options?: { 
+        mounts?: Array<{ path: string, content: Buffer | string }>,
+        env?: Record<string, string>
+    }) {
         const skill = await db.query.skills.findFirst({ where: eq(skills.id, id) });
         if (!skill) throw new Error('Skill not found');
 
@@ -274,6 +277,37 @@ export class SkillService {
         // We need to fetch all files and combine them.
         
         let bootstrapCode = 'import os\n';
+        
+        // Handle mounts (Pre-execution file writing)
+        if (options?.mounts) {
+            for (const mount of options.mounts) {
+                const content = typeof mount.content === 'string' 
+                    ? mount.content 
+                    : mount.content.toString('base64');
+                
+                const isBase64 = typeof mount.content !== 'string';
+                
+                // Ensure directory exists
+                bootstrapCode += `
+os.makedirs(os.path.dirname("${mount.path}"), exist_ok=True)
+`;
+
+                if (isBase64) {
+                    bootstrapCode += `
+with open("${mount.path}", "wb") as f:
+    import base64
+    f.write(base64.b64decode("${content}"))
+`;
+                } else {
+                     // Escape quotes for python string
+                    const safeContent = content.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, '\\n');
+                    bootstrapCode += `
+with open("${mount.path}", "w") as f:
+    f.write("${safeContent}")
+`;
+                }
+            }
+        }
         
         // Fetch all files
         for (const file of meta.files) {
@@ -322,6 +356,42 @@ if __name__ == "__main__":
                 result = asyncio.run(main(**args))
             else:
                 result = main(**args)
+            
+            # --- Artifact Sniffer ---
+            output_artifacts = []
+            output_dir = "/workspace/output"
+            if os.path.exists(output_dir):
+                for root, dirs, files in os.walk(output_dir):
+                    for file in files:
+                        path = os.path.join(root, file)
+                        rel_path = os.path.relpath(path, output_dir)
+                        
+                        try:
+                            with open(path, "rb") as f:
+                                content = f.read()
+                                # Check size limit (e.g. 10MB)
+                                if len(content) > 10 * 1024 * 1024:
+                                    print(f"Warning: File {rel_path} too large, skipping content")
+                                    continue
+                                    
+                                b64 = base64.b64encode(content).decode('utf-8')
+                                output_artifacts.append({
+                                    "name": file,
+                                    "path": rel_path,
+                                    "content_base64": b64
+                                })
+                        except Exception as e:
+                            print(f"Error reading artifact {rel_path}: {e}")
+
+            # Inject artifacts into result
+            if output_artifacts:
+                if isinstance(result, dict):
+                    result["_artifacts"] = output_artifacts
+                else:
+                    result = {
+                        "value": result,
+                        "_artifacts": output_artifacts
+                    }
                 
             print(json.dumps(result))
         else:
