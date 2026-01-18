@@ -1,0 +1,17 @@
+{
+  "name": "@agentos/desktop",
+  "version": "1.0.0",
+  "private": true,
+  "description": "AgentOS Desktop Client using Electrobun",
+  "scripts": {
+    "dev": "electrobun dev",
+    "build": "electrobun build",
+    "start": "bun run build && bun run dev"
+  },
+  "dependencies": {
+    "electrobun": "latest"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  }
+}
