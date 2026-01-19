@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>AgentOS Desktop</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.3/dist/cdn.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Load shared logic first -->
+    <script src="common.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', 'Helvetica', 'Arial', 'sans-serif'],
+                    },
+                    colors: {
+                        background: '#ffffff',
+                        sidebar: '#f5f5f5', // macOS-like sidebar
+                        border: '#e5e5e5',  // Subtle border
+                        active: '#e0e0e0',  // Active state
+                        destructive: '#ef4444',
+                    },
+                    boxShadow: {
+                        sm: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Native App Reset */
+        body {
+            user-select: none; /* Prevent text selection globally */
+            -webkit-user-select: none;
+            cursor: default;
+            overflow: hidden; /* Prevent body scroll */
+        }
+        
+        /* Custom Scrollbar (Hidden/Minimal) */
+        ::-webkit-scrollbar {
+            width: 0px;
+            background: transparent;
+        }
+
+        /* Input/Textarea - Allow selection */
+        input, textarea, [contenteditable] {
+            user-select: text;
+            -webkit-user-select: text;
+            cursor: text;
+        }
+
+        /* Clickable Elements */
+        button, a, .clickable {
+            cursor: default;
+            -webkit-app-region: no-drag;
+        }
+        
+        /* Drag Region */
+        .titlebar {
+            -webkit-app-region: drag;
+        }
+
+        /* Animation */
+        [x-cloak] { display: none !important; }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-slide-in {
+            animation: slideIn 0.2s ease-out;
+        }
+    </style>
+</head>
+<body class="bg-background text-black h-screen flex overflow-hidden font-sans antialiased text-[13px]"
+      x-data="appData()">
+
+    <!-- SIDEBAR -->
+    <aside class="w-[260px] flex flex-col bg-[#f2f2f2]/90 backdrop-blur-xl border-r border-black/5 transition-all duration-300 titlebar relative z-20 pt-10">
+        
+        <!-- Section: Platform -->
+        <div class="px-3 mb-2 mt-1 flex-1 overflow-y-auto no-drag">
+            <div class="text-[10px] font-bold text-black/40 px-3 mb-2 uppercase tracking-widest">Platform</div>
+            <nav class="space-y-1">
+                <template x-for="item in navItems" :key="item.id">
+                    <a href="#"
+                       @click.prevent="switchTab(item.id)"
+                       :class="activeTab === item.id ? 'bg-white shadow-sm text-black ring-1 ring-black/5' : 'text-black/60 hover:bg-black/5 hover:text-black'"
+                       class="flex items-center px-3 py-1.5 rounded-lg transition-all duration-200 group gap-3 text-[13px] font-medium leading-none h-9">
+                        <i :class="item.icon" class="text-sm w-5 text-center opacity-70 group-hover:opacity-100 transition-opacity"></i>
+                        <span x-text="item.label"></span>
+                    </a>
+                </template>
+            </nav>
+            
+            <!-- Section: Projects (Demo) -->
+            <div class="text-[10px] font-bold text-black/40 px-3 mb-2 mt-6 uppercase tracking-widest">Projects</div>
+            <nav class="space-y-1">
+                 <a href="#" class="flex items-center px-3 py-1.5 rounded-lg text-black/60 hover:bg-black/5 hover:text-black transition-all duration-200 gap-3 text-[13px] font-medium leading-none h-9">
+                    <div class="w-4 h-4 rounded bg-indigo-500 flex items-center justify-center text-[8px] text-white shadow-sm"><i class="fa-solid fa-rocket"></i></div>
+                    <span>AgentOS Core</span>
+                </a>
+                 <a href="#" class="flex items-center px-3 py-1.5 rounded-lg text-black/60 hover:bg-black/5 hover:text-black transition-all duration-200 gap-3 text-[13px] font-medium leading-none h-9">
+                    <div class="w-4 h-4 rounded bg-emerald-500 flex items-center justify-center text-[8px] text-white shadow-sm"><i class="fa-solid fa-leaf"></i></div>
+                    <span>Eco Scanner</span>
+                </a>
+            </nav>
+        </div>
+
+        <!-- Bottom User Area -->
+        <div class="p-3 no-drag mt-auto">
+            <button class="flex items-center gap-3 w-full p-2 rounded-xl hover:bg-white/60 transition-colors text-left group border border-transparent hover:border-black/5 hover:shadow-sm">
+                <div class="w-9 h-9 rounded-full bg-gradient-to-b from-gray-100 to-gray-200 border border-black/5 shadow-inner flex items-center justify-center text-black/50">
+                     <i class="fa-solid fa-user text-xs"></i>
+                </div>
+                <div class="overflow-hidden">
+                    <div class="font-medium text-black text-[12px] group-hover:text-black">User Name</div>
+                    <div class="text-[10px] text-black/40 group-hover:text-black/60">Pro Workspace</div>
+                </div>
+                <i class="fa-solid fa-chevron-right ml-auto text-[10px] text-black/20 group-hover:text-black/40"></i>
+            </button>
+        </div>
+    </aside>
+
+    <!-- MAIN CONTENT -->
+    <main class="flex-1 flex flex-col min-w-0 bg-background relative">
+        <!-- Header (Toolbar) -->
+        <header class="h-12 border-b border-border flex items-center justify-between px-4 bg-white/80 backdrop-blur titlebar z-10">
+            <div class="flex items-center gap-3 no-drag">
+                
+                <!-- Chat Title -->
+                <template x-if="activeTab === 'chat'">
+                    <div class="flex items-center gap-3">
+                        <span class="font-semibold text-black">Chat</span>
+                        <span class="text-black/20">|</span>
+                        <div class="flex items-center gap-1.5 text-xs text-black/50 bg-black/5 px-2 py-0.5 rounded-md">
+                            <div class="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>
+                            <span>GPT-4o</span>
+                        </div>
+                    </div>
+                </template>
+
+                <!-- Workspace Title -->
+                <template x-if="activeTab === 'workspace'">
+                     <h2 class="font-semibold text-black">Workspace</h2>
+                </template>
+
+                <!-- Other Titles -->
+                <template x-if="['skills', 'tasks', 'settings'].includes(activeTab)">
+                     <h2 class="font-semibold text-black capitalize" x-text="activeTab"></h2>
+                </template>
+
+            </div>
+            <div class="flex items-center gap-2 no-drag">
+                <!-- Workspace Actions -->
+                <template x-if="activeTab === 'workspace'">
+                    <button class="bg-black text-white px-3 py-1.5 rounded-md text-xs font-medium hover:bg-black/90 transition-colors flex items-center gap-2 shadow-sm border border-transparent">
+                        <i class="fa-solid fa-folder-plus"></i> Add Folder
+                    </button>
+                </template>
+
+                <!-- Default Actions -->
+                <template x-if="activeTab !== 'workspace'">
+                    <div class="flex items-center gap-2">
+                        <button class="w-7 h-7 rounded-md hover:bg-black/5 flex items-center justify-center text-black/60 transition-colors"><i class="fa-regular fa-bell"></i></button>
+                        <button class="w-7 h-7 rounded-md hover:bg-black/5 flex items-center justify-center text-black/60 transition-colors"><i class="fa-solid fa-magnifying-glass"></i></button>
+                    </div>
+                </template>
+            </div>
+        </header>
+
+        <!-- VIEW: CHAT -->
+        <div x-show="activeTab === 'chat'" class="flex-1 flex flex-col overflow-hidden relative">
+            <!-- Messages -->
+            <div class="flex-1 overflow-y-auto p-6 space-y-6" id="chat-container">
+                <template x-for="msg in messages" :key="msg.id">
+                    <div class="flex gap-4 max-w-3xl mx-auto w-full group select-text">
+                        <!-- Avatar -->
+                        <div class="w-8 h-8 rounded-lg flex-shrink-0 flex items-center justify-center mt-0.5 border border-black/5 shadow-sm"
+                             :class="msg.role === 'user' ? 'bg-gray-100' : 'bg-black text-white'">
+                             <span x-html="msg.role === 'user' ? '' : 'A'" class="font-bold text-xs"></span>
+                        </div>
+
+                        <!-- Content -->
+                        <div class="space-y-1 flex-1 min-w-0">
+                            <div class="flex items-baseline gap-2">
+                                <span class="font-medium text-black" x-text="msg.role === 'user' ? 'You' : 'AgentOS'"></span>
+                                <span class="text-[11px] text-black/40" x-text="msg.time"></span>
+                            </div>
+                            
+                            <!-- Text Content -->
+                            <div class="text-black/90 leading-relaxed text-[14px]">
+                                <p x-html="msg.content"></p>
+                            </div>
+
+                            <!-- GenUI Component -->
+                            <template x-if="msg.genUI">
+                                <div class="mt-3 border border-border rounded-lg overflow-hidden bg-white shadow-sm select-none">
+                                    <div class="bg-gray-50/80 px-3 py-1.5 border-b border-border flex items-center justify-between">
+                                        <span class="text-[11px] font-medium text-black/50 uppercase tracking-wider flex items-center gap-1.5">
+                                            <i class="fa-solid fa-wand-magic-sparkles text-purple-500"></i> Generated UI
+                                        </span>
+                                    </div>
+                                    <div class="p-4" x-html="msg.genUI"></div>
+                                </div>
+                            </template>
+
+                            <!-- Tool Calls -->
+                            <template x-if="msg.toolCalls">
+                                <div class="space-y-1.5 mt-2">
+                                    <template x-for="tool in msg.toolCalls">
+                                        <div class="flex items-center gap-2 text-[11px] font-mono border border-border rounded px-2 py-1 w-fit bg-gray-50/50">
+                                            <span class="text-black/40">exec:</span>
+                                            <span class="text-black/80" x-text="tool.name"></span>
+                                            <span class="text-black/40 truncate max-w-[150px]" x-text="tool.args"></span>
+                                            <span x-show="tool.status === 'running'" class="w-1.5 h-1.5 rounded-full bg-yellow-400 animate-pulse ml-1"></span>
+                                            <span x-show="tool.status === 'done'" class="text-emerald-500 ml-1"><i class="fa-solid fa-check"></i></span>
+                                        </div>
+                                    </template>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </template>
+                
+                <!-- Typing Indicator -->
+                <div x-show="isTyping" class="flex gap-4 max-w-3xl mx-auto w-full animate-pulse opacity-50">
+                    <div class="w-8 h-8 rounded-lg bg-black text-white flex items-center justify-center text-xs flex-shrink-0">A</div>
+                    <div class="flex items-center gap-1 h-8">
+                        <div class="w-1 h-1 rounded-full bg-black"></div>
+                        <div class="w-1 h-1 rounded-full bg-black animation-delay-200"></div>
+                        <div class="w-1 h-1 rounded-full bg-black animation-delay-400"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Input Area -->
+            <div class="p-4 pt-0">
+                <div class="max-w-3xl mx-auto relative">
+                    <div class="bg-white border border-border rounded-xl shadow-sm focus-within:ring-2 focus-within:ring-black/5 focus-within:border-black/20 transition-all flex flex-col">
+                        <textarea 
+                            x-model="chatInput"
+                            @keydown.enter.prevent="sendMessage()"
+                            class="bg-transparent text-black p-3 w-full outline-none resize-none min-h-[48px] max-h-[200px] placeholder:text-black/30 text-[14px]" 
+                            placeholder="Type a message..."
+                            rows="1"
+                        ></textarea>
+                        
+                        <div class="px-2 py-1.5 flex items-center justify-between border-t border-border/50">
+                            <div class="flex items-center gap-1">
+                                <button class="w-7 h-7 flex items-center justify-center rounded hover:bg-black/5 text-black/40 hover:text-black transition-colors" title="Attach">
+                                    <i class="fa-solid fa-paperclip text-sm"></i>
+                                </button>
+                                <button class="w-7 h-7 flex items-center justify-center rounded hover:bg-black/5 text-black/40 hover:text-black transition-colors" title="Tools">
+                                    <i class="fa-solid fa-plus text-sm"></i>
+                                </button>
+                            </div>
+                            <button 
+                                @click="sendMessage()"
+                                class="w-7 h-7 rounded flex items-center justify-center transition-all duration-200"
+                                :class="chatInput.trim() ? 'bg-black text-white hover:bg-black/80' : 'bg-gray-100 text-gray-300'">
+                                <i class="fa-solid fa-arrow-up text-xs"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="text-center mt-2">
+                        <span class="text-[10px] text-black/30">AgentOS Native Runtime v1.0.0</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- VIEW: WORKSPACE -->
+        <div x-show="activeTab === 'workspace'" class="flex-1 flex flex-col p-6 overflow-y-auto animate-slide-in" style="display: none;">
+            <!-- Stats -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <div class="bg-white border border-border p-4 rounded-xl shadow-sm">
+                    <div class="text-black/50 text-[11px] font-medium uppercase tracking-wide">Indexed Files</div>
+                    <div class="text-2xl font-semibold mt-1 tracking-tight text-black">1,204</div>
+                    <div class="text-[11px] text-emerald-600 mt-1 flex items-center gap-1 font-medium"><i class="fa-solid fa-check-circle"></i> Up to date</div>
+                </div>
+                <div class="bg-white border border-border p-4 rounded-xl shadow-sm">
+                    <div class="text-black/50 text-[11px] font-medium uppercase tracking-wide">Storage Used</div>
+                    <div class="text-2xl font-semibold mt-1 tracking-tight text-black">450 MB</div>
+                    <div class="text-[11px] text-black/40 mt-1">Local Vector DB</div>
+                </div>
+                <div class="bg-white border border-border p-4 rounded-xl shadow-sm">
+                    <div class="text-black/50 text-[11px] font-medium uppercase tracking-wide">Watch Folders</div>
+                    <div class="text-2xl font-semibold mt-1 tracking-tight text-black">3</div>
+                    <div class="text-[11px] text-blue-500 mt-1 flex items-center gap-1 font-medium"><i class="fa-solid fa-sync fa-spin"></i> Syncing...</div>
+                </div>
+            </div>
+
+            <!-- Drop Zone -->
+            <div class="border border-dashed border-black/20 rounded-xl p-8 flex flex-col items-center justify-center text-center hover:bg-gray-50 transition-all mb-6 group cursor-default">
+                <div class="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                    <i class="fa-solid fa-cloud-arrow-up text-lg text-black/40 group-hover:text-black"></i>
+                </div>
+                <h3 class="font-medium text-black">Drop files to index</h3>
+                <p class="text-[11px] text-black/40 mt-1">Support PDF, MD, PNG, MP3, and Code files.</p>
+            </div>
+
+            <!-- File List -->
+            <div class="bg-white border border-border rounded-xl overflow-hidden shadow-sm">
+                <div class="px-4 py-2 border-b border-border bg-gray-50/50 flex items-center justify-between">
+                    <span class="text-[11px] font-medium text-black/50 uppercase tracking-wide">Recent Files</span>
+                    <button class="text-[11px] text-black/50 hover:text-black transition-colors">View All</button>
+                </div>
+                <div class="divide-y divide-border">
+                    <template x-for="file in files" :key="file.name">
+                        <div class="px-4 py-2.5 flex items-center justify-between hover:bg-gray-50 transition-colors group">
+                            <div class="flex items-center gap-3">
+                                <div class="w-8 h-8 rounded bg-white border border-border flex items-center justify-center text-black/60 shadow-sm">
+                                    <i :class="getFileIcon(file.type)" class="text-sm"></i>
+                                </div>
+                                <div>
+                                    <div class="text-[13px] font-medium text-black leading-tight" x-text="file.name"></div>
+                                    <div class="text-[11px] text-black/40 mt-0.5 font-mono" x-text="file.path"></div>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <span class="text-[10px] px-2 py-0.5 rounded-full border font-medium"
+                                      :class="file.status === 'Indexed' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-yellow-50 text-yellow-600 border-yellow-100'">
+                                    <span x-text="file.status"></span>
+                                </span>
+                                <button class="text-black/20 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all transform scale-90 hover:scale-100">
+                                    <i class="fa-solid fa-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </div>
+
+        <!-- VIEW: SKILLS -->
+        <div x-show="activeTab === 'skills'" class="flex-1 flex flex-col p-6 overflow-y-auto animate-slide-in" style="display: none;">
+            <div class="max-w-4xl mx-auto w-full">
+                <h1 class="text-2xl font-bold tracking-tight mb-2 text-black">Skill Studio</h1>
+                <p class="text-black/50 mb-8 text-[13px]">Create custom tools and skills using natural language.</p>
+
+                <!-- Generator -->
+                <div class="bg-gradient-to-br from-indigo-50/50 to-purple-50/50 border border-indigo-100 rounded-xl p-5 mb-8 relative overflow-hidden shadow-sm">
+                    <div class="absolute top-0 right-0 p-4 opacity-5"><i class="fa-solid fa-robot text-8xl"></i></div>
+                    
+                    <h3 class="text-base font-semibold mb-3 flex items-center gap-2 text-indigo-900">
+                        <i class="fa-solid fa-wand-magic-sparkles text-indigo-500"></i> Generate New Skill
+                    </h3>
+                    
+                    <div class="flex gap-2">
+                        <input type="text" 
+                               placeholder="e.g., 'Create a skill that scrapes a website and summarizes it in bullet points'" 
+                               class="flex-1 bg-white border border-black/10 rounded-lg px-3 py-2 focus:outline-none focus:border-indigo-500 transition-colors text-[13px] shadow-sm">
+                        <button class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-medium transition-colors shadow-sm text-xs">
+                            Generate
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Installed Skills -->
+                <h3 class="text-sm font-semibold mb-3 text-black/80">Installed Skills</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                    <template x-for="skill in skills" :key="skill.name">
+                        <div class="bg-white border border-border rounded-xl p-4 hover:border-black/20 hover:shadow-sm transition-all cursor-default group flex flex-col h-full">
+                            <div class="flex items-start justify-between mb-2">
+                                <div class="w-9 h-9 rounded-lg bg-gray-50 flex items-center justify-center text-lg border border-black/5">
+                                    <i :class="skill.icon" :style="{ color: skill.color }"></i>
+                                </div>
+                                <div class="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <button class="w-6 h-6 hover:bg-gray-100 rounded flex items-center justify-center text-xs text-black/60 transition-colors"><i class="fa-solid fa-pencil"></i></button>
+                                    <button class="w-6 h-6 hover:bg-gray-100 rounded flex items-center justify-center text-xs text-black/60 transition-colors"><i class="fa-solid fa-trash"></i></button>
+                                </div>
+                            </div>
+                            <h4 class="font-semibold text-[13px] text-black" x-text="skill.name"></h4>
+                            <p class="text-[11px] text-black/50 mt-1 flex-1 leading-relaxed" x-text="skill.desc"></p>
+                            <div class="mt-3 flex items-center gap-2 text-[10px] text-black/40 border-t border-border pt-2">
+                                <span class="bg-gray-100 px-1.5 py-0.5 rounded text-black/60 font-mono">v1.0.2</span>
+                                <span x-text="skill.type"></span>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </div>
+
+        <!-- VIEW: TASKS -->
+        <div x-show="activeTab === 'tasks'" class="flex-1 flex flex-col p-6 overflow-y-auto animate-slide-in" style="display: none;">
+            <div class="max-w-4xl mx-auto w-full">
+                <div class="flex items-center justify-between mb-8">
+                    <div>
+                        <h1 class="text-2xl font-bold tracking-tight text-black">Task Manager</h1>
+                        <p class="text-black/50 mt-1 text-[13px]">Monitor background agents and batch processes.</p>
+                    </div>
+                    <div class="flex gap-2">
+                        <button class="bg-white border border-border hover:bg-gray-50 text-black px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-default shadow-sm">
+                            History
+                        </button>
+                        <button class="bg-black text-white px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-black/90 transition-colors flex items-center gap-2 shadow-sm cursor-default">
+                            <i class="fa-solid fa-bolt"></i> New Batch Task
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Active Tasks -->
+                <div class="space-y-3">
+                    <template x-for="task in tasks" :key="task.id">
+                        <div class="bg-white border border-border rounded-xl p-4 relative overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+                            <!-- Progress Bar Background -->
+                            <div class="absolute bottom-0 left-0 h-0.5 bg-black/80 transition-all duration-500" :style="'width: ' + task.progress + '%'"></div>
+                            
+                            <div class="flex items-center justify-between mb-2">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-2 h-2 rounded-full" 
+                                         :class="task.status === 'running' ? 'bg-emerald-500 animate-pulse' : (task.status === 'done' ? 'bg-black/40' : 'bg-amber-400')"></div>
+                                    <h4 class="font-medium text-[13px] text-black" x-text="task.name"></h4>
+                                </div>
+                                <span class="text-[11px] font-mono text-black/50" x-text="task.progress + '%'"></span>
+                            </div>
+                            
+                            <div class="flex items-center justify-between text-[12px] text-black/60">
+                                <span x-text="task.detail" class="truncate pr-4"></span>
+                                <div class="flex gap-4 flex-shrink-0">
+                                    <span class="flex items-center gap-1"><i class="fa-regular fa-clock text-[10px]"></i> <span x-text="task.time"></span></span>
+                                    <button x-show="task.status === 'running'" class="text-destructive hover:text-red-600 cursor-default font-medium">Stop</button>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </div>
+
+        <!-- VIEW: SETTINGS -->
+        <div x-show="activeTab === 'settings'" class="flex-1 flex flex-col p-6 overflow-y-auto animate-slide-in" style="display: none;">
+            <div class="max-w-2xl mx-auto w-full space-y-8">
+                
+                <!-- General -->
+                <section>
+                    <h3 class="text-sm font-semibold text-black/90 mb-4 pb-2 border-b border-border">General</h3>
+                    <div class="space-y-4">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <label class="block font-medium text-black">Appearance</label>
+                                <p class="text-[12px] text-black/50">Customize the look and feel.</p>
+                            </div>
+                            <select class="bg-white border border-black/10 rounded-lg px-2 py-1 text-[12px] focus:outline-none focus:border-black/30 shadow-sm cursor-default">
+                                <option>System Default</option>
+                                <option>Light</option>
+                                <option>Dark</option>
+                            </select>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <label class="block font-medium text-black">Startup</label>
+                                <p class="text-[12px] text-black/50">Launch AgentOS on system startup.</p>
+                            </div>
+                            <button class="w-10 h-5 bg-black rounded-full relative cursor-default">
+                                <span class="absolute right-1 top-1 w-3 h-3 bg-white rounded-full shadow-sm"></span>
+                            </button>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- AI Models -->
+                <section>
+                    <h3 class="text-sm font-semibold text-black/90 mb-4 pb-2 border-b border-border">AI Models</h3>
+                    <div class="space-y-4">
+                        <div class="bg-white border border-border rounded-xl p-4 shadow-sm">
+                            <div class="flex items-center justify-between mb-3">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center"><i class="fa-solid fa-microchip"></i></div>
+                                    <div>
+                                        <div class="font-medium">Local Inference</div>
+                                        <div class="text-[11px] text-black/50">Ollama (running on port 11434)</div>
+                                    </div>
+                                </div>
+                                <span class="flex items-center gap-1 text-[11px] text-emerald-600 font-medium bg-emerald-50 px-2 py-1 rounded-full"><div class="w-1.5 h-1.5 rounded-full bg-emerald-500"></div> Connected</span>
+                            </div>
+                            <div class="text-[12px] text-black/60 pl-11">
+                                <p>Default Model: <span class="font-mono bg-gray-100 px-1 rounded">llama3:8b</span></p>
+                            </div>
+                        </div>
+
+                        <div class="bg-white border border-border rounded-xl p-4 shadow-sm opacity-60">
+                            <div class="flex items-center justify-between mb-3">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-8 h-8 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center"><i class="fa-solid fa-cloud"></i></div>
+                                    <div>
+                                        <div class="font-medium">Cloud Provider</div>
+                                        <div class="text-[11px] text-black/50">OpenAI / Anthropic</div>
+                                    </div>
+                                </div>
+                                <button class="text-[11px] border border-black/10 px-2 py-1 rounded bg-white hover:bg-gray-50 transition-colors shadow-sm">Configure</button>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Storage -->
+                <section>
+                    <h3 class="text-sm font-semibold text-black/90 mb-4 pb-2 border-b border-border">Storage</h3>
+                    <div class="flex items-center gap-4">
+                        <div class="flex-1 bg-white border border-border rounded-xl p-4 shadow-sm">
+                            <div class="text-[11px] text-black/50 mb-1">Vector DB</div>
+                            <div class="text-xl font-bold">128 MB</div>
+                            <div class="w-full bg-gray-100 h-1.5 rounded-full mt-2 overflow-hidden">
+                                <div class="bg-indigo-500 h-full w-[15%]"></div>
+                            </div>
+                        </div>
+                        <div class="flex-1 bg-white border border-border rounded-xl p-4 shadow-sm">
+                            <div class="text-[11px] text-black/50 mb-1">Cache</div>
+                            <div class="text-xl font-bold">45 MB</div>
+                            <div class="w-full bg-gray-100 h-1.5 rounded-full mt-2 overflow-hidden">
+                                <div class="bg-amber-500 h-full w-[5%]"></div>
+                            </div>
+                        </div>
+                        <button class="px-4 py-2 border border-border rounded-xl hover:bg-gray-50 transition-colors text-[12px] font-medium text-destructive">
+                            Clear Data
+                        </button>
+                    </div>
+                </section>
+
+                <div class="pt-8 text-center">
+                    <p class="text-[11px] text-black/30">AgentOS Desktop v0.1.0-alpha</p>
+                </div>
+
+            </div>
+        </div>
+
+    </main>
+
+    <script>
+        function appData() {
+            return {
+                ...getBaseData('chat'),
+                
+                // Chat Data
+                chatInput: '',
+                isTyping: false,
+                messages: [
+                    { 
+                        id: 1, 
+                        role: 'user', 
+                        content: 'Can you analyze the sales data in my workspace and generate a report?', 
+                        time: '10:23 AM' 
+                    },
+                    { 
+                        id: 2, 
+                        role: 'assistant', 
+                        content: 'I found 3 relevant CSV files in your <code class="bg-gray-100 px-1 rounded border border-black/5 text-xs">Finance</code> folder. I will process them now.', 
+                        time: '10:23 AM',
+                        toolCalls: [
+                            { name: 'read_file', args: 'workspace/finance/q1_sales.csv', status: 'done' },
+                            { name: 'read_file', args: 'workspace/finance/q2_sales.csv', status: 'done' },
+                            { name: 'python_exec', args: 'pandas.analyze(...)', status: 'running' }
+                        ]
+                    },
+                    {
+                        id: 3,
+                        role: 'assistant',
+                        content: 'Here is the summary of your Q1 and Q2 sales performance. Growth is steady at 15% QoQ.',
+                        time: '10:24 AM',
+                        genUI: `
+                            <div class="space-y-4">
+                                <div class="flex items-end gap-2 h-24 pb-px border-b border-black/10">
+                                    <div class="w-1/4 bg-black/5 rounded-t hover:bg-black/10 transition-colors h-[40%] relative group"><span class="absolute -top-5 left-1/2 -translate-x-1/2 text-[10px] opacity-0 group-hover:opacity-100 text-black/60">40k</span></div>
+                                    <div class="w-1/4 bg-black/10 rounded-t hover:bg-black/20 transition-colors h-[55%] relative group"><span class="absolute -top-5 left-1/2 -translate-x-1/2 text-[10px] opacity-0 group-hover:opacity-100 text-black/60">55k</span></div>
+                                    <div class="w-1/4 bg-black/20 rounded-t hover:bg-black/30 transition-colors h-[70%] relative group"><span class="absolute -top-5 left-1/2 -translate-x-1/2 text-[10px] opacity-0 group-hover:opacity-100 text-black/60">70k</span></div>
+                                    <div class="w-1/4 bg-black rounded-t hover:bg-black/80 transition-colors h-[90%] relative group"><span class="absolute -top-5 left-1/2 -translate-x-1/2 text-[10px] opacity-0 group-hover:opacity-100 text-black/60">90k</span></div>
+                                </div>
+                                <div class="flex justify-between text-[10px] text-black/40 font-medium uppercase tracking-wide">
+                                    <span>Jan</span><span>Feb</span><span>Mar</span><span>Apr</span>
+                                </div>
+                                <button class="w-full py-1.5 bg-white border border-border hover:bg-gray-50 rounded text-xs font-medium transition-colors text-black shadow-sm">Download PDF</button>
+                            </div>
+                        `
+                    }
+                ],
+                sendMessage() {
+                    if (!this.chatInput.trim()) return;
+                    
+                    this.messages.push({
+                        id: Date.now(),
+                        role: 'user',
+                        content: this.chatInput,
+                        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                    });
+
+                    const userInput = this.chatInput;
+                    this.chatInput = '';
+                    this.isTyping = true;
+                    
+                    this.$nextTick(() => {
+                        const container = document.getElementById('chat-container');
+                        container.scrollTop = container.scrollHeight;
+                    });
+
+                    setTimeout(() => {
+                        this.isTyping = false;
+                        this.messages.push({
+                            id: Date.now() + 1,
+                            role: 'assistant',
+                            content: `I've received your request: "${userInput}". \n\nI'm creating a task to handle this since it involves multiple steps.`,
+                            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                            toolCalls: [
+                                { name: 'create_task', args: 'Processing request...', status: 'done' }
+                            ]
+                        });
+                         this.$nextTick(() => {
+                            const container = document.getElementById('chat-container');
+                            if(container) container.scrollTop = container.scrollHeight;
+                        });
+                    }, 1000);
+                },
+
+                // Workspace Data
+                files: [
+                    { name: 'desktop_spec.md', path: '/docs/specs', type: 'doc', status: 'Indexed' },
+                    { name: 'ui_mockup_v1.png', path: '/docs/ui', type: 'image', status: 'Indexed' },
+                    { name: 'meeting_notes.mp3', path: '/downloads', type: 'audio', status: 'Processing' },
+                    { name: 'main.py', path: '/src/core', type: 'code', status: 'Indexed' },
+                ],
+                getFileIcon(type) {
+                    const map = {
+                        'doc': 'fa-regular fa-file-lines',
+                        'image': 'fa-regular fa-image',
+                        'audio': 'fa-regular fa-file-audio',
+                        'code': 'fa-solid fa-code'
+                    };
+                    return map[type] || 'fa-regular fa-file';
+                },
+
+                // Skills Data
+                skills: [
+                    { name: 'Web Scraper', desc: 'Extract content from any URL and convert to Markdown.', icon: 'fa-solid fa-globe', color: '#60a5fa', type: 'Official' },
+                    { name: 'Email Drafter', desc: 'Draft professional emails based on brief bullet points.', icon: 'fa-regular fa-envelope', color: '#a78bfa', type: 'Productivity' },
+                    { name: 'Code Reviewer', desc: 'Analyze PRs and suggest improvements.', icon: 'fa-solid fa-code-branch', color: '#34d399', type: 'DevTool' },
+                    { name: 'Image Gen', desc: 'Create images using Stable Diffusion locally.', icon: 'fa-regular fa-image', color: '#f472b6', type: 'Creative' },
+                    { name: 'PDF Chat', desc: 'RAG pipeline specifically optimized for large PDFs.', icon: 'fa-regular fa-file-pdf', color: '#fbbf24', type: 'Official' },
+                ],
+
+                // Tasks Data
+                tasks: [
+                    { id: 1, name: 'Batch Image Resize', progress: 45, status: 'running', detail: 'Processing 45/100 images in /assets...', time: '2m remaining' },
+                    { id: 2, name: 'Update Vector Index', progress: 100, status: 'done', detail: 'Successfully indexed 12 new files.', time: 'Just now' },
+                    { id: 3, name: 'Daily News Summary', progress: 0, status: 'pending', detail: 'Scheduled for 8:00 AM', time: 'Tomorrow' },
+                ]
+            }
+        }
+    </script>
+</body>
+</html>
