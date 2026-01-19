@@ -1,0 +1,16 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"]
+    },
+    "jsx": "react-jsx",
+    "moduleResolution": "bundler",
+    "noEmit": true,
+    "skipLibCheck": true,
+    "types": ["react", "react-dom", "bun"]
+  },
+  "include": ["src/**/*", "electrobun.config.ts", "*.d.ts"],
+  "exclude": ["node_modules"]
+}

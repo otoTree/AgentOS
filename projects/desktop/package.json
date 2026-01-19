@@ -4,14 +4,37 @@
   "private": true,
   "description": "AgentOS Desktop Client using Electrobun",
   "scripts": {
-    "dev": "electrobun dev",
-    "build": "electrobun build",
+    "css:build": "bunx tailwindcss -i ./src/mainview/index.css -o ./src/mainview/output.css",
+    "dev": "bun run css:build && electrobun build && electrobun dev",
+    "build": "bun run css:build && electrobun build",
     "start": "bun run build && bun run dev"
   },
+  "resolutions": {
+    "@types/react": "^19.2.8",
+    "@types/react-dom": "^19.2.3"
+  },
   "dependencies": {
-    "electrobun": "latest"
+    "@agentos/agent": "workspace:*",
+    "@agentos/global": "workspace:*",
+    "@radix-ui/react-label": "^2.1.8",
+    "@radix-ui/react-slot": "^1.2.4",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "electrobun": "latest",
+    "lucide-react": "^0.562.0",
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3",
+    "tailwind-merge": "^3.4.0",
+    "zustand": "^5.0.10",
+    "zod": "^3.22.4"
   },
   "devDependencies": {
-    "@types/bun": "latest"
+    "@tailwindcss/cli": "^4.1.18",
+    "@types/bun": "latest",
+    "@types/react": "^19.2.8",
+    "@types/react-dom": "^19.2.3",
+    "autoprefixer": "^10.4.23",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^4.1.18"
   }
 }

@@ -7,13 +7,13 @@ export default {
     build: {
         views: {
             mainview: {
-                entrypoint: "src/mainview/index.ts",
+                entrypoint: "src/mainview/index.tsx",
                 external: [],
             },
         },
         copy: {
             "src/mainview/index.html": "views/mainview/index.html",
-            "src/mainview/index.css": "views/mainview/index.css",
+            "src/mainview/output.css": "views/mainview/output.css",
         },
         mac: {
             bundleCEF: false,

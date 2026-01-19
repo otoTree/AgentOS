@@ -6,11 +6,13 @@ import datasetRoutes from './dataset.routes';
 import workbenchRoutes from './workbench.routes';
 import adminRoutes from './admin.routes';
 import chatRoutes from './chat.routes';
+import authRoutes from './auth.routes';
 
 const router = Router();
 
 router.get('/health', checkHealth);
 
+router.use('/auth', authRoutes);
 router.use('/ai', aiRoutes);
 router.use('/skills', skillRoutes); // v1/skills (Registry)
 router.use('/dataset', datasetRoutes);

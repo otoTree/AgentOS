@@ -1,6 +1,5 @@
 import { Request, Response } from 'express';
-import { db, chatSessions, chatMessages, modelService } from '@agentos/service';
-import { eq, desc, and } from 'drizzle-orm';
+import { db, chatSessions, chatMessages, modelService, eq, desc, and } from '@agentos/service';
 
 export const listSessions = async (req: Request, res: Response) => {
     try {

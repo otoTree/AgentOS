@@ -1,10 +1,9 @@
 import { Request, Response } from 'express';
-import { modelService, db, aiModels } from '@agentos/service';
-import { eq, and } from 'drizzle-orm';
+import { modelService, db, aiModels, eq, and } from '@agentos/service';
 import { z } from 'zod';
 
 const chatSchema = z.object({
-  model: z.string(),
+  model: z.string().optional(),
   messages: z.array(z.object({
     role: z.string(),
     content: z.string().nullable().optional(),
@@ -42,7 +41,20 @@ async function getModelId(nameOrId: string): Promise<string> {
 export const chatCompletions = async (req: Request, res: Response) => {
     try {
       const body = chatSchema.parse(req.body);
-      const modelId = await getModelId(body.model);
+      
+      let modelId: string;
+      let modelName = body.model || "default";
+
+      if (body.model) {
+          modelId = await getModelId(body.model);
+      } else {
+          const defaultModel = await db.query.aiModels.findFirst();
+          if (!defaultModel) {
+              throw new Error("No AI models configured on the server");
+          }
+          modelId = defaultModel.id;
+          modelName = defaultModel.name;
+      }
       
       const result = await modelService.chatComplete(modelId, body.messages, {
           temperature: body.temperature,
@@ -54,7 +66,7 @@ export const chatCompletions = async (req: Request, res: Response) => {
         id: 'chatcmpl-' + Date.now(),
         object: 'chat.completion',
         created: Math.floor(Date.now() / 1000),
-        model: body.model,
+        model: modelName,
         choices: [{
           index: 0,
           message: {

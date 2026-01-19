@@ -8,4 +8,5 @@ const connectionString = process.env.DATABASE_URL || 'postgres://postgres:postgr
 const client = postgres(connectionString);
 export const db = drizzle(client, { schema });
 
+export * from 'drizzle-orm';
 export * from './schema';

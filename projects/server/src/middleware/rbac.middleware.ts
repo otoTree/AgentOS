@@ -1,6 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { rbacService, skillService, db, skills } from '@agentos/service';
-import { eq } from 'drizzle-orm';
+import { rbacService, skillService, db, skills, eq } from '@agentos/service';
 import { PERMISSIONS } from '@agentos/service/core/team/constants';
 
 type PermissionExtractor = (req: Request) => Promise<{ teamId: string | null, permission?: string }>;
