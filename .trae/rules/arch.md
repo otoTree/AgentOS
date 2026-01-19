@@ -124,3 +124,64 @@ AgentOS 是一个 AI Agent 构建平台,通过 Flow 提供开箱即用的数据�
 
 1. 对于功能的实习和复杂问题修复，优先进行文档设计，并于让用户确认后，再进行执行修复。
 2. 采用"设计文档-测试示例-代码编写-测试运行-修正代码/文档"的工作模式，以测试为核心来确保设计的正确性。
+
+## 美术规范
+
+<icons>
+default: lucide-react (UI icons)
+brand: react-icons (FcGoogle, FaGithub, GiYinYang)
+custom: shared/icons/ when needed
+priority: lucide → react-icons → custom
+</icons>
+
+<component-structure>
+principle: high cohesion + low coupling
+high cohesion: component manages own data, animation, styling internally
+low coupling: minimize props | fetch own data (useTranslations, hooks) | ✗ receive pre-processed data as props
+exception: generic reusable components → accept data via props
+</component-structure>
+
+<styling>
+principle: prefer props to control behavior | modify base when semantics require (e.g., div → span)
+pattern: add size/variant props → caller decides | keep base defaults stable when possible
+variants: use cva (class-variance-authority) for variant styles | ✗ multiple if statements
+</styling>
+
+<cursor>
+types: default | pointer | text | not-allowed
+default: text content | non-interactive elements
+pointer: all interactive elements (button, link, clickable) + their children
+text: input fields (text, email, password, textarea, contenteditable)
+not-allowed: disabled elements (:disabled, aria-disabled)
+✗ use: grab | crosshair | other cursor types
+</cursor>
+
+<theme>
+mode: light only | ✗ dark mode
+colors: black text on white/gray bg | use opacity for hierarchy (text-black/50, text-black/70)
+✗ use: dark: variant | bg-zinc-900 | text-white on dark bg
+</theme>
+
+<color-system>
+format: OKLCH preferred | oklch(L C H) where L=lightness C=chroma H=hue
+base: pure white bg (#fff) + pure black text (#000)
+hierarchy: opacity-based (text-black/40 → /50 → /60 → /70 → /80 → black)
+section-bg: oklch(0.985 0 0) ≈ zinc-50 (alternating section background)
+accent: ✗ colored accents | use black/white only
+border: black/[0.04-0.08] (subtle borders)
+shadow: rgba(0,0,0,0.04-0.12) (delicate shadows)
+success: emerald-500 (status indicator only)
+mode-colors:
+  - auto: oklch(0.55 0.01 60) stone gray
+  - fortune: oklch(0.7 0.1 290) light violet
+  - listen: oklch(0.75 0.08 165) light emerald
+  - divination: oklch(0.7 0.1 290) light violet
+</color-system>
+
+<aesthetic>
+direction: Eastern Editorial Minimalism
+tone: light & serene | breathing whitespace | refined restraint
+inspiration: magazine editorial layout + ink-wash painting aesthetics
+character: modern minimalism as foundation | eastern elegance as soul | east-west fusion
+✗ avoid: heavy shadows | saturated colors | busy decoration | generic AI aesthetics
+</aesthetic>
