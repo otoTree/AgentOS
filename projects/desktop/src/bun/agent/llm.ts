@@ -9,7 +9,7 @@ export class DesktopLLMClient implements LLMClient {
       // Convert messages to ApiClient format
       const apiMessages: ChatMessage[] = messages.map(m => ({
         role: m.role as "user" | "assistant" | "system" | "tool",
-        content: m.content,
+        content: m.content ?? "", // Ensure content field is always present (default to empty string if null/undefined)
         tool_calls: m.tool_calls,
         tool_call_id: m.tool_call_id
       }));
@@ -25,14 +25,42 @@ export class DesktopLLMClient implements LLMClient {
 
       const res = await this.apiClient.chat(chatReq);
       
+      if (!res.choices || res.choices.length === 0) {
+          throw new Error("LLM returned no choices");
+      }
+      
       const choice = res.choices[0];
       const message = choice.message;
 
+      if (!message) {
+          throw new Error("LLM returned no message");
+      }
+
       // Parse tool calls arguments from string to object
-      const toolCalls = message.tool_calls?.map(tc => {
+      const toolCalls = message.tool_calls?.map((tc: any) => {
+          // If the server already parsed it (it has name/arguments directly)
+          if (tc.name && tc.arguments && typeof tc.arguments === 'object') {
+              return {
+                  id: tc.id,
+                  name: tc.name,
+                  arguments: tc.arguments
+              };
+          }
+
+          // Fallback to standard OpenAI format
+          if (!tc.function) {
+              console.warn("Tool call missing function data:", tc);
+              return {
+                  id: tc.id,
+                  name: "unknown",
+                  arguments: {}
+              };
+          }
           let args = {};
           try {
-              args = JSON.parse(tc.function.arguments);
+              args = typeof tc.function.arguments === 'string' 
+                ? JSON.parse(tc.function.arguments) 
+                : tc.function.arguments;
           } catch (e) {
               console.error("Failed to parse tool arguments:", tc.function.arguments);
           }

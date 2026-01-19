@@ -12,6 +12,7 @@ export interface ChatMessage {
   sessionId: string;
   role: 'user' | 'assistant';
   content: string;
+  metadata?: any;
   createdAt: number;
   status: 'sending' | 'sent' | 'error';
 }
@@ -22,7 +23,7 @@ export class ChatDatabase extends Dexie {
 
   constructor() {
     super('AgentOSDesktopDB');
-    this.version(1).stores({
+    this.version(2).stores({
       sessions: 'id, title, createdAt, updatedAt', // Primary key and indexed props
       messages: 'id, sessionId, createdAt, role'
     });

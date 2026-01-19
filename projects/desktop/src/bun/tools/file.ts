@@ -1,5 +1,14 @@
 import { z } from 'zod';
-import * as fs from 'fs/promises';
+import * as fs from 'node:fs/promises';
+import * as path from 'node:path';
+import * as os from 'node:os';
+
+function resolvePath(p: string): string {
+    if (p.startsWith('~')) {
+        return path.join(os.homedir(), p.slice(1));
+    }
+    return path.resolve(p);
+}
 
 export type Tool = {
     name: string;
@@ -14,24 +23,28 @@ export const localFileTools: Tool[] = [
         name: "fs_list_directory",
         description: "List files and directories in a given path",
         parameters: z.object({
-            path: z.string().describe("The absolute path to the directory")
+            path: z.string().describe("The path to list (supports ~ for home directory)")
         }),
         jsonSchema: {
             type: "object",
             properties: {
-                path: { type: "string", description: "The absolute path to the directory" }
+                path: { type: "string", description: "The path to list (supports ~ for home directory)" }
             },
             required: ["path"]
         },
         execute: async ({ path: dirPath }) => {
+            const resolvedPath = resolvePath(dirPath);
+            console.log(`[fs_list_directory] Listing directory: ${resolvedPath} (original: ${dirPath})`);
             try {
-                const files = await fs.readdir(dirPath, { withFileTypes: true });
+                const files = await fs.readdir(resolvedPath, { withFileTypes: true });
+                console.log(`[fs_list_directory] Found ${files.length} items`);
                 return files.map(dirent => ({
                     name: dirent.name,
                     isDirectory: dirent.isDirectory(),
                     isFile: dirent.isFile()
                 }));
             } catch (error: any) {
+                console.error(`[fs_list_directory] Error:`, error);
                 throw new Error(`Failed to list directory: ${error.message}`);
             }
         }
@@ -40,22 +53,25 @@ export const localFileTools: Tool[] = [
         name: "fs_read_file",
         description: "Read the content of a file",
         parameters: z.object({
-            path: z.string().describe("The absolute path to the file"),
+            path: z.string().describe("The path to the file to read (supports ~ for home directory)"),
             encoding: z.enum(['utf-8', 'base64']).optional().default('utf-8').describe("The encoding to use (default: utf-8)")
         }),
         jsonSchema: {
             type: "object",
             properties: {
-                path: { type: "string", description: "The absolute path to the file" },
+                path: { type: "string", description: "The path to the file to read (supports ~ for home directory)" },
                 encoding: { type: "string", enum: ["utf-8", "base64"], description: "The encoding to use (default: utf-8)", default: "utf-8" }
             },
             required: ["path"]
         },
         execute: async ({ path: filePath, encoding }) => {
+            const resolvedPath = resolvePath(filePath);
+            console.log(`[fs_read_file] Reading file: ${resolvedPath}`);
             try {
-                const content = await fs.readFile(filePath, { encoding: encoding as BufferEncoding });
+                const content = await fs.readFile(resolvedPath, { encoding: encoding as BufferEncoding });
                 return content;
             } catch (error: any) {
+                console.error(`[fs_read_file] Error:`, error);
                 throw new Error(`Failed to read file: ${error.message}`);
             }
         }

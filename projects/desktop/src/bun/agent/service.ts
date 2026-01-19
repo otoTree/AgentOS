@@ -3,17 +3,26 @@ import { DesktopLLMClient } from "./llm";
 import { localDB } from "../db";
 import { BrowserWindow } from "electrobun/bun";
 import { fileTools } from "../tools/file";
+import * as os from 'node:os';
 
 export class AgentService {
   private agent: SuperAgent;
   
   constructor(private llmClient: DesktopLLMClient) {
+    const homeDir = os.homedir();
+    const platform = os.platform();
+
     this.agent = new SuperAgent({
       model: "gpt-3.5-turbo",
       llmClient: this.llmClient,
       tools: [...fileTools] as any, // 添加本地工具 (强制类型转换)
       prompts: {
-        system: "You are a helpful assistant running on AgentOS Desktop. You have access to the local file system.",
+        system: `You are a helpful assistant running on AgentOS Desktop. 
+You have access to the local file system.
+The current user's home directory is: ${homeDir}
+The operating system is: ${platform}
+When using tools that require paths, you should prefer using paths relative to the home directory or absolute paths that are correct for this OS.
+Example: If the user asks for files on Desktop, use "${homeDir}/Desktop".`,
       }
     });
   }
@@ -42,6 +51,61 @@ export class AgentService {
     // 3. 执行 Agent
     try {
        console.log("[AgentService] Starting agent run with message:", message);
+       
+       // 设置回调来保存中间过程
+       this.agent.setCallbacks({
+         onToolStart: (toolName, args) => {
+           console.log(`[AgentService] 🛠️ Executing tool: ${toolName}`, args);
+           // 保存一个带 tool_calls 的 assistant 消息
+           localDB.addMessage({
+             id: crypto.randomUUID(),
+             role: "assistant",
+             content: "",
+             session_id: sessionId,
+             metadata: {
+               tool_calls: [{
+                 id: `call_${Date.now()}`, 
+                 type: "function",
+                 function: { name: toolName, arguments: JSON.stringify(args) }
+               }]
+             }
+           });
+         },
+         onToolEnd: (toolName, output) => {
+           // 如果 output 是 undefined，可能是在 onStep 中处理了错误
+           if (output === undefined) return;
+
+           console.log(`[AgentService] ✅ Tool finished: ${toolName}, result:`, 
+             typeof output === 'string' && output.length > 500 ? output.substring(0, 500) + '...' : output
+           );
+           // 保存 tool 结果消息
+           localDB.addMessage({
+             id: crypto.randomUUID(),
+             role: "tool",
+             content: JSON.stringify(output),
+             session_id: sessionId,
+             metadata: {
+               tool_name: toolName
+             }
+           });
+         },
+         onStep: (step) => {
+            if (step.type === 'error') {
+                console.error(`[AgentService] ❌ Tool error:`, step.content);
+                localDB.addMessage({
+                    id: crypto.randomUUID(),
+                    role: "tool",
+                    content: step.content,
+                    session_id: sessionId,
+                    metadata: {
+                        error: true,
+                        tool_name: step.toolName
+                    }
+                });
+            }
+         }
+       });
+
        const response = await this.agent.run(message);
        console.log("[AgentService] Agent run finished, response length:", response?.length);
        

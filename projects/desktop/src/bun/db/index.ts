@@ -25,11 +25,27 @@ export class LocalDB {
         id TEXT PRIMARY KEY,
         role TEXT NOT NULL,
         content TEXT NOT NULL,
+        metadata TEXT, -- JSON string for tool calls, etc.
         created_at INTEGER NOT NULL,
         synced INTEGER DEFAULT 0, -- 0: unsynced, 1: synced
         session_id TEXT NOT NULL
       )
     `);
+
+    // Migration: Check for missing columns
+    try {
+      const columns = (this.db.prepare("PRAGMA table_info(messages)").all() as any[]).map(c => c.name);
+      
+      if (!columns.includes('metadata')) {
+        this.db.run("ALTER TABLE messages ADD COLUMN metadata TEXT");
+      }
+      
+      if (!columns.includes('synced')) {
+        this.db.run("ALTER TABLE messages ADD COLUMN synced INTEGER DEFAULT 0");
+      }
+    } catch (e) {
+      console.error("Migration failed:", e);
+    }
 
     this.db.run(`
       CREATE INDEX IF NOT EXISTS idx_session_id ON messages(session_id)
@@ -40,16 +56,17 @@ export class LocalDB {
     `);
   }
 
-  addMessage(msg: { id: string; role: string; content: string; session_id: string }) {
+  addMessage(msg: { id: string; role: string; content: string; session_id: string; metadata?: any }) {
     const stmt = this.db.prepare(`
-      INSERT INTO messages (id, role, content, created_at, session_id, synced)
-      VALUES ($id, $role, $content, $created_at, $session_id, 0)
+      INSERT INTO messages (id, role, content, metadata, created_at, session_id, synced)
+      VALUES ($id, $role, $content, $metadata, $created_at, $session_id, 0)
     `);
     
     stmt.run({
       $id: msg.id,
       $role: msg.role,
       $content: msg.content,
+      $metadata: msg.metadata ? JSON.stringify(msg.metadata) : null,
       $created_at: Date.now(),
       $session_id: msg.session_id
     });
