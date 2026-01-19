@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { Skill } from '../types';
 import { Globe, Mail, GitBranch, ImageIcon, FileText } from 'lucide-react';
 
-interface SkillState {
+type SkillState = {
   skills: Skill[];
   addSkill: (skill: Skill) => void;
   removeSkill: (name: string) => void;

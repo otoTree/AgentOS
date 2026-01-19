@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { SlideData } from '@agentos/office/src/ppt/model/schema';
 import { SVGRenderer } from '@agentos/office/src/ppt/renderer/svg-renderer';
 
-interface PPTViewerProps {
+type PPTViewerProps = {
   slide: SlideData | undefined;
   width?: number;
   height?: number;

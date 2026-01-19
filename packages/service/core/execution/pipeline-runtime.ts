@@ -3,24 +3,24 @@ import { tasks } from '../../database/schema';
 import { eq } from 'drizzle-orm';
 import { sandboxManager } from './sandbox-manager';
 
-export interface PipelineStep {
+export type PipelineStep = {
     id: string;
     skillId: string;
     name: string;
     args: Record<string, any>;
 }
 
-export interface PipelineDefinition {
+export type PipelineDefinition = {
     steps: PipelineStep[];
 }
 
-export interface StepContext {
+export type StepContext = {
     status: 'pending' | 'running' | 'completed' | 'failed';
     output?: any;
     error?: string;
 }
 
-export interface PipelineContext {
+export type PipelineContext = {
     steps: Record<string, StepContext>;
 }
 
@@ -42,7 +42,7 @@ export class PipelineRuntime {
             .where(eq(tasks.id, taskId));
             
         const definition = task.pipelineDefinition as unknown as PipelineDefinition;
-        let context = (task.pipelineContext as unknown as PipelineContext) || { steps: {} };
+        const context = (task.pipelineContext as unknown as PipelineContext) || { steps: {} };
         
         try {
             // 2. Iterate Steps

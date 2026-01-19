@@ -11,6 +11,7 @@ import RegisterPage from './pages/Auth/Register';
 import { useUIStore } from './store/useUIStore';
 import { useAuthStore } from './store/useAuthStore';
 import { apiClient } from '../bun/api';
+import { getRpc } from './rpc';
 
 export default function App() {
   const { activeTab } = useUIStore();
@@ -20,11 +21,32 @@ export default function App() {
 
   // Sync token to apiClient whenever it changes
   useEffect(() => {
-    if (token) {
-      apiClient.setToken(token);
-    } else {
-      apiClient.setToken('');
-    }
+    const syncToken = async () => {
+        console.log("[Auth] syncToken start", { hasToken: Boolean(token) });
+        const rpc = await getRpc();
+        
+        if (token) {
+            console.log("[Auth] Syncing token to main process", { length: token.length });
+            apiClient.setToken(token);
+            try {
+                await rpc.request.setToken({ token });
+                console.log("[Auth] Token synced via RPC");
+            } catch (e) {
+                console.error("[Auth] Failed to sync token via RPC:", e);
+            }
+        } else {
+            console.log("[Auth] Clearing token in main process");
+            apiClient.setToken('');
+            try {
+                await rpc.request.setToken({ token: '' });
+            } catch (e) {
+                console.error("[Auth] Failed to clear token via RPC:", e);
+            }
+        }
+        console.log("[Auth] syncToken done");
+    };
+    
+    syncToken();
   }, [token]);
 
   // Validate session on mount

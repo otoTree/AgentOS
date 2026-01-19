@@ -2,7 +2,8 @@
 import { Electroview } from "electrobun/view";
 import { AgentRPCSchema } from "../types/rpc";
 
-export const rpc = Electroview.defineRPC<AgentRPCSchema>({
+const rpcSchema = Electroview.defineRPC<AgentRPCSchema>({
+  maxRequestTime: 120000,
   handlers: {
     requests: {},
     messages: {
@@ -19,3 +20,35 @@ export const rpc = Electroview.defineRPC<AgentRPCSchema>({
     }
   }
 });
+
+type RpcClient = typeof rpcSchema;
+
+let electroviewInstance: Electroview<RpcClient> | null = null;
+let rpcReadyResolve: ((rpc: RpcClient) => void) | null = null;
+const rpcReadyPromise = new Promise<RpcClient>((resolve) => {
+  rpcReadyResolve = resolve;
+});
+
+export const initElectroview = () => {
+  if (electroviewInstance) {
+    console.log("[RPC] Electroview already initialized");
+    return electroviewInstance;
+  }
+  console.log("[RPC] Initializing Electroview");
+  electroviewInstance = new Electroview<RpcClient>({ rpc: rpcSchema });
+  if (rpcReadyResolve) {
+    console.log("[RPC] Resolving RPC client");
+    rpcReadyResolve(electroviewInstance.rpc as RpcClient);
+    rpcReadyResolve = null;
+  }
+  return electroviewInstance;
+};
+
+export const getRpc = () => {
+  if (electroviewInstance) {
+    console.log("[RPC] getRpc immediate");
+    return Promise.resolve(electroviewInstance.rpc as RpcClient);
+  }
+  console.log("[RPC] getRpc waiting for initialization");
+  return rpcReadyPromise;
+};

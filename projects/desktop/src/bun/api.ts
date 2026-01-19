@@ -132,11 +132,13 @@ export class ApiClient {
     }
 
     setToken(token: string) {
+        console.log("[ApiClient] Setting token, length:", token?.length);
         this.token = token;
     }
 
     private buildAuthHeader() {
         if (!this.token) {
+            console.error("[ApiClient] buildAuthHeader failed: No token set");
             throw new Error("Authentication required");
         }
         return {
@@ -152,21 +154,31 @@ export class ApiClient {
     }) {
         const { method = 'GET', body, auth = true, headers = {} } = options || {};
         const requestHeaders: Record<string, string> = { ...headers };
+        
+        console.log(`[ApiClient] Requesting ${method} ${path}, auth=${auth}`);
+
         if (auth) {
             Object.assign(requestHeaders, this.buildAuthHeader());
         }
         if (body && !(body instanceof FormData)) {
             requestHeaders['Content-Type'] = 'application/json';
         }
-        const response = await fetch(`${SERVER_URL}${path}`, {
-            method,
-            headers: requestHeaders,
-            body: body ? (body instanceof FormData ? body : JSON.stringify(body)) : undefined
-        });
-        if (!response.ok) {
-            throw new Error(`Server error: ${response.statusText}`);
+        
+        try {
+            const response = await fetch(`${SERVER_URL}${path}`, {
+                method,
+                headers: requestHeaders,
+                body: body ? (body instanceof FormData ? body : JSON.stringify(body)) : undefined
+            });
+            if (!response.ok) {
+                console.error(`[ApiClient] Request failed: ${response.status} ${response.statusText}`);
+                throw new Error(`Server error: ${response.statusText}`);
+            }
+            return await response.json() as T;
+        } catch (error) {
+             console.error(`[ApiClient] Fetch error:`, error);
+             throw error;
         }
-        return await response.json() as T;
     }
 
     private async requestVoid(path: string, options?: {

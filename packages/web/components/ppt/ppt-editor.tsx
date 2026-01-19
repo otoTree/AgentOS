@@ -3,7 +3,7 @@ import { PPTKernel } from '@agentos/office/src/ppt';
 import { PPTViewer } from './ppt-viewer';
 import { PPTToolbar } from './toolbar';
 
-interface PPTEditorProps {
+type PPTEditorProps = {
   file?: Blob | ArrayBuffer;
   className?: string;
 }

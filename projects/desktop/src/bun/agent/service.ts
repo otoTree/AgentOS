@@ -41,7 +41,9 @@ export class AgentService {
     
     // 3. 执行 Agent
     try {
+       console.log("[AgentService] Starting agent run with message:", message);
        const response = await this.agent.run(message);
+       console.log("[AgentService] Agent run finished, response length:", response?.length);
        
        // 4. 保存 Assistant 消息
        const aiMsgId = crypto.randomUUID();

@@ -112,7 +112,7 @@ export const sendMessage = async (req: Request, res: Response) => {
 
         // 4. Call AI
         // Need modelId. If model name provided, find ID.
-        let modelId = model; 
+        const modelId = model; 
         // Logic to find modelId if name passed (omitted for brevity, assume ID for now or implement helper)
 
         const responseContent = await modelService.chat(modelId, messages);

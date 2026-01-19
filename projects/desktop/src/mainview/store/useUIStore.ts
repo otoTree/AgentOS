@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { Tab } from '../types';
 
-interface UIState {
+type UIState = {
   activeTab: Tab;
   setActiveTab: (tab: Tab) => void;
 }

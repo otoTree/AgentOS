@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { FileItem } from '../types';
 
-interface WorkspaceState {
+type WorkspaceState = {
   files: FileItem[];
   addFile: (file: FileItem) => void;
   removeFile: (name: string) => void;

@@ -17,19 +17,32 @@ const syncService = new SyncService(apiClient);
 syncService.start();
 
 const rpc = BrowserView.defineRPC<AgentRPCSchema>({
+  maxRequestTime: 120000,
   handlers: {
     requests: {
-      chat: (async ({ message }: { message: string }) => {
-        // TODO: pass sessionId from UI
-        const sessionId = "default-session"; 
-        // We can access the webview ID if needed, but for now we just return the content
-        const content = await agentService.chat(message, sessionId, 0);
-        return { content };
+      chat: (async ({ message, sessionId }: { message: string, sessionId: string }) => {
+        console.log("[Bun] RPC chat request received", { length: message?.length, sessionId });
+        const sid = sessionId || "default-session";
+        try {
+            const content = await agentService.chat(message, sid, 0);
+            console.log("[Bun] RPC chat response", { length: content?.length });
+            return { content };
+        } catch (e: any) {
+            console.error("[Bun] RPC chat error:", e);
+            throw new Error(e.message || String(e));
+        }
       }) as any,
       getHistory: (async ({ sessionId }: { sessionId?: string }) => {
         const sid = sessionId || "default-session";
+        console.log("[Bun] RPC getHistory", { sessionId: sid });
         const messages = localDB.getMessages(sid);
+        console.log("[Bun] RPC getHistory result", { count: messages.length });
         return { messages };
+      }) as any,
+      setToken: (async ({ token }: { token: string }) => {
+        console.log("[Bun] RPC setToken received", { length: token?.length });
+        apiClient.setToken(token);
+        return { success: true };
       }) as any
     },
     messages: {}

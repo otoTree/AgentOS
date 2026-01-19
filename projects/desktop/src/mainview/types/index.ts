@@ -1,6 +1,6 @@
 export type Tab = 'chat' | 'workspace' | 'skills' | 'tasks' | 'settings';
 
-export interface Message {
+export type Message = {
   id: string | number;
   role: 'user' | 'assistant';
   content: string;
@@ -9,14 +9,14 @@ export interface Message {
   genUI?: React.ReactNode;
 }
 
-export interface FileItem {
+export type FileItem = {
   name: string;
   path: string;
   type: 'doc' | 'image' | 'audio' | 'code';
   status: 'Indexed' | 'Processing';
 }
 
-export interface Skill {
+export type Skill = {
   name: string;
   desc: string;
   icon: React.ElementType;
@@ -24,7 +24,7 @@ export interface Skill {
   type: string;
 }
 
-export interface Task {
+export type Task = {
   id: number;
   name: string;
   progress: number;

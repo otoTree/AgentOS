@@ -2,7 +2,7 @@ import React from 'react';
 import { Button } from '../ui/button';
 import { PPTKernel } from '@agentos/office/src/ppt';
 
-interface PPTToolbarProps {
+type PPTToolbarProps = {
   kernel: PPTKernel;
   onUpdate: () => void;
 }

@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-export interface Task {
+export type Task = {
     id: string;
     teamId: string;
     type: 'agent' | 'pipeline';
@@ -16,7 +16,7 @@ export interface Task {
     skillIds?: string[]; // Add this
 }
 
-export interface TaskArtifact {
+export type TaskArtifact = {
     id: string;
     taskId: string;
     type: 'file' | 'code' | 'link';

@@ -7,7 +7,7 @@
     "build": "pnpm -r build",
     "test": "vitest",
     "test:workflow": "vitest run test/workflow",
-    "lint": "eslint . --fix",
+    "lint": "eslint . --fix --resolve-plugins-relative-to .",
     "format-code": "prettier --write .",
     "create:i18n": "tsx packages/web/i18n/generate.ts",
     "api:gen": "tsx packages/global/openapi/gen.ts",

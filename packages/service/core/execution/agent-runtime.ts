@@ -25,7 +25,7 @@ export class AgentRuntime {
             .where(eq(tasks.id, taskId));
 
         // 2. Setup Context
-        let context = (task.pipelineContext as any) || { messages: [], iterations: 0, activeChunks: {} };
+        const context = (task.pipelineContext as any) || { messages: [], iterations: 0, activeChunks: {} };
         const agentProfile = task.agentProfile as any;
         const skillIds = (task.skillIds as string[]) || [];
 

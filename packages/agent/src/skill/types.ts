@@ -1,17 +1,17 @@
-export interface SkillMetadata {
+export type SkillMetadata = {
   name: string;
   version: string;
   description: string;
   [key: string]: any;
 }
 
-export interface SkillChunk {
+export type SkillChunk = {
   id: string;
   description: string;
   content: string;
 }
 
-export interface Skill {
+export type Skill = {
   metadata: SkillMetadata;
   coreContent: string; // The content after removing chunks
   chunks: Map<string, SkillChunk>;

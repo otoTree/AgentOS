@@ -128,7 +128,7 @@ export class PPTXParser {
         const embedId = blip?.["@_r:embed"];
         
         if (embedId && relationships.has(embedId)) {
-           let target = relationships.get(embedId)!;
+           const target = relationships.get(embedId)!;
            // target is usually relative like "../media/image1.png"
            // We need to resolve it relative to ppt/slides/
            // Simple hack: if it starts with ../, remove it and prepend ppt/

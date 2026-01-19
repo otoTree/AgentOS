@@ -1,12 +1,13 @@
 export type ChatRequest = {
   message: string;
+  sessionId: string;
 };
 
 export type ChatResponse = {
   content: string;
 };
 
-export interface RPCMessage {
+export type RPCMessage = {
   id: string;
   role: string;
   content: string;
@@ -21,6 +22,14 @@ export type GetHistoryResponse = {
   messages: RPCMessage[];
 };
 
+export type SetTokenRequest = {
+  token: string;
+};
+
+export type SetTokenResponse = {
+  success: boolean;
+};
+
 export type AgentRPCSchema = {
   bun: {
     requests: {
@@ -31,6 +40,10 @@ export type AgentRPCSchema = {
       getHistory: {
         params: GetHistoryRequest;
         returns: GetHistoryResponse;
+      };
+      setToken: {
+        params: SetTokenRequest;
+        returns: SetTokenResponse;
       };
     };
     messages: {};

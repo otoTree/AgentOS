@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import * as fs from 'fs/promises';
 
-export interface Tool {
+export type Tool = {
     name: string;
     description: string;
     parameters: z.ZodType<any>;

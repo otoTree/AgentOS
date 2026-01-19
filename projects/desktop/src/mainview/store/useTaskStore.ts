@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { Task } from '../types';
 
-interface TaskState {
+type TaskState = {
   tasks: Task[];
   addTask: (task: Task) => void;
   updateTask: (id: number, updates: Partial<Task>) => void;
