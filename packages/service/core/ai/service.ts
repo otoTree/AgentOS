@@ -394,6 +394,52 @@ export class ModelService {
       const res = await this.chatComplete(modelId, messages, options);
       return res.content || '';
   }
+
+  /**
+   * Get Embeddings
+   */
+  async getEmbeddings(modelId: string, input: string | string[]) {
+      // 1. Get Model & Provider
+      const model = await db.query.aiModels.findFirst({
+          where: eq(aiModels.id, modelId),
+          with: {
+              provider: true
+          }
+      });
+      
+      if (!model) throw new Error('Model not found');
+      if (!model.provider) throw new Error('Provider not found');
+
+      const config = decrypt(model.provider.config) as any;
+      const { apiKey, baseUrl } = config;
+      const type = model.provider.type;
+
+      if (type === 'openai' || type === 'local') {
+          const url = (baseUrl || 'https://api.openai.com/v1').replace(/\/$/, '') + '/embeddings';
+          
+          const res = await fetchWithRetry(url, {
+              method: 'POST',
+              headers: {
+                  'Authorization': `Bearer ${apiKey}`,
+                  'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                  model: model.name,
+                  input
+              })
+          });
+
+          if (!res.ok) {
+              const error = await res.text();
+              throw new Error(`OpenAI API Error: ${res.status} ${error}`);
+          }
+
+          const data = await res.json();
+          return data;
+      }
+      
+      throw new Error(`Provider type ${type} does not support embeddings`);
+  }
 }
 
 export const modelService = new ModelService();

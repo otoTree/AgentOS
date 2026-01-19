@@ -21,6 +21,13 @@ export const PERMISSIONS = {
     FILE_READ: 'file:read',
     FILE_UPLOAD: 'file:upload',
     FILE_DELETE: 'file:delete',
+
+    // Skills
+    SKILL_READ: 'skill:read',
+    SKILL_CREATE: 'skill:create',
+    SKILL_UPDATE: 'skill:update',
+    SKILL_DELETE: 'skill:delete',
+    SKILL_RUN: 'skill:run',
 } as const;
 
 export type PermissionType = typeof PERMISSIONS[keyof typeof PERMISSIONS];
@@ -58,6 +65,8 @@ export const SYSTEM_ROLES = {
             PERMISSIONS.MODEL_READ,
             PERMISSIONS.FILE_READ,
             PERMISSIONS.FILE_UPLOAD,
+            PERMISSIONS.SKILL_READ,
+            PERMISSIONS.SKILL_RUN,
         ]
     }
 };

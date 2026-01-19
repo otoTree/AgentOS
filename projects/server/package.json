@@ -14,11 +14,18 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "@agentos/global": "workspace:*",
+    "@agentos/service": "workspace:*",
+    "@types/multer": "^2.0.0",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
+    "drizzle-orm": "0.33.0",
     "express": "^5.2.1",
     "helmet": "^8.1.0",
     "morgan": "^1.10.1",
+    "multer": "^2.0.2",
+    "next-auth": "^4.24.13",
+    "postgres": "^3.4.7",
     "zod": "^4.3.5"
   },
   "devDependencies": {

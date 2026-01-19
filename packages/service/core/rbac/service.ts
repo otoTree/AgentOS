@@ -99,6 +99,30 @@ export class RbacService {
         await db.delete(roles).where(eq(roles.id, roleId));
         return true;
     }
+
+    /**
+     * Check if a user has a specific permission in a team
+     */
+    async checkPermission(userId: string, teamId: string, permission: string): Promise<boolean> {
+        // 1. Get Member Record with Role
+        const member = await db.query.teamMembers.findFirst({
+            where: and(
+                eq(teamMembers.userId, userId),
+                eq(teamMembers.teamId, teamId)
+            ),
+            with: {
+                role: true
+            }
+        });
+
+        if (!member || !member.role) return false;
+
+        // 2. Check Permission
+        // permissions is jsonb, so it's parsed as array
+        const perms = member.role.permissions as string[];
+        return perms.includes(permission) || perms.includes('*'); // Support wildcard? Maybe later
+    }
 }
+
 
 export const rbacService = new RbacService();
