@@ -1,3 +1,5 @@
+import { Skill } from "@agentos/agent";
+
 export type ChatRequest = {
   message: string;
   sessionId: string;
@@ -41,6 +43,33 @@ export type RunScriptResponse = {
   error: string;
 };
 
+// Skill RPC Types
+export type GenerateSkillRequest = {
+  prompt: string;
+};
+
+export type GenerateSkillResponse = {
+  success: boolean;
+  skillName?: string;
+  error?: string;
+};
+
+export type ListSkillsRequest = {};
+
+export type ListSkillsResponse = {
+  skills: Skill[];
+};
+
+export type PublishSkillRequest = {
+  skillName: string;
+};
+
+export type PublishSkillResponse = {
+  success: boolean;
+  skillId?: string;
+  error?: string;
+};
+
 export type AgentRPCSchema = {
   bun: {
     requests: {
@@ -59,6 +88,19 @@ export type AgentRPCSchema = {
       runScript: {
         params: RunScriptRequest;
         returns: RunScriptResponse;
+      };
+      // Skill RPCs
+      generateSkill: {
+        params: GenerateSkillRequest;
+        returns: GenerateSkillResponse;
+      };
+      listSkills: {
+        params: ListSkillsRequest;
+        returns: ListSkillsResponse;
+      };
+      publishSkill: {
+        params: PublishSkillRequest;
+        returns: PublishSkillResponse;
       };
     };
     messages: {};

@@ -4,6 +4,8 @@ import { DesktopLLMClient } from "./agent/llm";
 import { ApiClient } from "./api";
 import { SyncService } from "./service/sync";
 import { SandboxService } from "./service/sandbox";
+import { LocalCoderService } from "./service/coder";
+import { SkillRegistry } from "./service/skill";
 import { AgentRPCSchema } from "../types/rpc";
 import { localDB } from "./db";
 
@@ -15,6 +17,8 @@ const llmClient = new DesktopLLMClient(apiClient);
 const agentService = new AgentService(llmClient);
 const syncService = new SyncService(apiClient);
 const sandboxService = new SandboxService();
+const skillRegistry = new SkillRegistry();
+const localCoderService = new LocalCoderService(llmClient);
 
 syncService.start();
 
@@ -60,6 +64,19 @@ const rpc = BrowserView.defineRPC<AgentRPCSchema>({
       runScript: (async ({ code, language }: { code: string, language: string }) => {
         console.log("[Bun] RPC runScript", { language });
         return await sandboxService.runScript(code, language);
+      }) as any,
+      listSkills: (async () => {
+        console.log("[Bun] RPC listSkills");
+        const skills = await skillRegistry.listSkills();
+        return { skills };
+      }) as any,
+      generateSkill: (async ({ prompt }: { prompt: string }) => {
+        console.log("[Bun] RPC generateSkill", { prompt });
+        return await localCoderService.generateSkill(prompt);
+      }) as any,
+      publishSkill: (async ({ skillName }: { skillName: string }) => {
+        console.log("[Bun] RPC publishSkill", { skillName });
+        return await skillRegistry.publishSkill(skillName);
       }) as any
     },
     messages: {}
