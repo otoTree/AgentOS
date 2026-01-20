@@ -56,25 +56,25 @@ export function createSkillTools(skillRegistry: SkillRegistry, sandboxService: S
             }
         },
         {
-            name: "skill_execute_script",
-            description: "Execute a code script in the sandbox environment. Useful for testing skill logic or running arbitrary code safely.",
+            name: "skill_execute_script_file",
+            description: "Execute a local script file in the sandbox environment. The file will be copied to a temporary directory and executed.",
             parameters: z.object({
-                code: z.string().describe("The code to execute"),
-                language: z.enum(['python', 'javascript', 'bash']).optional().default('python').describe("The programming language (python, javascript, bash)")
+                path: z.string().describe("The absolute path to the script file to execute"),
+                language: z.enum(['python', 'javascript', 'bash']).optional().describe("The programming language. If omitted, inferred from file extension.")
             }),
             jsonSchema: {
                 type: "object",
                 properties: {
-                    code: { type: "string", description: "The code to execute" },
-                    language: { type: "string", enum: ["python", "javascript", "bash"], description: "The programming language", default: "python" }
+                    path: { type: "string", description: "The absolute path to the script file" },
+                    language: { type: "string", enum: ["python", "javascript", "bash"], description: "The programming language" }
                 },
-                required: ["code"]
+                required: ["path"]
             },
-            execute: async ({ code, language }) => {
+            execute: async ({ path: scriptPath, language }) => {
                 try {
-                    return await sandboxService.runScript(code, language || 'python');
+                    return await sandboxService.runScriptFile(scriptPath, language);
                 } catch (error: any) {
-                    throw new Error(`Failed to execute script: ${error.message}`);
+                    throw new Error(`Failed to execute script file: ${error.message}`);
                 }
             }
         }

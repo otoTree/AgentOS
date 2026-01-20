@@ -63,6 +63,37 @@ export class SandboxService {
     const scriptFilePath = path.join(executionPath, scriptFilename);
     await fs.writeFile(scriptFilePath, code);
 
+    return this.executeInternal(executionId, executionPath, scriptFilename, language);
+  }
+
+  async runScriptFile(scriptPath: string, language?: string): Promise<{ output: string, error: string, artifacts: Artifact[] }> {
+    if (!this.initialized) await this.initialize();
+
+    if (!await fs.exists(scriptPath)) {
+      throw new Error(`Script file not found: ${scriptPath}`);
+    }
+
+    if (!language) {
+      const ext = path.extname(scriptPath).toLowerCase();
+      if (ext === '.py') language = 'python';
+      else if (ext === '.js') language = 'javascript';
+      else if (ext === '.sh') language = 'bash';
+      else throw new Error(`Could not infer language from file extension: ${ext}. Please specify language.`);
+    }
+
+    const executionId = `exec_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+    const executionPath = path.join(this.workspacePath, executionId);
+    await fs.mkdir(executionPath, { recursive: true });
+
+    const scriptFilename = path.basename(scriptPath);
+    const targetScriptPath = path.join(executionPath, scriptFilename);
+    await fs.copyFile(scriptPath, targetScriptPath);
+
+    return this.executeInternal(executionId, executionPath, scriptFilename, language);
+  }
+
+  private async executeInternal(executionId: string, executionPath: string, scriptFilename: string, language: string): Promise<{ output: string, error: string, artifacts: Artifact[] }> {
+    const scriptFilePath = path.join(executionPath, scriptFilename);
     let command = '';
     if (language === 'python') {
       command = `python3 ${scriptFilePath}`;
