@@ -8,14 +8,14 @@ import * as os from 'node:os';
 export class AgentService {
   private agent: SuperAgent;
   
-  constructor(private llmClient: DesktopLLMClient) {
+  constructor(private llmClient: DesktopLLMClient, extraTools: any[] = []) {
     const homeDir = os.homedir();
     const platform = os.platform();
 
     this.agent = new SuperAgent({
       model: "gpt-3.5-turbo",
       llmClient: this.llmClient,
-      tools: [...fileTools] as any, // 添加本地工具 (强制类型转换)
+      tools: [...fileTools, ...extraTools] as any, // 添加本地工具 (强制类型转换)
       prompts: {
         system: `You are a helpful assistant running on AgentOS Desktop. 
 You have access to the local file system.

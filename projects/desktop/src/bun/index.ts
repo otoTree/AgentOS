@@ -6,6 +6,7 @@ import { SyncService } from "./service/sync";
 import { SandboxService } from "./service/sandbox";
 import { LocalCoderService } from "./service/coder";
 import { SkillRegistry } from "./service/skill";
+import { createSkillTools } from "./tools/skill";
 import { AgentRPCSchema } from "../types/rpc";
 import { localDB } from "./db";
 
@@ -14,10 +15,11 @@ import { localDB } from "./db";
 // For now, we assume ApiClient handles its own state or we set it later.
 const apiClient = new ApiClient(); 
 const llmClient = new DesktopLLMClient(apiClient);
-const agentService = new AgentService(llmClient);
 const syncService = new SyncService(apiClient);
 const sandboxService = new SandboxService();
 const skillRegistry = new SkillRegistry();
+const skillTools = createSkillTools(skillRegistry, sandboxService);
+const agentService = new AgentService(llmClient, skillTools);
 const localCoderService = new LocalCoderService(llmClient);
 
 syncService.start();

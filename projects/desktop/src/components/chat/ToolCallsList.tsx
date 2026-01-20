@@ -26,7 +26,7 @@ export default function ToolCallsList({ toolCalls }: ToolCallsListProps) {
     }
   }
 
-  if (!toolCalls || toolCalls.length === 0) return <div className="text-red-500">No tools</div>;
+  //if (!toolCalls || toolCalls.length === 0) return <div className="text-red-500">No tools</div>;
 
   return (
     <div className="space-y-1.5 mt-2 pl-2">
