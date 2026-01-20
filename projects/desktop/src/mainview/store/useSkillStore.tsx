@@ -19,7 +19,7 @@ export const useSkillStore = create<SkillState>((set, get) => ({
     set({ isLoading: true });
     try {
         const rpc = await getRpc();
-        const res = await rpc.request.listSkills() as any;
+        const res = await rpc.request.listSkills({}) as any;
         set({ skills: res.skills || [] });
     } catch (e) {
         console.error("Failed to load skills", e);

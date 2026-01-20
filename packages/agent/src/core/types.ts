@@ -52,6 +52,7 @@ export type AgentConfig = {
   toolCallMethod?: 'native' | 'json_prompt' | 'xml_prompt'; // 新增：工具调用方式
   history?: { role: string; content: string }[]; // Optional: Previous chat history
   callbacks?: AgentCallbacks;
+  maxTurns?: number;
 }
 
 export type AgentCallbacks = {

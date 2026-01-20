@@ -74,7 +74,7 @@ export class SuperAgent {
     
     // 2. 循环执行 (Thought -> Action -> Observation)
     let turns = 0;
-    const maxTurns = 10; // 防止无限循环
+    const maxTurns = this.config.maxTurns || 10; // 防止无限循环
 
     while (turns < maxTurns) {
       turns++;

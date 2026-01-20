@@ -6,16 +6,26 @@ import { fileTools } from "../tools/file";
 import * as os from 'node:os';
 
 export class AgentService {
-  private agent: SuperAgent;
+  private agents: Map<string, SuperAgent> = new Map();
+  private extraTools: any[];
   
   constructor(private llmClient: DesktopLLMClient, extraTools: any[] = []) {
+    this.extraTools = extraTools;
+  }
+
+  private getOrCreateAgent(sessionId: string): SuperAgent {
+    if (this.agents.has(sessionId)) {
+      return this.agents.get(sessionId)!;
+    }
+
     const homeDir = os.homedir();
     const platform = os.platform();
 
-    this.agent = new SuperAgent({
+    const agent = new SuperAgent({
       model: "gpt-3.5-turbo",
       llmClient: this.llmClient,
-      tools: [...fileTools, ...extraTools] as any, // 添加本地工具 (强制类型转换)
+      maxTurns: 50,
+      tools: [...fileTools, ...this.extraTools] as any, // 添加本地工具 (强制类型转换)
       prompts: {
         system: `You are a helpful assistant running on AgentOS Desktop. 
 You have access to the local file system.
@@ -25,6 +35,9 @@ When using tools that require paths, you should prefer using paths relative to t
 Example: If the user asks for files on Desktop, use "${homeDir}/Desktop".`,
       }
     });
+
+    this.agents.set(sessionId, agent);
+    return agent;
   }
 
   async chat(message: string, sessionId: string, webviewId: number, onEvent?: (type: string, data: any) => void) {
@@ -37,25 +50,17 @@ Example: If the user asks for files on Desktop, use "${homeDir}/Desktop".`,
       session_id: sessionId
     });
 
-    // 2. 调用 Agent
-    // 注意：Agent 内部维护了 history，但这里我们需要手动管理 history 
-    // 或者让 Agent 每次都从 DB 加载 history？
-    // 简单起见，我们暂时不从 DB 加载完整历史传给 Agent (context window 限制)，
-    // 而是依赖 SuperAgent 内部的 context (如果是长连接/单实例)。
-    // 但 AgentService可能是单例，SuperAgent 是有状态的。
-    // 如果支持多 Session，需要管理多个 SuperAgent 实例或每次重建。
-    
-    // 这里为了简单，我们假设 AgentService 每次请求都重建 Agent 或者 reset context
-    // 实际上应该维护 Session -> Agent 实例的映射
+    // 2. 获取或创建 Agent
+    const agent = this.getOrCreateAgent(sessionId);
     
     // 3. 执行 Agent
     try {
-       console.log("[AgentService] Starting agent run with message:", message);
+       console.log("[AgentService] Starting agent run with message:", message, "Session:", sessionId);
        
        const toolCalls: { name: string; args: string; status: 'running' | 'done'; result?: string }[] = [];
 
        // 设置回调来保存中间过程
-       this.agent.setCallbacks({
+       agent.setCallbacks({
          onToolStart: (toolName, args) => {
            console.log(`[AgentService] 🛠️ Executing tool: ${toolName}`, args);
            
@@ -134,7 +139,7 @@ Example: If the user asks for files on Desktop, use "${homeDir}/Desktop".`,
          }
        });
 
-       const response = await this.agent.run(message);
+       const response = await agent.run(message);
        console.log("[AgentService] Agent run finished, response length:", response?.length);
        
        // 4. 保存 Assistant 消息
