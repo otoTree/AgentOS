@@ -80,6 +80,10 @@ export default function ChatMessageItem({ message }: ChatMessageItemProps) {
           <span className="text-[11px] text-black/40">{message.time}</span>
         </div>
         
+
+
+        {message.toolCalls && <ToolCallsList toolCalls={message.toolCalls} />}
+
         <div className="space-y-4">
           {segments.map((segment, i) => {
             if (segment.type === 'json') {
@@ -96,15 +100,6 @@ export default function ChatMessageItem({ message }: ChatMessageItemProps) {
         </div>
 
         {message.genUI && <GenUIBlock content={message.genUI} />}
-        
-        {/* Visible Debug Info */}
-        {message.toolCalls && message.toolCalls.length > 0 && (
-          <div className="text-xs text-red-500 border border-red-500 p-1 mb-2">
-             Debug: ToolCalls found ({message.toolCalls.length})
-          </div>
-        )}
-
-        {message.toolCalls && <ToolCallsList toolCalls={message.toolCalls} />}
       </div>
     </div>
   );

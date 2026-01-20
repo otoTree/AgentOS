@@ -1,6 +1,7 @@
 // @ts-ignore
 import { Electroview } from "electrobun/view";
 import { AgentRPCSchema } from "../types/rpc";
+import { useChatStore } from "./store/useChatStore";
 
 const rpcSchema = Electroview.defineRPC<AgentRPCSchema>({
   maxRequestTime: 120000,
@@ -13,9 +14,11 @@ const rpcSchema = Electroview.defineRPC<AgentRPCSchema>({
         },
         tool_start: ({ name, args }: { name: string, args: any }) => {
             console.log("Tool start:", name, args);
+            useChatStore.getState().handleToolStart(name, args);
         },
         tool_end: ({ name, output }: { name: string, output: any }) => {
             console.log("Tool end:", name, output);
+            useChatStore.getState().handleToolEnd(name, output);
         }
     }
   }

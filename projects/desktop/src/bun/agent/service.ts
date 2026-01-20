@@ -27,7 +27,7 @@ Example: If the user asks for files on Desktop, use "${homeDir}/Desktop".`,
     });
   }
 
-  async chat(message: string, sessionId: string, webviewId: number) {
+  async chat(message: string, sessionId: string, webviewId: number, onEvent?: (type: string, data: any) => void) {
     // 1. 保存用户消息到本地 DB
     const userMsgId = crypto.randomUUID();
     localDB.addMessage({
@@ -59,6 +59,10 @@ Example: If the user asks for files on Desktop, use "${homeDir}/Desktop".`,
          onToolStart: (toolName, args) => {
            console.log(`[AgentService] 🛠️ Executing tool: ${toolName}`, args);
            
+           if (onEvent) {
+             onEvent('tool_start', { name: toolName, args });
+           }
+
            toolCalls.push({
              name: toolName,
              args: JSON.stringify(args),
@@ -87,6 +91,11 @@ Example: If the user asks for files on Desktop, use "${homeDir}/Desktop".`,
            console.log(`[AgentService] ✅ Tool finished: ${toolName}, result:`, 
              typeof output === 'string' && output.length > 500 ? output.substring(0, 500) + '...' : output
            );
+
+           // Callback: Tool End
+           if (onEvent) {
+               onEvent('tool_end', { name: toolName, output });
+           }
 
            // Update local toolCalls
            for (let i = toolCalls.length - 1; i >= 0; i--) {

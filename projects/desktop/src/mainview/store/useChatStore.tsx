@@ -23,6 +23,10 @@ type ChatState = {
   
   sendMessage: () => Promise<void>;
   fetchHistory: () => Promise<void>; // Kept for compatibility, but should rely on DB
+  
+  // Streaming Actions
+  handleToolStart: (name: string, args: any) => void;
+  handleToolEnd: (name: string, output: any) => void;
 }
 
 export const useChatStore = create<ChatState>((set, get) => ({
@@ -80,6 +84,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         id: m.id,
         role: m.role,
         content: m.content,
+        toolCalls: m.toolCalls,
         time: new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       }));
       
@@ -122,6 +127,71 @@ export const useChatStore = create<ChatState>((set, get) => ({
     if (activeSessionId) {
       await get().selectSession(activeSessionId);
     }
+  },
+
+  handleToolStart: (name: string, args: any) => {
+    const { messages } = get();
+    const lastMsg = messages[messages.length - 1];
+    const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+    let newMessages = [...messages];
+    
+    // If last message is user, we need to append an assistant message
+    if (!lastMsg || lastMsg.role === 'user') {
+        const tempId = 'temp-' + Date.now();
+        newMessages.push({
+            id: tempId,
+            role: 'assistant',
+            content: '', // Streaming content could go here
+            time: now,
+            toolCalls: [{
+                name,
+                args: JSON.stringify(args),
+                status: 'running'
+            }]
+        });
+    } else {
+        // Last message is assistant (streaming), append tool call
+        const updatedMsg = { ...lastMsg };
+        updatedMsg.toolCalls = [
+            ...(updatedMsg.toolCalls || []),
+            {
+                name,
+                args: JSON.stringify(args),
+                status: 'running' as const
+            }
+        ];
+        newMessages[messages.length - 1] = updatedMsg;
+    }
+    
+    set({ messages: newMessages });
+  },
+
+  handleToolEnd: (name: string, output: any) => {
+      const { messages } = get();
+      const lastMsg = messages[messages.length - 1];
+      if (!lastMsg || lastMsg.role !== 'assistant') return;
+
+      const updatedMsg = { ...lastMsg };
+      if (!updatedMsg.toolCalls) return;
+
+      // Find the running tool call with same name
+      // Note: This might be ambiguous if multiple same tools run in parallel, 
+      // but usually they are sequential or we check status
+      for (let i = updatedMsg.toolCalls.length - 1; i >= 0; i--) {
+          if (updatedMsg.toolCalls[i].name === name && updatedMsg.toolCalls[i].status === 'running') {
+              updatedMsg.toolCalls[i] = {
+                  ...updatedMsg.toolCalls[i],
+                  status: 'done',
+                  result: typeof output === 'string' ? output : JSON.stringify(output)
+              };
+              break;
+          }
+      }
+      
+      const newMessages = [...messages];
+      newMessages[messages.length - 1] = updatedMsg;
+      set({ messages: newMessages });
   },
 
   sendMessage: async () => {

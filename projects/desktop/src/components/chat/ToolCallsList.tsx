@@ -29,7 +29,7 @@ export default function ToolCallsList({ toolCalls }: ToolCallsListProps) {
   if (!toolCalls || toolCalls.length === 0) return <div className="text-red-500">No tools</div>;
 
   return (
-    <div className="space-y-1.5 mt-2 border-l-2 border-blue-500 pl-2">
+    <div className="space-y-1.5 mt-2 pl-2">
       {toolCalls.map((tool, index) => {
         const isExpanded = expandedIndices.includes(index);
         const hasResult = tool.status === 'done' && tool.result;

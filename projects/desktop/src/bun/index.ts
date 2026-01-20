@@ -16,6 +16,8 @@ const syncService = new SyncService(apiClient);
 
 syncService.start();
 
+let mainWindow: BrowserWindow<any>;
+
 const rpc = BrowserView.defineRPC<AgentRPCSchema>({
   maxRequestTime: 120000,
   handlers: {
@@ -24,7 +26,16 @@ const rpc = BrowserView.defineRPC<AgentRPCSchema>({
         console.log("[Bun] RPC chat request received", { length: message?.length, sessionId });
         const sid = sessionId || "default-session";
         try {
-            const result = await agentService.chat(message, sid, 0);
+            const result = await agentService.chat(message, sid, 0, (type, data) => {
+                // Send RPC message to webview
+                if (mainWindow && mainWindow.webview) {
+                    if (type === 'tool_start') {
+                        (mainWindow.webview.rpc as any).send.tool_start(data);
+                    } else if (type === 'tool_end') {
+                        (mainWindow.webview.rpc as any).send.tool_end(data);
+                    }
+                }
+            });
             console.log("[Bun] RPC chat response", { length: result.content?.length, toolCalls: result.toolCalls?.length });
             return result;
         } catch (e: any) {
@@ -50,7 +61,7 @@ const rpc = BrowserView.defineRPC<AgentRPCSchema>({
 });
 
 // Main Window Configuration
-const mainWindow = new BrowserWindow({
+mainWindow = new BrowserWindow({
   title: "AgentOS",
   url: "views://mainview/index.html",
   frame: {
