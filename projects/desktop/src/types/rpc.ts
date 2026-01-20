@@ -31,6 +31,16 @@ export type SetTokenResponse = {
   success: boolean;
 };
 
+export type RunScriptRequest = {
+  code: string;
+  language: string;
+};
+
+export type RunScriptResponse = {
+  output: string;
+  error: string;
+};
+
 export type AgentRPCSchema = {
   bun: {
     requests: {
@@ -45,6 +55,10 @@ export type AgentRPCSchema = {
       setToken: {
         params: SetTokenRequest;
         returns: SetTokenResponse;
+      };
+      runScript: {
+        params: RunScriptRequest;
+        returns: RunScriptResponse;
       };
     };
     messages: {};

@@ -3,6 +3,7 @@ import { AgentService } from "./agent/service";
 import { DesktopLLMClient } from "./agent/llm";
 import { ApiClient } from "./api";
 import { SyncService } from "./service/sync";
+import { SandboxService } from "./service/sandbox";
 import { AgentRPCSchema } from "../types/rpc";
 import { localDB } from "./db";
 
@@ -13,6 +14,7 @@ const apiClient = new ApiClient();
 const llmClient = new DesktopLLMClient(apiClient);
 const agentService = new AgentService(llmClient);
 const syncService = new SyncService(apiClient);
+const sandboxService = new SandboxService();
 
 syncService.start();
 
@@ -54,6 +56,10 @@ const rpc = BrowserView.defineRPC<AgentRPCSchema>({
         console.log("[Bun] RPC setToken received", { length: token?.length });
         apiClient.setToken(token);
         return { success: true };
+      }) as any,
+      runScript: (async ({ code, language }: { code: string, language: string }) => {
+        console.log("[Bun] RPC runScript", { language });
+        return await sandboxService.runScript(code, language);
       }) as any
     },
     messages: {}
