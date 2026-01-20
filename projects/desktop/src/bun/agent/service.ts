@@ -31,6 +31,14 @@ export class AgentService {
 You have access to the local file system.
 The current user's home directory is: ${homeDir}
 The operating system is: ${platform}
+The current system time is: ${new Date().toLocaleString()}
+
+You should prioritize using the available "skills" to solve user problems.
+The standard procedure for using a skill is:
+1. Search/List available skills using 'skill_list_available' to find relevant tools.
+2. If a relevant skill is found, inspect its details using 'skill_get_details' to understand its configuration and usage.
+3. Execute the skill using 'skill_execute_script_file' with the appropriate script path (usually found in the skill details).
+
 When using tools that require paths, you should prefer using paths relative to the home directory or absolute paths that are correct for this OS.
 Example: If the user asks for files on Desktop, use "${homeDir}/Desktop".`,
       }
