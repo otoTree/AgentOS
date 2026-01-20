@@ -52,10 +52,19 @@ Example: If the user asks for files on Desktop, use "${homeDir}/Desktop".`,
     try {
        console.log("[AgentService] Starting agent run with message:", message);
        
+       const toolCalls: { name: string; args: string; status: 'running' | 'done'; result?: string }[] = [];
+
        // 设置回调来保存中间过程
        this.agent.setCallbacks({
          onToolStart: (toolName, args) => {
            console.log(`[AgentService] 🛠️ Executing tool: ${toolName}`, args);
+           
+           toolCalls.push({
+             name: toolName,
+             args: JSON.stringify(args),
+             status: 'running'
+           });
+
            // 保存一个带 tool_calls 的 assistant 消息
            localDB.addMessage({
              id: crypto.randomUUID(),
@@ -78,6 +87,16 @@ Example: If the user asks for files on Desktop, use "${homeDir}/Desktop".`,
            console.log(`[AgentService] ✅ Tool finished: ${toolName}, result:`, 
              typeof output === 'string' && output.length > 500 ? output.substring(0, 500) + '...' : output
            );
+
+           // Update local toolCalls
+           for (let i = toolCalls.length - 1; i >= 0; i--) {
+             if (toolCalls[i].name === toolName && toolCalls[i].status === 'running') {
+               toolCalls[i].status = 'done';
+               toolCalls[i].result = JSON.stringify(output);
+               break;
+             }
+           }
+
            // 保存 tool 结果消息
            localDB.addMessage({
              id: crypto.randomUUID(),
@@ -118,7 +137,7 @@ Example: If the user asks for files on Desktop, use "${homeDir}/Desktop".`,
          session_id: sessionId
        });
 
-       return response;
+       return { content: response, toolCalls };
     } catch (error) {
       console.error("Agent execution failed:", error);
       throw error;

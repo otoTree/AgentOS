@@ -12,6 +12,7 @@ export interface ChatMessage {
   sessionId: string;
   role: 'user' | 'assistant';
   content: string;
+  toolCalls?: { name: string; args: string; status: 'running' | 'done'; result?: string }[];
   metadata?: any;
   createdAt: number;
   status: 'sending' | 'sent' | 'error';

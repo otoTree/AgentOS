@@ -5,6 +5,7 @@ export type ChatRequest = {
 
 export type ChatResponse = {
   content: string;
+  toolCalls?: { name: string; args: string; status: 'running' | 'done'; result?: string }[];
 };
 
 export type RPCMessage = {

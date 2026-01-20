@@ -5,7 +5,7 @@ export type Message = {
   role: 'user' | 'assistant';
   content: string;
   time: string;
-  toolCalls?: { name: string; args: string; status: 'running' | 'done' }[];
+  toolCalls?: { name: string; args: string; status: 'running' | 'done'; result?: string }[];
   genUI?: React.ReactNode;
 }
 

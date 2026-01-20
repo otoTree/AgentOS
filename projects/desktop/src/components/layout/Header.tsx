@@ -17,7 +17,7 @@ export function Header() {
                     <span className="text-black/20">|</span>
                     <div className="flex items-center gap-1.5 text-xs text-black/50 bg-black/5 px-2 py-0.5 rounded-md">
                         <div className="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>
-                        <span>GPT-4o</span>
+                        <span>Super Agent</span>
                     </div>
                 </div>
             )}

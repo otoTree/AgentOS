@@ -24,9 +24,9 @@ const rpc = BrowserView.defineRPC<AgentRPCSchema>({
         console.log("[Bun] RPC chat request received", { length: message?.length, sessionId });
         const sid = sessionId || "default-session";
         try {
-            const content = await agentService.chat(message, sid, 0);
-            console.log("[Bun] RPC chat response", { length: content?.length });
-            return { content };
+            const result = await agentService.chat(message, sid, 0);
+            console.log("[Bun] RPC chat response", { length: result.content?.length, toolCalls: result.toolCalls?.length });
+            return result;
         } catch (e: any) {
             console.error("[Bun] RPC chat error:", e);
             throw new Error(e.message || String(e));

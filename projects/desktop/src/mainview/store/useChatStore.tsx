@@ -4,6 +4,7 @@ import React from 'react';
 import { getRpc } from '../rpc';
 import { db, ChatSession } from '../db';
 import { v4 as uuidv4 } from 'uuid';
+import { ChatResponse } from '../../types/rpc';
 
 type ChatState = {
   sessions: ChatSession[];
@@ -73,6 +74,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
       // Load messages for this session
       const dbMessages = await db.messages.where('sessionId').equals(id).sortBy('createdAt');
       
+      console.log('DB Messages loaded:', dbMessages.length, 'Last msg toolCalls:', dbMessages[dbMessages.length - 1]?.toolCalls);
+
       const formattedMessages: Message[] = dbMessages.map(m => ({
         id: m.id,
         role: m.role,
@@ -166,7 +169,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       const response = await rpc.request.chat({ 
         message: userInput,
         sessionId: currentSessionId!
-      }) as any;
+      }) as unknown as ChatResponse;
       
       // 3. Save assistant message to DB
       const assistantMsgId = uuidv4();
@@ -175,6 +178,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         sessionId: currentSessionId!,
         role: 'assistant',
         content: response.content,
+        toolCalls: response.toolCalls,
         createdAt: Date.now(),
         status: 'sent'
       });
