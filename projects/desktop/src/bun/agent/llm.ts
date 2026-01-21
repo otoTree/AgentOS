@@ -1,5 +1,6 @@
 import { LLMClient, LLMResponse } from "@agentos/agent/src/core/types";
 import { ApiClient, ChatCompletionRequest, ChatMessage, ChatTool } from "../api";
+import { extractJson } from "@agentos/global/utils/json";
 
 export class DesktopLLMClient implements LLMClient {
   constructor(private apiClient: ApiClient) {}
@@ -57,12 +58,15 @@ export class DesktopLLMClient implements LLMClient {
               };
           }
           let args = {};
-          try {
-              args = typeof tc.function.arguments === 'string' 
-                ? JSON.parse(tc.function.arguments) 
-                : tc.function.arguments;
-          } catch (e) {
-              console.error("Failed to parse tool arguments:", tc.function.arguments);
+          if (typeof tc.function.arguments === 'string') {
+              const extracted = extractJson(tc.function.arguments);
+              if (extracted !== null) {
+                  args = extracted;
+              } else {
+                  console.error("Failed to parse tool arguments:", tc.function.arguments);
+              }
+          } else {
+              args = tc.function.arguments;
           }
           return {
               id: tc.id,

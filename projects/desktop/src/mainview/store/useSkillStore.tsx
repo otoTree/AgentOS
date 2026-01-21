@@ -7,8 +7,8 @@ type SkillState = {
   isLoading: boolean;
   loadSkills: () => Promise<void>;
   addSkill: (skill: Skill) => void;
-  removeSkill: (name: string) => void;
-  generateSkill: (prompt: string) => Promise<void>;
+  deleteSkill: (name: string) => Promise<void>;
+  generateSkill: (prompt: string) => Promise<string | null>;
   publishSkill: (skillName: string) => Promise<void>;
 }
 
@@ -28,7 +28,17 @@ export const useSkillStore = create<SkillState>((set, get) => ({
     }
   },
   addSkill: (skill) => set((state) => ({ skills: [...state.skills, skill] })),
-  removeSkill: (name) => set((state) => ({ skills: state.skills.filter(s => s.metadata.name !== name) })),
+  deleteSkill: async (name) => {
+      try {
+          const rpc = await getRpc();
+          const res = await rpc.request.deleteSkill({ skillName: name }) as any;
+          if (res.success) {
+              set((state) => ({ skills: state.skills.filter(s => s.metadata.name !== name) }));
+          }
+      } catch (e) {
+          console.error("Failed to delete skill", e);
+      }
+  },
   generateSkill: async (prompt) => {
       set({ isLoading: true });
       try {
@@ -36,9 +46,12 @@ export const useSkillStore = create<SkillState>((set, get) => ({
           const res = await rpc.request.generateSkill({ prompt }) as any;
           if (res.success) {
               await get().loadSkills();
+              return res.skillName || null;
           }
+          return null;
       } catch (e) {
           console.error("Failed to generate skill", e);
+          return null;
       } finally {
           set({ isLoading: false });
       }

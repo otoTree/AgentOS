@@ -73,7 +73,7 @@ Example: If the user asks for files on Desktop, use "${homeDir}/Desktop".`,
            console.log(`[AgentService] 🛠️ Executing tool: ${toolName}`, args);
            
            if (onEvent) {
-             onEvent('tool_start', { name: toolName, args });
+             onEvent('tool_start', { sessionId, name: toolName, args });
            }
 
            toolCalls.push({
@@ -107,7 +107,7 @@ Example: If the user asks for files on Desktop, use "${homeDir}/Desktop".`,
 
            // Callback: Tool End
            if (onEvent) {
-               onEvent('tool_end', { name: toolName, output });
+               onEvent('tool_end', { sessionId, name: toolName, output });
            }
 
            // Update local toolCalls

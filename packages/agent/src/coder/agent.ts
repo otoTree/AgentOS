@@ -56,43 +56,58 @@ export class CoderAgent {
 
   async generateSkill(params: {
     request: string,
-    dependencies: string
+    dependencies: string,
+    onProgress?: (event: { type: 'step_start' | 'step_end' | 'log', name: string, content?: any }) => void
   }): Promise<SkillStructure> {
-    const { request, dependencies } = params;
+    const { request, dependencies, onProgress } = params;
+
+    const notify = (type: 'step_start' | 'step_end' | 'log', name: string, content?: any) => {
+        if (onProgress) onProgress({ type, name, content });
+    };
 
     // 1. Generate Structure
-    const structurePrompt = this.renderPrompt(SKILL_GEN_STRUCTURE_PROMPT, {
-        request,
-        dependencies
-    });
+    notify('step_start', 'Generate Structure', { request });
     
-    console.log('[CoderAgent] Structure Prompt:', structurePrompt);
+    let structure: SkillStructure;
+    try {
+        const structurePrompt = this.renderPrompt(SKILL_GEN_STRUCTURE_PROMPT, {
+            request,
+            dependencies
+        });
+        
+        console.log('[CoderAgent] Structure Prompt:', structurePrompt);
 
-    const structureJsonRes = await this.llmClient.chat([
-        { role: 'system', content: 'You are a JSON generator.' },
-        { role: 'user', content: structurePrompt }
-    ]);
+        const structureJsonRes = await this.llmClient.chat([
+            { role: 'system', content: 'You are a JSON generator.' },
+            { role: 'user', content: structurePrompt }
+        ]);
 
-    const structureContent = structureJsonRes.content || '';
-    console.log('[CoderAgent] AI Structure Response:', structureContent);
-    
-    const structure = extractJson<SkillStructure>(structureContent);
-    
-    if (!structure) {
-        throw new Error('Failed to parse AI response as JSON: ' + structureContent);
+        const structureContent = structureJsonRes.content || '';
+        console.log('[CoderAgent] AI Structure Response:', structureContent);
+        
+        const parsed = extractJson<SkillStructure>(structureContent);
+        
+        if (!parsed) {
+            throw new Error('Failed to parse AI response as JSON: ' + structureContent);
+        }
+        structure = parsed;
+
+        console.log('[CoderAgent] Parsed Structure:', JSON.stringify(structure, null, 2));
+        notify('step_end', 'Generate Structure', { structure });
+
+        // 1.5 Update Metadata immediately
+        await this.fs.updateMeta({
+            input_schema: structure.input_schema,
+            output_schema: structure.output_schema,
+            entrypoint: structure.entrypoint,
+            name: structure.name,
+            description: structure.description,
+            files: structure.files
+        });
+    } catch (e: any) {
+        notify('step_end', 'Generate Structure', { error: e.message });
+        throw e;
     }
-
-    console.log('[CoderAgent] Parsed Structure:', JSON.stringify(structure, null, 2));
-
-    // 1.5 Update Metadata immediately
-    await this.fs.updateMeta({
-        input_schema: structure.input_schema,
-        output_schema: structure.output_schema,
-        entrypoint: structure.entrypoint,
-        name: structure.name,
-        description: structure.description,
-        files: structure.files
-    });
 
     // 2. Generate Code for each file
     const BLACKLIST_FILES = ['requirements.txt', 'Pipfile', '.env', '.env.example', 'README.md'];
@@ -105,49 +120,56 @@ export class CoderAgent {
         }
 
         console.log(`[CoderAgent] Generating file: ${filename}`);
+        notify('step_start', `Generate File: ${filename}`, { filename });
 
-        // Select Prompt based on file type
-        let promptTemplate = SKILL_GEN_CODE_PROMPT;
-        let isDoc = false;
+        try {
+            // Select Prompt based on file type
+            let promptTemplate = SKILL_GEN_CODE_PROMPT;
+            let isDoc = false;
 
-        if (filename.endsWith('.md') || filename === 'SKILL.md') {
-            promptTemplate = SKILL_GEN_DOC_PROMPT;
-            isDoc = true;
-        }
-
-        const codePrompt = this.renderPrompt(promptTemplate, {
-            name: structure.name,
-            filename,
-            context: request,
-            dependencies
-        });
-
-        if (isDoc) {
-             console.log(`[CoderAgent] Doc Prompt for ${filename}:`, codePrompt);
-        }
-
-        const codeRes = await this.llmClient.chat([
-            { role: 'system', content: isDoc ? 'You are a Technical Writer.' : 'You are a Python expert.' },
-            { role: 'user', content: codePrompt }
-        ]);
-
-        const codeContent = codeRes.content || '';
-        
-        // Clean markdown
-        let code = codeContent;
-        if (isDoc) {
-            // Remove wrapping markdown blocks if present, but keep internal markdown
-            if (code.startsWith('```markdown')) {
-                code = code.replace(/^```markdown\n?/, '').replace(/\n?```$/, '');
-            } else if (code.startsWith('```')) {
-                code = code.replace(/^```\n?/, '').replace(/\n?```$/, '');
+            if (filename.endsWith('.md') || filename === 'SKILL.md') {
+                promptTemplate = SKILL_GEN_DOC_PROMPT;
+                isDoc = true;
             }
-        } else {
-            code = codeContent.replace(/```python\n?|\n?```/g, '');
-        }
 
-        // 3. Write File
-        await this.fs.writeFile(filename, code);
+            const codePrompt = this.renderPrompt(promptTemplate, {
+                name: structure.name,
+                filename,
+                context: request,
+                dependencies
+            });
+
+            if (isDoc) {
+                 console.log(`[CoderAgent] Doc Prompt for ${filename}:`, codePrompt);
+            }
+
+            const codeRes = await this.llmClient.chat([
+                { role: 'system', content: isDoc ? 'You are a Technical Writer.' : 'You are a Python expert.' },
+                { role: 'user', content: codePrompt }
+            ]);
+
+            const codeContent = codeRes.content || '';
+            
+            // Clean markdown
+            let code = codeContent;
+            if (isDoc) {
+                // Remove wrapping markdown blocks if present, but keep internal markdown
+                if (code.startsWith('```markdown')) {
+                    code = code.replace(/^```markdown\n?/, '').replace(/\n?```$/, '');
+                } else if (code.startsWith('```')) {
+                    code = code.replace(/^```\n?/, '').replace(/\n?```$/, '');
+                }
+            } else {
+                code = codeContent.replace(/```python\n?|\n?```/g, '');
+            }
+
+            // 3. Write File
+            await this.fs.writeFile(filename, code);
+            notify('step_end', `Generate File: ${filename}`, { success: true });
+        } catch (e: any) {
+            notify('step_end', `Generate File: ${filename}`, { error: e.message });
+            throw e;
+        }
     }
 
     return structure;

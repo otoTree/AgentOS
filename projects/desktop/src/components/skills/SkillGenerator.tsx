@@ -1,17 +1,23 @@
 import React, { useState } from 'react';
 import { Sparkles, Loader2 } from 'lucide-react';
 import { useSkillStore } from '../../mainview/store/useSkillStore';
+import { useSkillEditorStore } from '../../mainview/store/useSkillEditorStore';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 
 export default function SkillGenerator() {
   const [prompt, setPrompt] = useState('');
   const { generateSkill, isLoading } = useSkillStore();
+  const { openSkill } = useSkillEditorStore();
 
   const handleGenerate = async () => {
     if (!prompt.trim() || isLoading) return;
-    await generateSkill(prompt);
+    const skillName = await generateSkill(prompt);
     setPrompt('');
+    
+    if (skillName) {
+        await openSkill(skillName);
+    }
   };
 
   return (

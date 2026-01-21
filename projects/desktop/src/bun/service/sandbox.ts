@@ -4,6 +4,7 @@ import * as path from 'path';
 import * as fs from 'fs/promises';
 import * as os from 'os';
 import { ARTIFACTS_ROOT_PATH } from '../paths';
+import { PythonManager } from './PythonManager';
 
 export interface Artifact {
   path: string; // Relative path
@@ -96,7 +97,8 @@ export class SandboxService {
     const scriptFilePath = path.join(executionPath, scriptFilename);
     let command = '';
     if (language === 'python') {
-      command = `python3 ${scriptFilePath}`;
+      const pythonPath = PythonManager.getInstance().getPythonPath();
+      command = `${pythonPath} ${scriptFilePath}`;
     } else if (language === 'javascript' || language === 'node') {
       command = `node ${scriptFilePath}`;
     } else if (language === 'bash') {

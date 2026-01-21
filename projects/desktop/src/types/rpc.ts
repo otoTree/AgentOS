@@ -70,6 +70,85 @@ export type PublishSkillResponse = {
   error?: string;
 };
 
+export type DeleteSkillRequest = {
+  skillName: string;
+};
+
+export type DeleteSkillResponse = {
+  success: boolean;
+  error?: string;
+};
+
+// Skill File System RPC Types
+export type SkillFile = {
+  name: string;
+  path: string; // Relative path
+  type: 'file' | 'directory';
+  children?: SkillFile[];
+};
+
+export type SkillFsListRequest = {
+  skillName: string;
+  path?: string; // Relative path, default root
+};
+
+export type SkillFsListResponse = {
+  files: SkillFile[];
+  error?: string;
+};
+
+export type SkillFsReadRequest = {
+  skillName: string;
+  path: string;
+};
+
+export type SkillFsReadResponse = {
+  content: string;
+  error?: string;
+};
+
+export type SkillFsWriteRequest = {
+  skillName: string;
+  path: string;
+  content: string;
+};
+
+export type SkillFsWriteResponse = {
+  success: boolean;
+  error?: string;
+};
+
+export type SkillFsCreateDirectoryRequest = {
+  skillName: string;
+  path: string;
+};
+
+export type SkillFsCreateDirectoryResponse = {
+  success: boolean;
+  error?: string;
+};
+
+export type SkillFsRenameRequest = {
+  skillName: string;
+  oldPath: string;
+  newPath: string;
+};
+
+export type SkillFsRenameResponse = {
+  success: boolean;
+  error?: string;
+};
+
+export type SkillFsDeleteRequest = {
+  skillName: string;
+  path: string;
+};
+
+export type SkillFsDeleteResponse = {
+  success: boolean;
+  error?: string;
+};
+
 export type AgentRPCSchema = {
   bun: {
     requests: {
@@ -102,6 +181,48 @@ export type AgentRPCSchema = {
         params: PublishSkillRequest;
         returns: PublishSkillResponse;
       };
+      deleteSkill: {
+        params: DeleteSkillRequest;
+        returns: DeleteSkillResponse;
+      };
+      // Skill File System RPCs
+      skillFsList: {
+        params: SkillFsListRequest;
+        returns: SkillFsListResponse;
+      };
+      skillFsRead: {
+        params: SkillFsReadRequest;
+        returns: SkillFsReadResponse;
+      };
+      skillFsWrite: {
+        params: SkillFsWriteRequest;
+        returns: SkillFsWriteResponse;
+      };
+      skillFsCreateDirectory: {
+        params: SkillFsCreateDirectoryRequest;
+        returns: SkillFsCreateDirectoryResponse;
+      };
+      skillFsRename: {
+        params: SkillFsRenameRequest;
+        returns: SkillFsRenameResponse;
+      };
+      skillFsDelete: {
+        params: SkillFsDeleteRequest;
+        returns: SkillFsDeleteResponse;
+      };
+      // Python RPCs
+      listPythonPackages: {
+        params: ListPythonPackagesRequest;
+        returns: ListPythonPackagesResponse;
+      };
+      installPythonPackage: {
+        params: InstallPythonPackageRequest;
+        returns: InstallPythonPackageResponse;
+      };
+      uninstallPythonPackage: {
+        params: UninstallPythonPackageRequest;
+        returns: UninstallPythonPackageResponse;
+      };
     };
     messages: {};
   };
@@ -109,8 +230,35 @@ export type AgentRPCSchema = {
     requests: {};
     messages: {
       chunk: { content: string };
-      tool_start: { name: string; args: any };
-      tool_end: { name: string; output: any };
+      tool_start: { sessionId?: string; name: string; args: any };
+      tool_end: { sessionId?: string; name: string; output: any };
     };
   };
+};
+
+// Python RPC Types
+export type PythonPackage = {
+  name: string;
+  version: string;
+};
+
+export type ListPythonPackagesRequest = {};
+export type ListPythonPackagesResponse = {
+  packages: PythonPackage[];
+};
+
+export type InstallPythonPackageRequest = {
+  pkg: string;
+};
+export type InstallPythonPackageResponse = {
+  success: boolean;
+  error?: string;
+};
+
+export type UninstallPythonPackageRequest = {
+  pkg: string;
+};
+export type UninstallPythonPackageResponse = {
+  success: boolean;
+  error?: string;
 };

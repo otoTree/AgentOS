@@ -2,6 +2,7 @@ import React from 'react';
 import GeneralSection from '../../../components/settings/GeneralSection';
 import AIModelsSection from '../../../components/settings/AIModelsSection';
 import StorageSection from '../../../components/settings/StorageSection';
+import PythonSection from '../../../components/settings/PythonSection';
 import { useAuthStore } from '../../store/useAuthStore';
 
 export default function SettingsPage() {
@@ -11,6 +12,7 @@ export default function SettingsPage() {
     <div className="flex-1 flex flex-col p-6 overflow-y-auto animate-slide-in">
         <div className="max-w-2xl mx-auto w-full space-y-8">
             <GeneralSection />
+            <PythonSection />
             <AIModelsSection />
             <StorageSection />
 

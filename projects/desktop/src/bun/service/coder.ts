@@ -73,20 +73,39 @@ export class LocalCoderService {
         }
     }
 
-    async generateSkill(prompt: string): Promise<{ success: boolean; skillName?: string; error?: string }> {
+    async generateSkill(prompt: string, onProgress?: (event: any) => void): Promise<{ success: boolean; skillName?: string; error?: string }> {
         try {
             const tempId = `generated-${Date.now()}`;
             const fs = new LocalSkillFileSystem(this.skillsBaseDir, tempId);
             
+            // Start generation in background
             const agent = new CoderAgent(fs, this.llmClient);
-            const structure = await agent.generateSkill({ request: prompt, dependencies: "" });
             
-            if (structure.name) {
-                // Rename directory to match skill name
-                fs.renameTo(structure.name);
-                return { success: true, skillName: structure.name };
-            }
+            // Run asynchronously without awaiting
+            agent.generateSkill({ 
+                request: prompt, 
+                dependencies: "",
+                onProgress: (event) => {
+                    if (onProgress) {
+                        // Inject sessionId so frontend knows which skill this event belongs to
+                        // The sessionId format must match what useSkillChatStore expects: `skill-${tempId}`
+                        onProgress({ ...event, sessionId: `skill-${tempId}` });
+                    }
+                }
+            })
+                .then(structure => {
+                    console.log(`[LocalCoderService] Skill generation completed for ${tempId}. Suggested name: ${structure.name}`);
+                    // We keep the temporary directory name to ensure frontend connection stability.
+                    // Renaming should be an explicit user action.
+                })
+                .catch(err => {
+                    console.error(`[LocalCoderService] Background generation failed for ${tempId}:`, err);
+                    // Try to write error log to the skill directory
+                    fs.writeFile('error.log', `Generation Failed:\n${err.message}\n${err.stack}`)
+                        .catch(e => console.error("Failed to write error log", e));
+                });
             
+            // Return immediately with the tempId so frontend can redirect
             return { success: true, skillName: tempId };
             
         } catch (e: any) {

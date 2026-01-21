@@ -16,6 +16,7 @@
   "dependencies": {
     "@agentos/agent": "workspace:*",
     "@agentos/global": "workspace:*",
+    "@monaco-editor/react": "^4.7.0",
     "@pondwader/socks5-server": "^1.0.10",
     "@radix-ui/react-label": "^2.1.8",
     "@radix-ui/react-slot": "^1.2.4",
@@ -27,6 +28,7 @@
     "electrobun": "latest",
     "lodash-es": "^4.17.22",
     "lucide-react": "^0.562.0",
+    "monaco-editor": "^0.55.1",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
     "react-markdown": "^10.1.0",

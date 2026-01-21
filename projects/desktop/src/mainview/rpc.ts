@@ -2,6 +2,8 @@
 import { Electroview } from "electrobun/view";
 import { AgentRPCSchema } from "../types/rpc";
 import { useChatStore } from "./store/useChatStore";
+import { useSkillChatStore } from "./store/useSkillChatStore";
+import { useSkillEditorStore } from "./store/useSkillEditorStore";
 
 const rpcSchema = Electroview.defineRPC<AgentRPCSchema>({
   maxRequestTime: 120000,
@@ -12,12 +14,32 @@ const rpcSchema = Electroview.defineRPC<AgentRPCSchema>({
             console.log("Received chunk:", content);
             // 暂时打印日志，未来可以接入 store
         },
-        tool_start: ({ name, args }: { name: string, args: any }) => {
-            console.log("Tool start:", name, args);
+        tool_start: ({ sessionId, name, args }: { sessionId?: string, name: string, args: any }) => {
+            console.log("Tool start:", name, args, sessionId);
+            
+            const skillSessionId = useSkillChatStore.getState().sessionId;
+            if (sessionId && skillSessionId && sessionId === skillSessionId) {
+                useSkillChatStore.getState().handleToolStart(name, args);
+                return;
+            }
+
             useChatStore.getState().handleToolStart(name, args);
         },
-        tool_end: ({ name, output }: { name: string, output: any }) => {
-            console.log("Tool end:", name, output);
+        tool_end: ({ sessionId, name, output }: { sessionId?: string, name: string, output: any }) => {
+            console.log("Tool end:", name, output, sessionId);
+            
+            // Always notify SkillEditorStore about tool events if it might be relevant
+            // The store itself will decide whether to refresh based on its state (e.g. if a skill is open)
+            if (sessionId) {
+                useSkillEditorStore.getState().handleRpcToolEvent(sessionId, name);
+            }
+            
+            const skillSessionId = useSkillChatStore.getState().sessionId;
+            if (sessionId && skillSessionId && sessionId === skillSessionId) {
+                useSkillChatStore.getState().handleToolEnd(name, output);
+                return;
+            }
+
             useChatStore.getState().handleToolEnd(name, output);
         }
     }

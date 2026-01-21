@@ -1,7 +1,7 @@
 import { join } from 'path';
 import { homedir } from 'os';
 import { existsSync, mkdirSync } from 'fs';
-import { readdir, readFile } from 'fs/promises';
+import { readdir, readFile, rm } from 'fs/promises';
 import { Skill, SkillParser } from '@agentos/agent';
 import { SKILLS_ROOT_PATH } from '../paths';
 
@@ -37,6 +37,14 @@ export class SkillRegistry {
               const content = await readFile(skillMdPath, 'utf-8');
               const skill = SkillParser.parse(content);
               
+              // Store original name as displayName
+              const originalName = skill.metadata.name;
+
+              // Force metadata.name to match directory name to ensure ID consistency
+              // This allows the frontend to use metadata.name as the ID for file operations
+              skill.metadata.name = dir.name;
+              skill.metadata.displayName = originalName;
+
               // Set Execution Config
               skill.executionConfig = {
                 rootPath: skillPath
@@ -60,6 +68,22 @@ export class SkillRegistry {
       console.error('Failed to list skills:', e);
     }
     return skills;
+  }
+
+  async deleteSkill(skillName: string): Promise<boolean> {
+    // Security check: ensure skillName doesn't contain traversal characters
+    if (skillName.includes('..') || skillName.includes('/') || skillName.includes('\\')) {
+        throw new Error('Invalid skill name');
+    }
+
+    const skillPath = join(this.skillsPath, skillName);
+    
+    if (existsSync(skillPath)) {
+        await rm(skillPath, { recursive: true, force: true });
+        return true;
+    } else {
+        throw new Error(`Skill directory '${skillName}' not found`);
+    }
   }
 
   async publishSkill(skillName: string): Promise<{ success: boolean; skillId?: string }> {

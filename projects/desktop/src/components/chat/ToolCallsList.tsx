@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Check, ChevronDown, ChevronRight } from 'lucide-react';
 import { Message } from '../../mainview/types';
 import JsonUI from './JsonUI';
+import { extractJson } from "@agentos/global/utils/json";
 
 type ToolCallsListProps = {
   toolCalls: NonNullable<Message['toolCalls']>;
@@ -19,11 +20,8 @@ export default function ToolCallsList({ toolCalls }: ToolCallsListProps) {
   };
 
   function tryParseJson(str: string) {
-    try {
-      return JSON.parse(str);
-    } catch {
-      return str;
-    }
+    const extracted = extractJson(str);
+    return extracted !== null ? extracted : str;
   }
 
   //if (!toolCalls || toolCalls.length === 0) return <div className="text-red-500">No tools</div>;

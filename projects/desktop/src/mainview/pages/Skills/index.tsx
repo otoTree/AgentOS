@@ -1,8 +1,16 @@
 import React from 'react';
 import SkillGenerator from '../../../components/skills/SkillGenerator';
 import InstalledSkills from '../../../components/skills/InstalledSkills';
+import SkillEditor from './SkillEditor';
+import { useSkillEditorStore } from '../../store/useSkillEditorStore';
 
 export default function SkillsPage() {
+  const { currentSkillName } = useSkillEditorStore();
+
+  if (currentSkillName) {
+    return <SkillEditor />;
+  }
+
   return (
     <div className="flex-1 flex flex-col p-6 overflow-y-auto animate-slide-in">
         <div className="max-w-4xl mx-auto w-full">
