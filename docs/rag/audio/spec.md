@@ -2,61 +2,91 @@
 
 ## 1. 概述 (Overview)
 
-音频 RAG 的核心是将非结构化的音频数据转化为结构化的文本和向量表示。这使得我们可以像检索文本一样检索音频内容。
+音频 RAG 的核心是将非结构化的音频数据转化为结构化的文本和向量表示。本方案采用 **"Separation + ASR (Rich Text) -> Meta-Content Chunk"** 的策略。
+
+利用阿里开源的 **MossFormer** 进行语音分离，再使用 **SenseVoiceSmall** 进行高精度语音识别（包含情感和环境音检测），最终形成带有丰富元数据且时序对齐的 Meta-Content Chunk，通过文本向量模型进行索引。
 
 ## 2. 架构流程 (Architecture Pipeline)
 
 ```mermaid
-graph LR
+graph TD
     Input[Audio Files] --> Preprocessor
-    Preprocessor --> ASR["ASR Model (Whisper)"]
-    ASR --> Transcripts[Text Segments]
+    Preprocessor --> Separation["Speech Separation (MossFormer)"]
     
-    Transcripts --> Diarization[Speaker Diarization]
-    Diarization --> AnnotatedSegments[Speaker + Text]
+    Separation --> Track1["Track 1 (Speaker A)"]
+    Separation --> Track2["Track 2 (Speaker B)"]
     
-    AnnotatedSegments --> Summarizer[LLM Summary]
-    AnnotatedSegments --> AudioEmbedder["Audio Encoder (Optional)"]
-    AnnotatedSegments --> TextEmbedder
+    Track1 --> ASR["ASR (SenseVoiceSmall)"]
+    Track2 --> ASR
     
-    TextEmbedder --> VectorDB[(PGVector)]
-    AudioEmbedder --> VectorDB
+    ASR --> RichText["Rich Text (Content + Emotion + Events)"]
+    
+    RichText --> Chunking[Time-aligned Chunking]
+    Chunking --> MetaContent[Meta-Content Chunk]
+    
+    MetaContent --> TextEmbedder[Text Embedding Model]
+    TextEmbedder --> Vector[Vector]
+    
+    Vector --> VectorDB[(PGVector)]
+    MetaContent --> VectorDB
+    
+    Query[User Query] --> TextEmbedder
+    TextEmbedder --> QueryVec
+    QueryVec --> VectorDB
 ```
 
 ## 3. 核心组件 (Core Components)
 
-### 3.1 预处理 (Preprocessing)
+### 3.1 预处理与语音分离 (Preprocessing & Separation)
 
-*   **Format Normalization**: 转换为 WAV/MP3, 16kHz 采样率 (Whisper 推荐)。
-*   **VAD (Voice Activity Detection)**: 去除静音片段，减少处理量。
+*   **Format Normalization**: 转换为模型支持的格式（如 WAV, 16kHz/8kHz）。
+*   **Speech Separation (语音分离)**:
+    *   **Model**: **MossFormer** (`iic/speech_mossformer_separation_temporal_8k`)。
+    *   **Purpose**: 解决多说话人重叠、背景噪声干扰问题。
+    *   **Process**: 将单通道混合音频分离为多个独立的纯净人声音轨。这比传统的 Speaker Diarization 更进一步，能处理同时说话的情况。
 
-### 3.2 语音转文本 (ASR & Processing)
+### 3.2 语音转文本与富文本识别 (ASR & Rich Transcription)
 
-*   **ASR Model**: 使用 **OpenAI Whisper** (v3)。
-    *   生成带有时间戳的文本片段 (Segments with timestamps)。
-*   **Speaker Diarization (说话人分离)**:
-    *   使用 **Pyannote.audio** 或类似库，识别不同说话人 (Speaker A, Speaker B)。
-    *   将 Speaker ID 关联到文本片段。
+*   **ASR Model**: **SenseVoiceSmall** (`iic/SenseVoiceSmall`).
+    *   **Capabilities**:
+        *   **多语言识别**: 支持中、英、粤、日、韩等 50+ 种语言。
+        *   **情感识别 (SER)**: 识别说话人的情感（如开心、悲伤、愤怒）。
+        *   **音频事件检测 (AED)**: 识别非语言声音（如掌声、笑声、咳嗽、音乐）。
+        *   **极低延迟**: 10s 音频仅需 70ms。
+    *   **Output**: 带有时间戳、情感标签、事件标签的富文本流。
 
 ### 3.3 索引策略 (Indexing Strategy)
 
-1.  **Transcript Indexing (文本索引)**:
-    *   将 ASR 生成的文本片段进行切分 (Chunking)。
-    *   Chunk 包含：Text, Start Time, End Time, Speaker ID, Source File ID。
-    *   进行 Text Embedding 存入向量库。
+采用 **Meta-Content Chunking** 策略，确保向量化内容具备完整的上下文和时序信息。
 
-2.  **Summary Indexing (摘要索引)**:
-    *   对长音频生成摘要 (Summary)。
-    *   对摘要进行 Embedding。
-    *   用途：当 Query 涉及宏观内容时，先检索摘要，再定位细节。
+1.  **Time-aligned Chunking (时序切割)**:
+    *   **Strategy**: 不对整个长音频直接向量化。基于 ASR 输出的时间戳，按固定时间窗口（如 30s-60s）或语义停顿点（句号、静音段）进行切割。
+    *   **Alignment**: 确保每个 Chunk 内部的时间是连续的，且保留了原始的时序结构。
 
-3.  **Audio Content Indexing (声学索引 - 可选)**:
-    *   使用音频编码器 (如 CLAP - Contrastive Language-Audio Pretraining) 提取音频特征（如“掌声”、“狗叫声”、“悲伤的语调”）。
-    *   用途：支持非语言内容的检索 (e.g., "Find the part with laughter").
+2.  **Meta-Content Formation (元内容构建)**:
+    *   将 ASR 识别的内容（文本）与元数据（情感、事件、时间、说话人）整合成一个结构化的文本块。
+
+    ```markdown
+    <meta>
+    [Source]: meeting_rec_001.wav
+    [Track]: Speaker_A
+    [Time_Range]: 00:05:30 - 00:06:00
+    [Emotion]: Happy
+    [Events]: Applause, Laughter
+    </meta>
+
+    <content>
+    [05:30] 这是一个非常棒的提议！<Laughter> 我完全同意你的观点。
+    [05:45] 让我们为这个决定鼓掌。<Applause>
+    [05:50] 接下来我们讨论下一个议题。
+    </content>
+    ```
+
+3.  **Vectorization (向量化)**:
+    *   使用通用的文本 Embedding 模型（如 text-embedding-3-large）对上述 **Meta-Content Chunk** 进行编码。
+    *   这样，用户搜索“开心的讨论”或“掌声片段”时，向量模型能捕捉到 Meta 信息中的语义。
 
 ### 3.4 存储 (Storage)
-
-Schema 设计：
 
 ```sql
 CREATE TABLE rag_audio_files (
@@ -64,50 +94,61 @@ CREATE TABLE rag_audio_files (
     collection_id UUID NOT NULL,
     file_path TEXT NOT NULL,
     duration FLOAT,
-    metadata JSONB, -- 录音时间、地点等
-    summary TEXT, -- 全文摘要
-    summary_vector VECTOR(1536)
+    metadata JSONB,
+    created_at TIMESTAMP DEFAULT NOW()
 );
 
-CREATE TABLE rag_audio_segments (
+CREATE TABLE rag_audio_chunks (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     audio_id UUID REFERENCES rag_audio_files(id),
-    content TEXT NOT NULL, -- 转录文本
-    vector VECTOR(1536), -- 文本向量
     
+    -- 核心检索内容
+    meta_content TEXT NOT NULL, -- 完整的 Meta-Content 文本
+    vector VECTOR(1536),        -- 对应的文本向量
+    
+    -- 结构化字段 (用于精确过滤)
     start_time FLOAT,
     end_time FLOAT,
-    speaker_label TEXT,
+    track_id INTEGER,           -- 分离后的音轨 ID
+    emotions TEXT[],            -- 检测到的情感列表
+    events TEXT[],              -- 检测到的事件列表 (Applause, Laughter...)
     
-    -- 可选：声学特征
-    acoustic_vector VECTOR(512), 
+    raw_text TEXT,              -- 纯文本内容 (无标签)
     
     created_at TIMESTAMP DEFAULT NOW()
 );
+
+CREATE INDEX ON rag_audio_chunks USING hnsw (vector vector_cosine_ops);
 ```
 
-### 3.5 检索与生成 (Retrieval & Generation)
+## 4. 检索流程 (Retrieval Process)
 
-1.  **Search**:
-    *   用户输入文本 Query。
-    *   检索 `rag_audio_segments` 获取最相关的文本片段。
-    *   返回结果包含：文本内容 + 时间戳 + 音频播放链接（定位到对应时间点）。
+1.  **Query**: 用户输入文本（例如：“找到大家鼓掌的那段会议记录”）。
+2.  **Embedding**: Query 转为 Vector。
+3.  **Search**: 在 `rag_audio_chunks` 表中搜索相似度最高的 Chunk。
+4.  **Result**: 返回 Chunk，包含时间范围、情感、事件和对应的文本。前端可根据 `start_time` 直接跳转播放原始音频的对应片段。
 
-2.  **Generation (RAG)**:
-    *   Context = 检索到的转录文本片段。
-    *   Prompt: "Based on the following meeting transcript segments..."
-
-## 4. 接口定义 (Interface Definition)
+## 5. 接口定义 (Interface Definition)
 
 ```typescript
 interface IAudioRAGService {
-  // 索引
-  ingest(audioFile: File, options: AudioOptions): Promise<AudioId>;
+  /**
+   * 音频处理与索引流程：
+   * 1. MossFormer 分离音轨
+   * 2. SenseVoice 识别 (Text + Emotion + Event)
+   * 3. 切割为 Meta-Content Chunks
+   * 4. Embedding & Storage
+   */
+  ingest(audioFile: File, options: AudioIngestionOptions): Promise<AudioId>;
   
-  // 检索
-  search(query: string, options: SearchOptions): Promise<AudioSegment[]>;
+  /**
+   * 检索
+   */
+  search(query: string, options: SearchOptions): Promise<AudioChunkResult[]>;
   
-  // 获取特定时间段的音频流
+  /**
+   * 获取音频流片段
+   */
   getStream(audioId: string, start: number, end: number): Promise<ReadableStream>;
 }
 ```

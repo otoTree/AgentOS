@@ -43,50 +43,28 @@ graph LR
     *   **Structure Extraction**: 识别 Title, Abstract, Sections (Introduction, Methods, Results), References。
     *   **Table/Figure Extraction**: 提取图表说明文字 (Caption) 并关联到最近的正文段落。
 
-### 3.2 高级切片策略 (Advanced Chunking Strategy)
+### 3.2 切片策略 (Chunking Strategy)
 
-为应对不同类型文档，提供多种切片策略。
+本规范主推 **Meta-Content Strategy**，化繁为简，通过在切片中注入元数据来保持上下文，而非依赖复杂的运行时动态检索。
 
 #### A. 基础策略 (Basic)
-*   **Recursive Character Chunking**: 默认策略，按段落/句子递归切分。
-*   **Semantic Chunking**: 基于 Embedding 相似度突变点切分。
+*   **Recursive Character Chunking**: 默认策略，按段落/句子递归切分。适用于无结构的纯文本。
 
-#### B. 上下文感知策略 (Contextual & Meta-based) - **推荐用于论文/长文**
-
-1.  **Sliding Window Summary (滑动摘要)**:
-    *   **原理**: 防止切片丢失上下文（如代词指代不明）。
-    *   **实现**: 在处理 Chunk `i` 时，将 `Chunk i-1` 的摘要作为 Context 输入给 LLM，生成 `Chunk i` 的摘要。
-    *   **索引**: 向量化内容 = `Summary of Chunk i` + `Chunk i Content`。
-
-2.  **Contextual Retrieval (上下文补全)**:
-    *   **原理**: 孤立的 Chunk 往往缺乏全局信息（如“本文”、“该实验”指代什么）。
-    *   **实现**: 对每个 Chunk，调用 LLM 生成一段解释性上下文。
-        *   **短文档**: 可直接使用全文作为 Context。
-        *   **长文档 (如论文)**: 采用 **两步法**。
-            1.  先生成 **Document Summary (全局摘要)** 和 **Section Summary (章节摘要)**。
-            2.  将 `Global Summary` + `Section Title/Summary` + `Current Chunk` 输入 LLM，生成该 Chunk 的具体上下文。
-    *   **索引**: 向量化内容 = `Generated Context` + `Original Chunk`。
-    *   **存储**: 原文存储 `Original Chunk`，但搜索时匹配 `Context + Chunk`。
-
-3.  **Hierarchical Indexing (分层索引 / Parent Document Retriever)**:
-    *   **原理**: 搜索小粒度（精准匹配），返回大粒度（提供完整语境）。
-    *   **实现**:
-        *   **Parent Chunk**: 大块，例如 2000 tokens。
-        *   **Child Chunk**: 小块，例如 200-400 tokens，从 Parent Chunk 中切分。
-    *   **索引**: 对 Child Chunk 进行向量化。
-    *   **检索**: 搜索匹配 Child Chunk，但返回其所属的 Parent Chunk 给 LLM。
-
-4.  **Hypothetical Questions (假设性问题)**:
-    *   **原理**: 文档是陈述句，用户 Query 是疑问句，语义空间不一定对齐。
-    *   **实现**: 对每个 Chunk，让 LLM 生成 3-5 个“该 Chunk 能回答的问题”。
-    *   **索引**: 向量化这些生成的 Questions。
+#### B. Meta-Content 策略 (Recommended)
+*   **原理**: 每一个 Chunk 都不应是孤立的。利用文档解析阶段提取的结构信息（章节、页码、表格摘要），将其封装为 `<meta>` 标签包裹在原始内容外。
+*   **优势**: 
+    1.  **无需复杂 LLM 调用**: 仅依赖结构解析和简单的摘要，不需要为每个 Chunk 调用昂贵的 Contextual Retrieval。
+    2.  **语义完整**: `<meta>` 信息补全了切片的背景（如“本文”、“该表”指代的对象）。
+*   **实现**: 参见 `docs/rag/text/` 下各类文档的处理规范。
+    *   **PDF/Paper**: 注入 Title + Section Path。
+    *   **Office**: 注入 Heading Path + Speaker Notes。
+    *   **Data**: 注入 Column Name + Row Description。
 
 ### 3.3 向量化 (Embedding)
 
 *   **Content Construction**: 
     *   Standard: `vector(chunk_content)`
-    *   Contextual: `vector(generated_context + chunk_content)`
-    *   QA-based: `vector(generated_questions)`
+    *   Meta-Content: `vector(<meta>context_info</meta><content>chunk_content</content>)`
 *   **Models**: OpenAI `text-embedding-3-small` / `bge-m3`.
 
 ### 3.4 存储 (Storage)
@@ -156,7 +134,15 @@ CREATE INDEX ON rag_chunks USING hnsw (vector vector_cosine_ops);
 *   **Pre-computation**: 先生成全局摘要：“本文提出了改进版 ResNet-50 用于胸部 X 光片分类...”
 *   **LLM Action**: 输入 `Global Summary` + `Current Chunk`，生成 Chunk 上下文。
 *   **Generated Context**: “本段落讨论了提出的 **ResNet-50 改进模型** 在 **ChestX-ray14 数据集** 上的性能表现。”
-*   **Index Content**: “本段落讨论了提出的 ResNet-50 改进模型在 ChestX-ray14 数据集上的性能表现。它在测试集上达到了 98.5% 的准确率。”
+*   **Index Content**: 
+    ```xml
+    <meta>
+    本段落讨论了提出的 ResNet-50 改进模型在 ChestX-ray14 数据集上的性能表现。
+    </meta>
+    <content>
+    它在测试集上达到了 98.5% 的准确率。
+    </content>
+    ```
 *   **Vector**: Embedding(Index Content) -> `vector_A`
 
 ### Step 3: Retrieval (检索 - 查询阶段)
