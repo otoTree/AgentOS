@@ -1,48 +1,29 @@
+
 import { eq } from 'drizzle-orm';
 import { db } from '../../database';
 import { aiProviders, aiModels } from '../../database/schema';
+import { ProviderFactory } from './providers';
+import { fetchWithRetry } from './utils/fetch';
+import { 
+    ASROptions, 
+    ASRResponse, 
+    ChatOptions, 
+    ChatResponse, 
+    EmbeddingsOptions, 
+    OCROptions, 
+    OCRResponse, 
+    RerankOptions, 
+    RerankResult,
+    TTSOptions,
+    TTSResponse
+} from './types';
 
 // Simple encryption helper (placeholder)
 // In production, use a proper encryption library like 'crypto' with a secret key
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const encrypt = (data: any) => data; 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const decrypt = (data: any) => data;
-
-/**
- * Fetch with retry and timeout
- */
-async function fetchWithRetry(url: string, options: RequestInit & { timeout?: number, retries?: number } = {}) {
-    const { timeout = 60000, retries = 2, ...fetchOptions } = options;
-    
-    let lastError: any;
-    for (let i = 0; i <= retries; i++) {
-        const controller = new AbortController();
-        const id = setTimeout(() => controller.abort(), timeout);
-        
-        try {
-            const response = await fetch(url, {
-                ...fetchOptions,
-                signal: controller.signal
-            });
-            clearTimeout(id);
-            return response;
-        } catch (err: any) {
-            clearTimeout(id);
-            lastError = err;
-            
-            // Only retry on network errors or timeouts
-            const isNetworkError = err.name === 'AbortError' || err.message.includes('fetch failed') || err.message.includes('timeout');
-            
-            if (isNetworkError && i < retries) {
-                console.warn(`Fetch failed (attempt ${i + 1}/${retries + 1}), retrying...`, err.message);
-                // Exponential backoff
-                await new Promise(resolve => setTimeout(resolve, Math.pow(2, i) * 1000));
-                continue;
-            }
-            throw err;
-        }
-    }
-    throw lastError;
-}
 
 export class ModelService {
   
@@ -58,6 +39,7 @@ export class ModelService {
     
     // Mask config
     return providers.map(p => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const config = p.config as any;
         return {
             ...p,
@@ -75,6 +57,7 @@ export class ModelService {
       id?: string, 
       name: string, 
       type: string, 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       config: any 
   }) {
     
@@ -86,6 +69,7 @@ export class ModelService {
         
         if (!existing) throw new Error('Provider not found');
 
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const existingConfig = existing.config as any; // In real app, decrypt here
         
         // Merge config
@@ -114,6 +98,7 @@ export class ModelService {
             type: data.type,
             config: encryptedConfig,
             // isActive: true // Defaults to true
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } as any).returning();
         return created;
     }
@@ -135,6 +120,7 @@ export class ModelService {
           capabilities: data.capabilities,
           contextWindow: data.contextWindow,
           // isActive: true
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } as any).returning();
       return model;
   }
@@ -150,6 +136,7 @@ export class ModelService {
       isActive?: boolean
   }) {
       const [updated] = await db.update(aiModels)
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           .set(data as any)
           .where(eq(aiModels.id, id))
           .returning();
@@ -181,56 +168,58 @@ export class ModelService {
   }
 
   /**
+   * Get Provider Instance
+   */
+  private async getProviderInstance(modelId: string) {
+      // 1. Get Model & Provider
+      const model = await db.query.aiModels.findFirst({
+          where: eq(aiModels.id, modelId),
+          with: {
+              provider: true
+          }
+      });
+      
+      if (!model) throw new Error('Model not found');
+      if (!model.provider) throw new Error('Provider not found');
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const config = decrypt(model.provider.config) as any;
+      
+      return {
+          provider: ProviderFactory.create(model.provider.type, config),
+          modelName: model.name,
+          model
+      };
+  }
+
+  /**
    * Test Provider Connection
    */
   async testConnection(providerId: string) {
-      const provider = await this.getProviderConfig(providerId);
-      const { type, config: { apiKey, baseUrl } } = provider;
-
+      const providerConfig = await this.getProviderConfig(providerId);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { type, config } = providerConfig as any;
+      
       try {
-            if (type === 'openai' || type === 'local') {
-                const url = (baseUrl || 'https://api.openai.com/v1').replace(/\/$/, '') + '/models';
-                const res = await fetchWithRetry(url, {
-                    headers: {
-                        'Authorization': `Bearer ${apiKey}`
-                    },
-                    timeout: 10000 // Test connection can have a shorter timeout
-                });
-                
-                if (!res.ok) {
-                    const error = await res.text();
-                    throw new Error(`Connection Failed: ${res.status} ${error}`);
-                }
-                
-                const data = await res.json();
-                return { success: true, models: data.data, message: 'Connection successful' };
-            } 
-            
-            if (type === 'anthropic') {
-                // Anthropic doesn't have a standard models endpoint that works exactly like OpenAI's in all cases,
-                // but let's try the standard one if available or just assume success if we don't crash? 
-                // Better: try to list models if possible, otherwise just return not implemented for now or try a dummy request.
-                // Anthropic GET /v1/models is available.
-                const url = (baseUrl || 'https://api.anthropic.com/v1').replace(/\/$/, '') + '/models';
-                const res = await fetchWithRetry(url, {
-                    headers: {
-                        'x-api-key': apiKey,
-                        'anthropic-version': '2023-06-01'
-                    },
-                    timeout: 10000
-                });
-
-                if (!res.ok) {
-                    const error = await res.text();
-                    throw new Error(`Connection Failed: ${res.status} ${error}`);
-                }
-                 
-                return { success: true, message: 'Connection successful' };
-            }
-          
-          throw new Error(`Unsupported provider type: ${type}`);
+          const provider = ProviderFactory.create(type, config);
+          return await provider.testConnection();
       } catch (err: any) {
           console.error('Test connection error:', err);
+          return { success: false, message: err.message };
+      }
+  }
+
+  /**
+   * Test Provider Configuration (without saving)
+   */
+  async testProviderConfig(type: string, config: any) {
+      try {
+          // Encrypt/Decrypt logic might be needed if the factory expects decrypted config
+          // But here we assume 'config' passed is raw (plain text) as it comes from user input or decrypted source
+          const provider = ProviderFactory.create(type, config);
+          return await provider.testConnection();
+      } catch (err: any) {
+          console.error('Test config error:', err);
           return { success: false, message: err.message };
       }
   }
@@ -254,137 +243,10 @@ export class ModelService {
   /**
    * Chat Completion (Full Interface with Tools)
    */
-  async chatComplete(modelId: string, messages: any[], options: { temperature?: number, maxTokens?: number, tools?: any[] } = {}) {
-      // 1. Get Model & Provider
-      const model = await db.query.aiModels.findFirst({
-          where: eq(aiModels.id, modelId),
-          with: {
-              provider: true
-          }
-      });
-      
-      if (!model) throw new Error('Model not found');
-      if (!model.provider) throw new Error('Provider not found');
-
-      const config = decrypt(model.provider.config) as any;
-      const { apiKey, baseUrl } = config;
-      const type = model.provider.type;
-
-      // 2. Call API based on type
-      if (type === 'openai' || type === 'local') {
-          const url = (baseUrl || 'https://api.openai.com/v1').replace(/\/$/, '') + '/chat/completions';
-          const body: any = {
-              model: model.name,
-              messages,
-              temperature: options.temperature ?? 0.7,
-              max_tokens: options.maxTokens,
-              stream: false
-          };
-          
-          if (options.tools && options.tools.length > 0) {
-              body.tools = options.tools;
-          }
-
-          const res = await fetchWithRetry(url, {
-              method: 'POST',
-              headers: {
-                  'Authorization': `Bearer ${apiKey}`,
-                  'Content-Type': 'application/json'
-              },
-              body: JSON.stringify(body)
-          });
-
-          if (!res.ok) {
-              const error = await res.text();
-              throw new Error(`OpenAI API Error: ${res.status} ${error}`);
-          }
-
-          const data = await res.json();
-          const message = data.choices[0].message;
-          
-          let toolCalls = undefined;
-          if (message.tool_calls) {
-              toolCalls = message.tool_calls.map((tc: any) => {
-                  let args = {};
-                  try {
-                      args = JSON.parse(tc.function.arguments);
-                  } catch (e) {
-                      console.warn(`Failed to parse tool arguments for ${tc.function.name}:`, tc.function.arguments);
-                      // Try to fix common JSON issues or extract from markdown
-                      try {
-                          const cleaned = tc.function.arguments.replace(/```json\n?|\n?```/g, '');
-                          args = JSON.parse(cleaned);
-                      } catch (e2) {
-                          // If still fails, return raw string in a wrapper or empty
-                          // But tool execution will likely fail.
-                          // Let's try to extract first valid JSON object
-                          const match = tc.function.arguments.match(/\{[\s\S]*\}/);
-                          if (match) {
-                              try {
-                                  args = JSON.parse(match[0]);
-                              } catch (e3) {
-                                  args = { raw_args: tc.function.arguments, error: 'parse_failed' };
-                              }
-                          } else {
-                               args = { raw_args: tc.function.arguments, error: 'parse_failed' };
-                          }
-                      }
-                  }
-                  
-                  return {
-                      id: tc.id,
-                      name: tc.function.name,
-                      arguments: args
-                  };
-              });
-          }
-
-          return {
-              content: message.content,
-              toolCalls
-          };
-      }
-
-      if (type === 'anthropic') {
-          // Anthropic Tool Use implementation is complex, skip for now or implement basic
-          const url = (baseUrl || 'https://api.anthropic.com/v1').replace(/\/$/, '') + '/messages';
-          const systemMsg = messages.find(m => m.role === 'system');
-          const userMessages = messages.filter(m => m.role !== 'system');
-          
-          const body: any = {
-              model: model.name,
-              system: systemMsg?.content,
-              messages: userMessages,
-              temperature: options.temperature ?? 0.7,
-              max_tokens: options.maxTokens ?? 1024,
-              stream: false
-          };
-          
-          // Note: Anthropic tools format is different from OpenAI
-          // We would need a converter here. For now, just ignore tools for Anthropic in this basic implementation
-          
-          const res = await fetchWithRetry(url, {
-              method: 'POST',
-              headers: {
-                  'x-api-key': apiKey,
-                  'anthropic-version': '2023-06-01',
-                  'Content-Type': 'application/json'
-              },
-              body: JSON.stringify(body)
-          });
-
-          if (!res.ok) {
-              const error = await res.text();
-              throw new Error(`Anthropic API Error: ${res.status} ${error}`);
-          }
-
-          const data = await res.json();
-          return {
-              content: data.content[0].text
-          };
-      }
-
-      throw new Error(`Unsupported provider type: ${type}`);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  async chatComplete(modelId: string, messages: any[], options: ChatOptions = {}): Promise<ChatResponse> {
+      const { provider, modelName } = await this.getProviderInstance(modelId);
+      return await provider.chatComplete(modelName, messages, options);
   }
 
   /**
@@ -398,48 +260,132 @@ export class ModelService {
   /**
    * Get Embeddings
    */
-  async getEmbeddings(modelId: string, input: string | string[]) {
-      // 1. Get Model & Provider
-      const model = await db.query.aiModels.findFirst({
-          where: eq(aiModels.id, modelId),
-          with: {
-              provider: true
-          }
-      });
-      
-      if (!model) throw new Error('Model not found');
-      if (!model.provider) throw new Error('Provider not found');
-
-      const config = decrypt(model.provider.config) as any;
-      const { apiKey, baseUrl } = config;
-      const type = model.provider.type;
-
-      if (type === 'openai' || type === 'local') {
-          const url = (baseUrl || 'https://api.openai.com/v1').replace(/\/$/, '') + '/embeddings';
-          
-          const res = await fetchWithRetry(url, {
-              method: 'POST',
-              headers: {
-                  'Authorization': `Bearer ${apiKey}`,
-                  'Content-Type': 'application/json'
-              },
-              body: JSON.stringify({
-                  model: model.name,
-                  input
-              })
-          });
-
-          if (!res.ok) {
-              const error = await res.text();
-              throw new Error(`OpenAI API Error: ${res.status} ${error}`);
-          }
-
-          const data = await res.json();
-          return data;
-      }
-      
-      throw new Error(`Provider type ${type} does not support embeddings`);
+  async getEmbeddings(modelId: string, input: string | string[], options?: EmbeddingsOptions): Promise<number[][]> {
+      const { provider, modelName } = await this.getProviderInstance(modelId);
+      return await provider.getEmbeddings(modelName, input, options);
   }
+
+  /**
+   * Automatic Speech Recognition (ASR)
+   */
+  async transcribe(modelId: string, audioData: Blob | Buffer, options?: ASROptions): Promise<ASRResponse> {
+      const { provider, modelName } = await this.getProviderInstance(modelId);
+      return await provider.transcribe(modelName, audioData, options);
+  }
+
+  /**
+   * Optical Character Recognition (OCR)
+   */
+  async ocr(modelId: string, imageData: Blob | Buffer | string, options?: OCROptions): Promise<OCRResponse> {
+      const { provider, modelName } = await this.getProviderInstance(modelId);
+      return await provider.ocr(modelName, imageData, options);
+  }
+
+  /**
+   * Rerank
+   */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  async rerank(modelId: string, query: string, documents: string[] | Record<string, any>[], options?: RerankOptions): Promise<RerankResult[]> {
+        const { provider, modelName } = await this.getProviderInstance(modelId);
+        return await provider.rerank(modelName, query, documents, options);
+    }
+
+    /**
+     * Text to Speech (TTS)
+     */
+    async tts(modelId: string, text: string, options?: TTSOptions): Promise<TTSResponse> {
+        const { provider, modelName } = await this.getProviderInstance(modelId);
+        return await provider.tts(modelName, text, options);
+    }
+
+    /**
+     * Test Model Capabilities
+     */
+    async testModel(modelId: string) {
+        const { provider, modelName, model } = await this.getProviderInstance(modelId);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const capabilities = (model.capabilities || []) as any[];
+        const caps = Array.isArray(capabilities) ? capabilities : [capabilities];
+
+        try {
+            if (caps.includes('chat') || caps.includes('vision')) {
+                await provider.chatComplete(modelName, [{ role: 'user', content: 'Hello' }], { maxTokens: 10 });
+                return { success: true, message: 'Chat/Vision test successful' };
+            }
+            
+            if (caps.includes('embedding')) {
+                await provider.getEmbeddings(modelName, 'Hello');
+                return { success: true, message: 'Embedding test successful' };
+            }
+            
+            if (caps.includes('rerank')) {
+                await provider.rerank(modelName, 'test', ['test document']);
+                return { success: true, message: 'Rerank test successful' };
+            }
+            
+            if (caps.includes('tts')) {
+                await provider.tts(modelName, 'Hello');
+                return { success: true, message: 'TTS test successful' };
+            }
+            
+            if (caps.includes('transcribe')) {
+                // Minimal valid WAV header (36 bytes) + 4 bytes data chunk header = 40 bytes + 0 data
+                // Actually let's just send a small buffer, hopefully provider validates format or returns error that implies connectivity
+                // Create a 1-second silence WAV file (8kHz, Mono, 8-bit)
+                // Header (44 bytes) + Data (8000 bytes)
+                const sampleRate = 8000;
+                const numChannels = 1;
+                const bitsPerSample = 8;
+                const duration = 1;
+                const dataSize = sampleRate * numChannels * (bitsPerSample / 8) * duration;
+                const fileSize = 36 + dataSize;
+                
+                const buffer = Buffer.alloc(44 + dataSize);
+                
+                // RIFF chunk descriptor
+                buffer.write('RIFF', 0);
+                buffer.writeUInt32LE(fileSize, 4);
+                buffer.write('WAVE', 8);
+                
+                // fmt sub-chunk
+                buffer.write('fmt ', 12);
+                buffer.writeUInt32LE(16, 16); // Subchunk1Size
+                buffer.writeUInt16LE(1, 20); // AudioFormat (1 = PCM)
+                buffer.writeUInt16LE(numChannels, 22);
+                buffer.writeUInt32LE(sampleRate, 24);
+                buffer.writeUInt32LE(sampleRate * numChannels * (bitsPerSample / 8), 28); // ByteRate
+                buffer.writeUInt16LE(numChannels * (bitsPerSample / 8), 32); // BlockAlign
+                buffer.writeUInt16LE(bitsPerSample, 34);
+                
+                // data sub-chunk
+                buffer.write('data', 36);
+                buffer.writeUInt32LE(dataSize, 40);
+                
+                // Silence (0x80 for 8-bit PCM)
+                buffer.fill(0x80, 44);
+
+                try {
+                    await provider.transcribe(modelName, buffer);
+                    return { success: true, message: 'Transcribe test successful' };
+                } catch (e: any) {
+                    // If it's a model error (like "audio too short"), it means connection is fine.
+                    // If it's 401/404/500, it's a failure.
+                    if (e.message.includes('401') || e.message.includes('403') || e.message.includes('404') || e.message.includes('500') || e.message.includes('Connection refused')) {
+                        throw e;
+                    }
+                     return { success: true, message: `Transcribe test reachable (Error: ${e.message})` };
+                }
+            }
+            
+            // Fallback
+            return await provider.testConnection();
+
+        } catch (error: any) {
+            console.error('Test Model Failed:', error);
+            // Return full error details if available
+            return { success: false, message: `Test failed: ${error.message}` };
+        }
+    }
 }
 
 export const modelService = new ModelService();

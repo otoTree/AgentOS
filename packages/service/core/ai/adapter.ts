@@ -16,7 +16,7 @@ export class ServiceLLMClient implements LLMClient {
     });
 
     return {
-      content: result.content,
+      content: result.content || '',
       toolCalls: result.toolCalls,
     };
   }

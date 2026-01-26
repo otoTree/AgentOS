@@ -1,6 +1,5 @@
 export * from './team/service';
-export * from './ai/service';
-export * from './ai/adapter';
+export * from './ai';
 export * from './storage/service';
 export * from './dataset/service';
 export * from './system/service';

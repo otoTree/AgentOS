@@ -6,10 +6,21 @@ import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@agentos/web/components/ui/dialog';
 import { Input } from '@agentos/web/components/ui/input';
 import { Label } from '@agentos/web/components/ui/label';
+import { Checkbox } from '@agentos/web/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@agentos/web/components/ui/select';
 import { Badge } from '@agentos/web/components/ui/badge';
 import { Plus, Settings, Loader2, Activity, Trash2, Edit } from 'lucide-react';
 import { toast } from '@agentos/web/components/ui/sonner';
+
+const MODEL_CAPABILITIES = [
+    { value: 'chat', label: 'Chat' },
+    { value: 'embedding', label: 'Embedding' },
+    { value: 'vision', label: 'Vision' },
+    { value: 'image', label: 'Image Gen' },
+    { value: 'transcribe', label: 'Audio Transcription' },
+    { value: 'tts', label: 'Text to Speech' },
+    { value: 'rerank', label: 'Rerank' },
+];
 
 type Model = {
     id: string;
@@ -44,16 +55,22 @@ export default function ModelsPage() {
 
   // Test Connection State
   const [isTestLoading, setIsTestLoading] = useState<string | null>(null);
+  const [isConfigTestLoading, setIsConfigTestLoading] = useState(false);
 
   // Model Dialog State
   const [isModelOpen, setIsModelOpen] = useState(false);
   const [editingModel, setEditingModel] = useState<Model | null>(null);
   const [selectedProviderId, setSelectedProviderId] = useState<string | null>(null);
-  const [modelFormData, setModelFormData] = useState({
+  const [modelFormData, setModelFormData] = useState<{
+      name: string;
+      displayName: string;
+      contextWindow: number;
+      capabilities: string[];
+  }>({
       name: '',
       displayName: '',
       contextWindow: 4096,
-      capabilities: 'chat'
+      capabilities: ['chat']
   });
 
   const fetchProviders = async () => {
@@ -149,21 +166,75 @@ export default function ModelsPage() {
       }
   };
 
+  const handleTestModel = async (modelId: string) => {
+      setIsTestLoading(modelId);
+      try {
+          const res = await fetch('/api/admin/models/test', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ modelId })
+          });
+          const data = await res.json();
+          if (res.ok && data.success) {
+              toast.success('Model Test Successful', { description: data.message });
+          } else {
+              toast.error('Model Test Failed', { description: data.message || data.error });
+          }
+      } catch {
+          toast.error('Model Test Error');
+      } finally {
+          setIsTestLoading(null);
+      }
+  };
+
+  const handleTestConfig = async () => {
+      setIsConfigTestLoading(true);
+      try {
+          const config: Record<string, string> = {};
+          if (apiKey) config.apiKey = apiKey;
+          if (baseUrl) config.baseUrl = baseUrl;
+
+          const res = await fetch('/api/admin/models/test', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ type, config })
+          });
+          const data = await res.json();
+          if (res.ok && data.success) {
+              toast.success('Connection Successful', { description: data.message });
+          } else {
+              toast.error('Connection Failed', { description: data.message || data.error });
+          }
+      } catch {
+          toast.error('Connection Error');
+      } finally {
+          setIsConfigTestLoading(false);
+      }
+  };
+
   const openAddModel = (providerId: string) => {
       setSelectedProviderId(providerId);
       setEditingModel(null);
-      setModelFormData({ name: '', displayName: '', contextWindow: 4096, capabilities: 'chat' });
+      setModelFormData({ name: '', displayName: '', contextWindow: 4096, capabilities: ['chat'] });
       setIsModelOpen(true);
   };
 
   const openEditModel = (model: Model, providerId: string) => {
       setSelectedProviderId(providerId);
       setEditingModel(model);
+      
+      let caps: string[] = [];
+      if (Array.isArray(model.capabilities)) {
+          caps = model.capabilities;
+      } else if (typeof model.capabilities === 'string') {
+           caps = model.capabilities.split(',').map(s => s.trim()).filter(Boolean);
+      }
+
       setModelFormData({
           name: model.name,
           displayName: model.displayName || '',
           contextWindow: model.contextWindow || 4096,
-          capabilities: Array.isArray(model.capabilities) ? model.capabilities.join(', ') : (model.capabilities || '')
+          capabilities: caps
       });
       setIsModelOpen(true);
   };
@@ -182,12 +253,11 @@ export default function ModelsPage() {
   const handleModelSubmit = async (e: React.FormEvent) => {
       e.preventDefault();
       
-      const caps = modelFormData.capabilities.split(',').map(s => s.trim()).filter(Boolean);
       const payload = {
           name: modelFormData.name,
           displayName: modelFormData.displayName,
           contextWindow: Number(modelFormData.contextWindow),
-          capabilities: caps
+          capabilities: modelFormData.capabilities
       };
 
       let res;
@@ -241,6 +311,7 @@ export default function ModelsPage() {
                   <SelectContent>
                     <SelectItem value="openai">OpenAI</SelectItem>
                     <SelectItem value="anthropic">Anthropic</SelectItem>
+                    <SelectItem value="siliconflow">SiliconFlow (硅基流动)</SelectItem>
                     <SelectItem value="local">Local (Ollama/vLLM)</SelectItem>
                   </SelectContent>
                 </Select>
@@ -253,9 +324,15 @@ export default function ModelsPage() {
                 <Label>Base URL (Optional)</Label>
                 <Input value={baseUrl} onChange={e => setBaseUrl(e.target.value)} placeholder="https://api.openai.com/v1" />
               </div>
-              <div className="flex justify-end gap-2">
-                <Button variant="outline" type="button" onClick={() => setIsOpen(false)}>Cancel</Button>
-                <Button type="submit">Save</Button>
+              <div className="flex justify-between pt-4">
+                <Button type="button" variant="secondary" onClick={handleTestConfig} disabled={isConfigTestLoading || !apiKey}>
+                    {isConfigTestLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Activity className="w-4 h-4 mr-2" />}
+                    Test Connection
+                </Button>
+                <div className="flex gap-2">
+                    <Button variant="outline" type="button" onClick={() => setIsOpen(false)}>Cancel</Button>
+                    <Button type="submit">Save</Button>
+                </div>
               </div>
             </form>
           </DialogContent>
@@ -281,8 +358,31 @@ export default function ModelsPage() {
                         <Input type="number" value={modelFormData.contextWindow} onChange={e => setModelFormData({...modelFormData, contextWindow: Number(e.target.value)})} required />
                     </div>
                     <div className="space-y-2">
-                        <Label>Capabilities (comma separated)</Label>
-                        <Input value={modelFormData.capabilities} onChange={e => setModelFormData({...modelFormData, capabilities: e.target.value})} placeholder="chat, embedding, vision" />
+                        <Label>Capabilities</Label>
+                        <div className="grid grid-cols-2 gap-2 border p-4 rounded-md">
+                            {MODEL_CAPABILITIES.map((cap) => (
+                                <div key={cap.value} className="flex items-center space-x-2">
+                                    <Checkbox 
+                                        id={`cap-${cap.value}`} 
+                                        checked={modelFormData.capabilities.includes(cap.value)}
+                                        onCheckedChange={(checked) => {
+                                            if (checked) {
+                                                setModelFormData({
+                                                    ...modelFormData,
+                                                    capabilities: [...modelFormData.capabilities, cap.value]
+                                                });
+                                            } else {
+                                                setModelFormData({
+                                                    ...modelFormData,
+                                                    capabilities: modelFormData.capabilities.filter(c => c !== cap.value)
+                                                });
+                                            }
+                                        }}
+                                    />
+                                    <Label htmlFor={`cap-${cap.value}`} className="cursor-pointer">{cap.label}</Label>
+                                </div>
+                            ))}
+                        </div>
                     </div>
                     <DialogFooter>
                         <Button variant="outline" type="button" onClick={() => setIsModelOpen(false)}>Cancel</Button>
@@ -339,6 +439,9 @@ export default function ModelsPage() {
                          </Badge>
                       </TableCell>
                       <TableCell className="text-right">
+                          <Button variant="ghost" size="icon" onClick={() => handleTestModel(model.id)} disabled={isTestLoading === model.id} className="h-8 w-8">
+                              {isTestLoading === model.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Activity className="w-3 h-3" />}
+                          </Button>
                           <Button variant="ghost" size="icon" onClick={() => openEditModel(model, provider.id)} className="h-8 w-8"><Edit className="w-3 h-3" /></Button>
                           <Button variant="ghost" size="icon" onClick={() => handleDeleteModel(model.id)} className="h-8 w-8 text-red-500 hover:text-red-700 hover:bg-red-50"><Trash2 className="w-3 h-3" /></Button>
                       </TableCell>

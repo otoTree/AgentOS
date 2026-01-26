@@ -11,15 +11,23 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   if (req.method === 'POST') {
     try {
-      const { providerId } = req.body;
-      if (!providerId) {
-        return res.status(400).json({ error: 'Provider ID is required' });
+      const { providerId, type, config, modelId } = req.body;
+      
+      let result;
+      if (modelId) {
+          result = await modelService.testModel(modelId);
+      } else if (providerId) {
+         result = await modelService.testConnection(providerId);
+      } else if (type && config) {
+         result = await modelService.testProviderConfig(type, config);
+      } else {
+         return res.status(400).json({ error: 'Missing providerId, modelId or type/config' });
       }
-      const result = await modelService.testConnection(providerId);
+
       return res.status(200).json(result);
-    } catch (error) {
-      console.error(error);
-      return res.status(500).json({ error: 'Failed to test connection' });
+    } catch (error: any) {
+      console.error('Test connection error:', error);
+      return res.status(500).json({ error: error.message || 'Failed to test connection' });
     }
   }
 
