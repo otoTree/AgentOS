@@ -1,0 +1,12 @@
+{
+  "name": "@agentos/os",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "echo 'Not implemented'",
+    "build": "echo 'Not implemented'"
+  },
+  "dependencies": {
+    "bun": "^1.0.0"
+  }
+}
